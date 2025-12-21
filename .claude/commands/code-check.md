@@ -1,0 +1,1 @@
+First run `pnpm typegen`. Use `pnpm typecheck` and `pnpm lint` to validate the code quality. Resolve all issues that are displayed. When all issues are resolved go ahead and run `pnpm build`rerun and fix issues until the build process successfully executes.
