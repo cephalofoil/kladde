@@ -1640,18 +1640,10 @@ Exported: ${imageInfo.exportedAt}
   const renderMultiSelectionFrame = () => {
     if (!selectedBounds || selectedTileIds.length < 2) return null;
 
-    const selectionPaddingPx = 8;
-    const handleSizePx = 10;
-    const handleRadiusPx = 3;
-    const handleStrokeWidthPx = 2.5;
-    const handleInsetPx = 2;
-    const toWorld = (px: number) => px / zoom;
-    const snapToPixel = (value: number) => Math.round(value * zoom) / zoom;
-    const selectionPadding = snapToPixel(toWorld(selectionPaddingPx));
-    const handleSize = snapToPixel(toWorld(handleSizePx));
-    const handleRadius = toWorld(handleRadiusPx);
-    const handleStrokeWidth = toWorld(handleStrokeWidthPx);
-    const handleInset = toWorld(handleInsetPx);
+    const selectionPadding = 6 / zoom;
+    const handleSize = 8 / zoom;
+    const handleRadius = 2 / zoom;
+    const handleStrokeWidth = 2 / zoom;
     const visualBounds = expandBounds(selectedBounds, selectionPadding);
 
     const combinedBounds = {
@@ -1663,24 +1655,44 @@ Exported: ${imageInfo.exportedAt}
 
     const handlePoints = [
       {
-        x: snapToPixel(combinedBounds.x + handleInset),
-        y: snapToPixel(combinedBounds.y + handleInset),
+        x: combinedBounds.x,
+        y: combinedBounds.y,
         cursor: "nwse-resize",
       },
       {
-        x: snapToPixel(combinedBounds.x + combinedBounds.width - handleInset),
-        y: snapToPixel(combinedBounds.y + handleInset),
+        x: combinedBounds.x + combinedBounds.width / 2,
+        y: combinedBounds.y,
+        cursor: "ns-resize",
+      },
+      {
+        x: combinedBounds.x + combinedBounds.width,
+        y: combinedBounds.y,
         cursor: "nesw-resize",
       },
       {
-        x: snapToPixel(combinedBounds.x + combinedBounds.width - handleInset),
-        y: snapToPixel(combinedBounds.y + combinedBounds.height - handleInset),
+        x: combinedBounds.x + combinedBounds.width,
+        y: combinedBounds.y + combinedBounds.height / 2,
+        cursor: "ew-resize",
+      },
+      {
+        x: combinedBounds.x + combinedBounds.width,
+        y: combinedBounds.y + combinedBounds.height,
         cursor: "nwse-resize",
       },
       {
-        x: snapToPixel(combinedBounds.x + handleInset),
-        y: snapToPixel(combinedBounds.y + combinedBounds.height - handleInset),
+        x: combinedBounds.x + combinedBounds.width / 2,
+        y: combinedBounds.y + combinedBounds.height,
+        cursor: "ns-resize",
+      },
+      {
+        x: combinedBounds.x,
+        y: combinedBounds.y + combinedBounds.height,
         cursor: "nesw-resize",
+      },
+      {
+        x: combinedBounds.x,
+        y: combinedBounds.y + combinedBounds.height / 2,
+        cursor: "ew-resize",
       },
     ];
 
@@ -1703,7 +1715,7 @@ Exported: ${imageInfo.exportedAt}
             height={combinedBounds.height}
             fill="none"
             stroke="var(--selection-accent)"
-            strokeWidth={handleStrokeWidth}
+            strokeWidth={2}
             strokeDasharray="5,5"
           />
           {handlePoints.map((h, index) => (

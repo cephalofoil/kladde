@@ -899,38 +899,30 @@ export function CanvasTile({
     }
   };
 
-  const selectionPaddingPx = 8;
-  const handleSizePx = 10;
-  const handleStrokeWidthPx = 2.5;
-  const handleRadiusPx = 3;
-  const handleInsetPx = 2;
-  const toWorld = (px: number) => px / zoom;
-  const snapToPixel = (value: number) => Math.round(value * zoom) / zoom;
-  const selectionPadding = snapToPixel(toWorld(selectionPaddingPx));
-  const handleSize = snapToPixel(toWorld(handleSizePx));
-  const handleStrokeWidth = toWorld(handleStrokeWidthPx);
-  const handleRadius = toWorld(handleRadiusPx);
-  const handleInset = toWorld(handleInsetPx);
+  const selectionPadding = 6 / zoom;
+  const handleSize = 8 / zoom;
+  const handleStrokeWidth = 2 / zoom;
+  const handleRadius = 2 / zoom;
   const frameWidth = tile.width + selectionPadding * 2;
   const frameHeight = tile.height + selectionPadding * 2;
   const handleCenters = [
-    { key: "nw", x: handleInset, y: handleInset, cursor: "nwse-resize" },
+    { key: "nw", x: 0, y: 0, cursor: "nwse-resize" },
     {
       key: "ne",
-      x: frameWidth - handleInset,
-      y: handleInset,
+      x: frameWidth,
+      y: 0,
       cursor: "nesw-resize",
     },
     {
       key: "se",
-      x: frameWidth - handleInset,
-      y: frameHeight - handleInset,
+      x: frameWidth,
+      y: frameHeight,
       cursor: "nwse-resize",
     },
     {
       key: "sw",
-      x: handleInset,
-      y: frameHeight - handleInset,
+      x: 0,
+      y: frameHeight,
       cursor: "nesw-resize",
     },
   ];
@@ -978,7 +970,7 @@ export function CanvasTile({
               height={frameHeight}
               fill="none"
               stroke="var(--selection-accent)"
-              strokeWidth={handleStrokeWidth}
+              strokeWidth={2}
             />
             {handleCenters.map((handle) => (
               <rect
