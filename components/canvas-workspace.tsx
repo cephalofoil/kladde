@@ -1088,34 +1088,41 @@ Exported: ${imageInfo.exportedAt}
     }
   }, [stageSize.width, stageSize.height, drawGrid]);
 
-  // Mouse wheel zoom
+  // Mouse wheel zoom/pan (mirrors Shadeworks behavior)
   const handleWheel = useCallback(
     (e: WheelEvent) => {
-      e.preventDefault();
-
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
+      const shouldZoom = e.ctrlKey || e.metaKey;
 
-      const scaleBy = 1.05;
-      const direction = e.deltaY > 0 ? 1 : -1;
-      const newZoom = direction > 0 ? zoom / scaleBy : zoom * scaleBy;
-      const clampedZoom = Math.max(0.1, Math.min(5, newZoom));
+      if (shouldZoom) {
+        e.preventDefault();
 
-      const mousePointTo = {
-        x: (mouseX - pan.x) / zoom,
-        y: (mouseY - pan.y) / zoom,
-      };
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const prevZoom = zoom;
+        const nextZoom = Math.max(0.1, Math.min(5, prevZoom * delta));
 
-      setZoom(clampedZoom);
-      setPan({
-        x: mouseX - mousePointTo.x * clampedZoom,
-        y: mouseY - mousePointTo.y * clampedZoom,
-      });
+        setZoom(nextZoom);
+        setPan((prevPan) => {
+          const worldX = (mouseX - prevPan.x) / prevZoom;
+          const worldY = (mouseY - prevPan.y) / prevZoom;
+          return {
+            x: mouseX - worldX * nextZoom,
+            y: mouseY - worldY * nextZoom,
+          };
+        });
+        return;
+      }
+
+      setPan((prev) => ({
+        x: prev.x - e.deltaX,
+        y: prev.y - e.deltaY,
+      }));
     },
-    [zoom, pan, setZoom, setPan],
+    [zoom, setZoom, setPan],
   );
 
   // Attach wheel event listener with passive: false
