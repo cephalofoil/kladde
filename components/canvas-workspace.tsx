@@ -464,16 +464,8 @@ export function CanvasWorkspace({
           finalHeight = 250;
         }
       } else {
-        if (type === "text") {
-          finalWidth = Math.max(Math.abs(width), 600);
-          finalHeight = Math.max(Math.abs(height), 550);
-        } else if (type === "document") {
-          finalWidth = Math.max(Math.abs(width), 200);
-          finalHeight = Math.max(Math.abs(height), 280);
-        } else {
-          finalWidth = Math.max(Math.abs(width), 200);
-          finalHeight = Math.max(Math.abs(height), 150);
-        }
+        finalWidth = Math.abs(width);
+        finalHeight = Math.abs(height);
       }
 
       // Center the tile on the click position when using minimum sizes
@@ -1101,7 +1093,12 @@ Exported: ${imageInfo.exportedAt}
       if (shouldZoom) {
         e.preventDefault();
 
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const isTrackpad = e.deltaMode === 0;
+        const delta = isTrackpad
+          ? Math.min(1.06, Math.max(0.94, Math.exp(-e.deltaY * 0.01)))
+          : e.deltaY > 0
+            ? 0.95
+            : 1.05;
         const prevZoom = zoom;
         const nextZoom = Math.max(0.1, Math.min(5, prevZoom * delta));
 
@@ -1117,9 +1114,11 @@ Exported: ${imageInfo.exportedAt}
         return;
       }
 
+      const panSpeed = 0.6;
+      e.preventDefault();
       setPan((prev) => ({
-        x: prev.x - e.deltaX,
-        y: prev.y - e.deltaY,
+        x: prev.x - e.deltaX * panSpeed,
+        y: prev.y - e.deltaY * panSpeed,
       }));
     },
     [zoom, setZoom, setPan],
@@ -1147,11 +1146,12 @@ Exported: ${imageInfo.exportedAt}
   );
 
   const handleCanvasMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.PointerEvent) => {
       if (activeTool && e.target === e.currentTarget) {
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
 
+        e.currentTarget.setPointerCapture(e.pointerId);
         const x = (e.clientX - rect.left - pan.x) / zoom;
         const y = (e.clientY - rect.top - pan.y) / zoom;
 
@@ -1164,6 +1164,7 @@ Exported: ${imageInfo.exportedAt}
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
 
+        e.currentTarget.setPointerCapture(e.pointerId);
         setIsPanning(true);
         setPanStart({
           x: e.clientX - pan.x,
@@ -1177,7 +1178,7 @@ Exported: ${imageInfo.exportedAt}
   );
 
   const handleCanvasMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.PointerEvent) => {
       if (isDragging && activeTool) {
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -1288,84 +1289,92 @@ Exported: ${imageInfo.exportedAt}
     ],
   );
 
-  const handleCanvasMouseUp = useCallback(() => {
-    if (isDragging && activeTool) {
-      const width = dragEnd.x - dragStart.x;
-      const height = dragEnd.y - dragStart.y;
-
-      // If drag area is too small, create tile with minimum size
-      if (Math.abs(width) < 20 || Math.abs(height) < 20) {
-        const newTile = createTileAtPosition(
-          activeTool,
-          dragStart.x,
-          dragStart.y,
-          0, // Will use minimum size from createTileAtPosition
-          0,
-        );
-        selectTile(newTile.id);
-      } else {
-        // Use actual drag dimensions
-        const newTile = createTileAtPosition(
-          activeTool,
-          dragStart.x,
-          dragStart.y,
-          width,
-          height,
-        );
-        selectTile(newTile.id);
+  const handleCanvasMouseUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
       }
+      if (isDragging && activeTool) {
+        const width = Math.abs(dragEnd.x - dragStart.x);
+        const height = Math.abs(dragEnd.y - dragStart.y);
+        const startX = Math.min(dragStart.x, dragEnd.x);
+        const startY = Math.min(dragStart.y, dragEnd.y);
 
-      setIsDragging(false);
-      setActiveTool(null);
-    } else if (isPanning) {
-      setIsPanning(false);
-    } else if (isDraggingConnection) {
-      // Inline handleConnectionDragEnd logic to avoid dependency issues
-      if (!isDraggingConnection || !selectedConnectionId) return;
+        // If drag area is too small, create tile with minimum size
+        if (Math.abs(width) < 20 || Math.abs(height) < 20) {
+          const newTile = createTileAtPosition(
+            activeTool,
+            startX,
+            startY,
+            0, // Will use minimum size from createTileAtPosition
+            0,
+          );
+          selectTile(newTile.id);
+        } else {
+          // Use actual drag dimensions
+          const newTile = createTileAtPosition(
+            activeTool,
+            startX,
+            startY,
+            width,
+            height,
+          );
+          selectTile(newTile.id);
+        }
 
-      const connection = connections.find(
-        (conn: Connection) => conn.id === selectedConnectionId,
-      );
-      if (!connection) return;
+        setIsDragging(false);
+        setActiveTool(null);
+      } else if (isPanning) {
+        setIsPanning(false);
+      } else if (isDraggingConnection) {
+        // Inline handleConnectionDragEnd logic to avoid dependency issues
+        if (!isDraggingConnection || !selectedConnectionId) return;
 
-      if (
-        connectionTarget &&
-        connectionTarget.tileId !== connection.fromTileId
-      ) {
-        // Delete old connection and create new one
-        deleteConnection(selectedConnectionId);
-        createConnection(connection.fromTileId, connectionTarget.tileId);
+        const connection = connections.find(
+          (conn: Connection) => conn.id === selectedConnectionId,
+        );
+        if (!connection) return;
+
+        if (
+          connectionTarget &&
+          connectionTarget.tileId !== connection.fromTileId
+        ) {
+          // Delete old connection and create new one
+          deleteConnection(selectedConnectionId);
+          createConnection(connection.fromTileId, connectionTarget.tileId);
+        }
+
+        setIsDraggingConnection(false);
+        setConnectionDragStart(null);
+        setIsConnecting(false);
+        setConnectionStart(null);
+        setConnectionTarget(null);
+        setSelectedConnectionId(null);
+      } else if (isDraggingControlPoint) {
+        // Stop dragging control point
+        setIsDraggingControlPoint(false);
+        setControlPointDragStart(null);
       }
-
-      setIsDraggingConnection(false);
-      setConnectionDragStart(null);
-      setIsConnecting(false);
-      setConnectionStart(null);
-      setConnectionTarget(null);
-      setSelectedConnectionId(null);
-    } else if (isDraggingControlPoint) {
-      // Stop dragging control point
-      setIsDraggingControlPoint(false);
-      setControlPointDragStart(null);
-    }
-  }, [
-    isDragging,
-    activeTool,
-    dragEnd.x,
-    dragEnd.y,
-    dragStart.x,
-    dragStart.y,
-    createTileAtPosition,
-    selectTile,
-    isPanning,
-    isDraggingConnection,
-    selectedConnectionId,
-    connections,
-    connectionTarget,
-    deleteConnection,
-    createConnection,
-    isDraggingControlPoint,
-  ]);
+    },
+    [
+      isDragging,
+      activeTool,
+      dragEnd.x,
+      dragEnd.y,
+      dragStart.x,
+      dragStart.y,
+      createTileAtPosition,
+      selectTile,
+      isPanning,
+      isDraggingConnection,
+      selectedConnectionId,
+      connections,
+      connectionTarget,
+      deleteConnection,
+      createConnection,
+      isDraggingControlPoint,
+    ],
+  );
 
   const selectTool = useCallback((type: TileData["type"]) => {
     setActiveTool(type);
@@ -1786,10 +1795,10 @@ Exported: ${imageInfo.exportedAt}
 
         <div
           ref={containerRef}
-          className="absolute inset-0 overflow-hidden"
-          onMouseDown={handleCanvasMouseDown}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseUp={handleCanvasMouseUp}
+          className="absolute inset-0 overflow-hidden canvas-gesture-lock"
+          onPointerDown={handleCanvasMouseDown}
+          onPointerMove={handleCanvasMouseMove}
+          onPointerUp={handleCanvasMouseUp}
           onClick={(e) => {
             if (isConnecting && e.target === e.currentTarget) {
               handleCancelConnection();

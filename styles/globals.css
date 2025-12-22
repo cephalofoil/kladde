@@ -21,6 +21,12 @@
   transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.canvas-gesture-lock {
+  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @font-face {
