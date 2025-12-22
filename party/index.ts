@@ -5,10 +5,8 @@ export default class YjsServer implements Party.Server {
   constructor(readonly room: Party.Room) {}
 
   onConnect(conn: Party.Connection) {
-    return onConnect(conn, this.room, {
-      // Persist the document to Partykit's storage
-      persist: { mode: "snapshot" },
-    });
+    // Ephemeral mode: data only exists in RAM during active sessions
+    // No persistence to Cloudflare - perfect for temporary collaboration
+    return onConnect(conn, this.room);
   }
 }
-
