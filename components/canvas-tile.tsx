@@ -903,6 +903,7 @@ export function CanvasTile({
   const handleSize = 8 / zoom;
   const handleStrokeWidth = 2 / zoom;
   const handleRadius = 2 / zoom;
+  const edgeHitSize = 8 / zoom;
   const frameWidth = tile.width + selectionPadding * 2;
   const frameHeight = tile.height + selectionPadding * 2;
   const handleCenters = [
@@ -971,6 +972,46 @@ export function CanvasTile({
               fill="none"
               stroke="var(--selection-accent)"
               strokeWidth={2}
+            />
+            <rect
+              x={0}
+              y={-edgeHitSize / 2}
+              width={frameWidth}
+              height={edgeHitSize}
+              fill="transparent"
+              pointerEvents="all"
+              style={{ cursor: "ns-resize" }}
+              onMouseDown={(e) => handleResizeMouseDown(e, "n")}
+            />
+            <rect
+              x={0}
+              y={frameHeight - edgeHitSize / 2}
+              width={frameWidth}
+              height={edgeHitSize}
+              fill="transparent"
+              pointerEvents="all"
+              style={{ cursor: "ns-resize" }}
+              onMouseDown={(e) => handleResizeMouseDown(e, "s")}
+            />
+            <rect
+              x={-edgeHitSize / 2}
+              y={0}
+              width={edgeHitSize}
+              height={frameHeight}
+              fill="transparent"
+              pointerEvents="all"
+              style={{ cursor: "ew-resize" }}
+              onMouseDown={(e) => handleResizeMouseDown(e, "w")}
+            />
+            <rect
+              x={frameWidth - edgeHitSize / 2}
+              y={0}
+              width={edgeHitSize}
+              height={frameHeight}
+              fill="transparent"
+              pointerEvents="all"
+              style={{ cursor: "ew-resize" }}
+              onMouseDown={(e) => handleResizeMouseDown(e, "e")}
             />
             {handleCenters.map((handle) => (
               <rect
