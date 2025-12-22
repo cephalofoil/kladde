@@ -897,9 +897,10 @@ export function CanvasTile({
     }
   };
 
-  const selectionPadding = 6 / zoom;
-  const handleSize = 8 / zoom;
-  const handleStrokeWidth = 2 / zoom;
+  const selectionPadding = 8 / zoom;
+  const handleSize = 10 / zoom;
+  const handleStrokeWidth = 2.5 / zoom;
+  const handleRadius = 3 / zoom;
   const handleBaseStyle: React.CSSProperties = {
     width: handleSize,
     height: handleSize,
@@ -907,15 +908,19 @@ export function CanvasTile({
     borderColor: "var(--selection-accent)",
     borderWidth: handleStrokeWidth,
     borderStyle: "solid",
-    borderRadius: 2,
+    borderRadius: handleRadius,
     boxSizing: "border-box",
+    zIndex: 3,
   };
+
+  const handleInset = 2 / zoom;
+  const handleOffset = selectionPadding + handleSize / 2 - handleInset;
 
   return (
     <>
       <div
         ref={tileRef}
-        className={`absolute rounded-lg ${tile.type === "document" ? "shadow-none" : "shadow-lg"} ${isConnectionMode ? "cursor-crosshair" : ""} select-none ${getTileColor()} flex items-end justify-between ${
+        className={`absolute relative rounded-lg ${tile.type === "document" ? "shadow-none" : "shadow-lg"} ${isConnectionMode ? "cursor-crosshair" : ""} select-none ${getTileColor()} flex items-end justify-between ${
           tile.type === "document"
             ? "ring-2 ring-blue-400"
             : "ring-2 ring-gray-200"
@@ -929,13 +934,25 @@ export function CanvasTile({
           height: tile.height,
           transform: `rotate(${tile.rotation || 0}deg)`,
           zIndex: isSelected ? 10 : 1,
-          outline: isSelected ? "2px solid var(--selection-accent)" : "none",
-          outlineOffset: isSelected ? `${selectionPadding}px` : "0px",
         }}
         onClick={handleSelect}
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
       >
+        {isSelected && !isEditing && !isConnectionMode && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: -selectionPadding,
+              top: -selectionPadding,
+              width: tile.width + selectionPadding * 2,
+              height: tile.height + selectionPadding * 2,
+              border: "2.5px solid var(--selection-accent)",
+              borderRadius: 0,
+              zIndex: 2,
+            }}
+          />
+        )}
         {tile.type !== "document" && tile.type !== "bookmark" && (
           <div
             className={`absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 cursor-move transition-colors duration-200 ${
@@ -1000,8 +1017,8 @@ export function CanvasTile({
               className="absolute"
               style={{
                 ...handleBaseStyle,
-                left: -handleSize / 2,
-                top: -handleSize / 2,
+                left: -handleOffset,
+                top: -handleOffset,
                 cursor: "nwse-resize",
               }}
               onMouseDown={(e) => handleResizeMouseDown(e, "nw")}
@@ -1010,8 +1027,8 @@ export function CanvasTile({
               className="absolute"
               style={{
                 ...handleBaseStyle,
-                right: -handleSize / 2,
-                top: -handleSize / 2,
+                right: -handleOffset,
+                top: -handleOffset,
                 cursor: "nesw-resize",
               }}
               onMouseDown={(e) => handleResizeMouseDown(e, "ne")}
@@ -1020,8 +1037,8 @@ export function CanvasTile({
               className="absolute"
               style={{
                 ...handleBaseStyle,
-                left: -handleSize / 2,
-                bottom: -handleSize / 2,
+                left: -handleOffset,
+                bottom: -handleOffset,
                 cursor: "nesw-resize",
               }}
               onMouseDown={(e) => handleResizeMouseDown(e, "sw")}
@@ -1030,57 +1047,11 @@ export function CanvasTile({
               className="absolute"
               style={{
                 ...handleBaseStyle,
-                right: -handleSize / 2,
-                bottom: -handleSize / 2,
+                right: -handleOffset,
+                bottom: -handleOffset,
                 cursor: "nwse-resize",
               }}
               onMouseDown={(e) => handleResizeMouseDown(e, "se")}
-            />
-
-            {/* Edge handles for scaling */}
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                left: "50%",
-                top: -handleSize / 2,
-                transform: "translateX(-50%)",
-                cursor: "ns-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "n")}
-            />
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                right: -handleSize / 2,
-                top: "50%",
-                transform: "translateY(-50%)",
-                cursor: "ew-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "e")}
-            />
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                left: "50%",
-                bottom: -handleSize / 2,
-                transform: "translateX(-50%)",
-                cursor: "ns-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "s")}
-            />
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                left: -handleSize / 2,
-                top: "50%",
-                transform: "translateY(-50%)",
-                cursor: "ew-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "w")}
             />
           </>
         )}

@@ -1640,8 +1640,10 @@ Exported: ${imageInfo.exportedAt}
   const renderMultiSelectionFrame = () => {
     if (!selectedBounds || selectedTileIds.length < 2) return null;
 
-    const selectionPadding = 6 / zoom;
-    const handleSize = 8 / zoom;
+    const selectionPadding = 8 / zoom;
+    const handleSize = 10 / zoom;
+    const handleRadius = 3 / zoom;
+    const handleInset = 2 / zoom;
     const visualBounds = expandBounds(selectedBounds, selectionPadding);
 
     const combinedBounds = {
@@ -1653,44 +1655,24 @@ Exported: ${imageInfo.exportedAt}
 
     const handlePoints = [
       {
-        x: combinedBounds.x,
-        y: combinedBounds.y,
+        x: combinedBounds.x + handleInset,
+        y: combinedBounds.y + handleInset,
         cursor: "nwse-resize",
       },
       {
-        x: combinedBounds.x + combinedBounds.width / 2,
-        y: combinedBounds.y,
-        cursor: "ns-resize",
-      },
-      {
-        x: combinedBounds.x + combinedBounds.width,
-        y: combinedBounds.y,
+        x: combinedBounds.x + combinedBounds.width - handleInset,
+        y: combinedBounds.y + handleInset,
         cursor: "nesw-resize",
       },
       {
-        x: combinedBounds.x + combinedBounds.width,
-        y: combinedBounds.y + combinedBounds.height / 2,
-        cursor: "ew-resize",
-      },
-      {
-        x: combinedBounds.x + combinedBounds.width,
-        y: combinedBounds.y + combinedBounds.height,
+        x: combinedBounds.x + combinedBounds.width - handleInset,
+        y: combinedBounds.y + combinedBounds.height - handleInset,
         cursor: "nwse-resize",
       },
       {
-        x: combinedBounds.x + combinedBounds.width / 2,
-        y: combinedBounds.y + combinedBounds.height,
-        cursor: "ns-resize",
-      },
-      {
-        x: combinedBounds.x,
-        y: combinedBounds.y + combinedBounds.height,
+        x: combinedBounds.x + handleInset,
+        y: combinedBounds.y + combinedBounds.height - handleInset,
         cursor: "nesw-resize",
-      },
-      {
-        x: combinedBounds.x,
-        y: combinedBounds.y + combinedBounds.height / 2,
-        cursor: "ew-resize",
       },
     ];
 
@@ -1713,7 +1695,7 @@ Exported: ${imageInfo.exportedAt}
             height={combinedBounds.height}
             fill="none"
             stroke="var(--selection-accent)"
-            strokeWidth={2}
+            strokeWidth={2.5}
             strokeDasharray="5,5"
           />
           {handlePoints.map((h, index) => (
@@ -1725,8 +1707,8 @@ Exported: ${imageInfo.exportedAt}
               height={handleSize}
               fill="var(--background)"
               stroke="var(--selection-accent)"
-              strokeWidth={2 / zoom}
-              rx={2}
+              strokeWidth={2.5 / zoom}
+              rx={handleRadius}
               style={{ cursor: h.cursor }}
             />
           ))}
