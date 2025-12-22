@@ -1640,10 +1640,18 @@ Exported: ${imageInfo.exportedAt}
   const renderMultiSelectionFrame = () => {
     if (!selectedBounds || selectedTileIds.length < 2) return null;
 
-    const selectionPadding = 8 / zoom;
-    const handleSize = 10 / zoom;
-    const handleRadius = 3 / zoom;
-    const handleInset = 2 / zoom;
+    const selectionPaddingPx = 8;
+    const handleSizePx = 10;
+    const handleRadiusPx = 3;
+    const handleStrokeWidthPx = 2.5;
+    const handleInsetPx = 2;
+    const toWorld = (px: number) => px / zoom;
+    const snapToPixel = (value: number) => Math.round(value * zoom) / zoom;
+    const selectionPadding = snapToPixel(toWorld(selectionPaddingPx));
+    const handleSize = snapToPixel(toWorld(handleSizePx));
+    const handleRadius = toWorld(handleRadiusPx);
+    const handleStrokeWidth = toWorld(handleStrokeWidthPx);
+    const handleInset = toWorld(handleInsetPx);
     const visualBounds = expandBounds(selectedBounds, selectionPadding);
 
     const combinedBounds = {
@@ -1655,23 +1663,23 @@ Exported: ${imageInfo.exportedAt}
 
     const handlePoints = [
       {
-        x: combinedBounds.x + handleInset,
-        y: combinedBounds.y + handleInset,
+        x: snapToPixel(combinedBounds.x + handleInset),
+        y: snapToPixel(combinedBounds.y + handleInset),
         cursor: "nwse-resize",
       },
       {
-        x: combinedBounds.x + combinedBounds.width - handleInset,
-        y: combinedBounds.y + handleInset,
+        x: snapToPixel(combinedBounds.x + combinedBounds.width - handleInset),
+        y: snapToPixel(combinedBounds.y + handleInset),
         cursor: "nesw-resize",
       },
       {
-        x: combinedBounds.x + combinedBounds.width - handleInset,
-        y: combinedBounds.y + combinedBounds.height - handleInset,
+        x: snapToPixel(combinedBounds.x + combinedBounds.width - handleInset),
+        y: snapToPixel(combinedBounds.y + combinedBounds.height - handleInset),
         cursor: "nwse-resize",
       },
       {
-        x: combinedBounds.x + handleInset,
-        y: combinedBounds.y + combinedBounds.height - handleInset,
+        x: snapToPixel(combinedBounds.x + handleInset),
+        y: snapToPixel(combinedBounds.y + combinedBounds.height - handleInset),
         cursor: "nesw-resize",
       },
     ];
@@ -1695,7 +1703,7 @@ Exported: ${imageInfo.exportedAt}
             height={combinedBounds.height}
             fill="none"
             stroke="var(--selection-accent)"
-            strokeWidth={2.5}
+            strokeWidth={handleStrokeWidth}
             strokeDasharray="5,5"
           />
           {handlePoints.map((h, index) => (
@@ -1707,7 +1715,7 @@ Exported: ${imageInfo.exportedAt}
               height={handleSize}
               fill="var(--background)"
               stroke="var(--selection-accent)"
-              strokeWidth={2.5 / zoom}
+              strokeWidth={handleStrokeWidth}
               rx={handleRadius}
               style={{ cursor: h.cursor }}
             />

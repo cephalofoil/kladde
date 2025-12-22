@@ -897,10 +897,17 @@ export function CanvasTile({
     }
   };
 
-  const selectionPadding = 8 / zoom;
-  const handleSize = 10 / zoom;
-  const handleStrokeWidth = 2.5 / zoom;
-  const handleRadius = 3 / zoom;
+  const selectionPaddingPx = 8;
+  const handleSizePx = 10;
+  const handleStrokeWidthPx = 2.5;
+  const handleRadiusPx = 3;
+  const handleInsetPx = 2;
+  const toWorld = (px: number) => px / zoom;
+  const snapToPixel = (value: number) => Math.round(value * zoom) / zoom;
+  const selectionPadding = snapToPixel(toWorld(selectionPaddingPx));
+  const handleSize = snapToPixel(toWorld(handleSizePx));
+  const handleStrokeWidth = toWorld(handleStrokeWidthPx);
+  const handleRadius = toWorld(handleRadiusPx);
   const handleBaseStyle: React.CSSProperties = {
     width: handleSize,
     height: handleSize,
@@ -913,8 +920,10 @@ export function CanvasTile({
     zIndex: 3,
   };
 
-  const handleInset = 2 / zoom;
-  const handleOffset = selectionPadding + handleSize / 2 - handleInset;
+  const handleInset = toWorld(handleInsetPx);
+  const handleOffset = snapToPixel(
+    selectionPadding + handleSize / 2 - handleInset,
+  );
 
   return (
     <>
@@ -947,7 +956,7 @@ export function CanvasTile({
               top: -selectionPadding,
               width: tile.width + selectionPadding * 2,
               height: tile.height + selectionPadding * 2,
-              border: "2.5px solid var(--selection-accent)",
+              border: `${handleStrokeWidth}px solid var(--selection-accent)`,
               borderRadius: 0,
               zIndex: 2,
             }}
