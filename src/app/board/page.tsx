@@ -8,6 +8,7 @@ export default function BoardPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const createBoard = useBoardStore((s) => s.createBoard);
+  const currentWorkstreamId = useBoardStore((s) => s.ui.currentWorkstreamId);
 
   useEffect(() => {
     setIsClient(true);
@@ -16,12 +17,12 @@ export default function BoardPage() {
   useEffect(() => {
     if (isClient) {
       // Create a new board in the store
-      const boardId = createBoard("Untitled Board");
+      const boardId = createBoard("Untitled Board", currentWorkstreamId);
 
       // Navigate to the new board
       router.replace(`/board/${boardId}`);
     }
-  }, [isClient, createBoard, router]);
+  }, [isClient, createBoard, currentWorkstreamId, router]);
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background">

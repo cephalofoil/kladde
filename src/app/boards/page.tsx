@@ -57,7 +57,7 @@ export default function BoardsPage() {
   }, []);
 
   const handleCreateBoard = () => {
-    const boardId = createBoard("Untitled Board");
+    const boardId = createBoard("Untitled Board", currentWorkstreamId);
     router.push(`/board/${boardId}`);
   };
 

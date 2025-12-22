@@ -18,7 +18,7 @@ const DEFAULT_WORKSTREAM_ID = "personal";
 function createEmptyBoard(
   id: string,
   name: string,
-  workstreamId: string
+  workstreamId: string,
 ): Board {
   const now = new Date();
   return {
@@ -88,7 +88,9 @@ export const useBoardStore = create<BoardStore>()(
       // Initial state
       boards: new Map(),
       boardData: new Map(),
-      workstreams: new Map([[DEFAULT_WORKSTREAM_ID, createDefaultWorkstream()]]),
+      workstreams: new Map([
+        [DEFAULT_WORKSTREAM_ID, createDefaultWorkstream()],
+      ]),
       ui: {
         currentBoardId: null,
         currentWorkstreamId: DEFAULT_WORKSTREAM_ID,
@@ -317,7 +319,7 @@ export const useBoardStore = create<BoardStore>()(
       updateElement: (
         boardId: string,
         elementId: string,
-        updates: Partial<BoardElement>
+        updates: Partial<BoardElement>,
       ) => {
         set((state) => {
           const data = state.boardData.get(boardId);
@@ -326,7 +328,7 @@ export const useBoardStore = create<BoardStore>()(
           const boardData = new Map(state.boardData);
           boardData.set(boardId, {
             elements: data.elements.map((el) =>
-              el.id === elementId ? { ...el, ...updates } : el
+              el.id === elementId ? { ...el, ...updates } : el,
             ),
             version: data.version + 1,
           });
@@ -436,7 +438,8 @@ export const useBoardStore = create<BoardStore>()(
             boardIds: [...defaultWs.boardIds, ...workstream.boardIds],
             metadata: {
               ...defaultWs.metadata,
-              boardCount: defaultWs.boardIds.length + workstream.boardIds.length,
+              boardCount:
+                defaultWs.boardIds.length + workstream.boardIds.length,
             },
           });
 
@@ -449,7 +452,7 @@ export const useBoardStore = create<BoardStore>()(
       getWorkstreamBoards: (workstreamId: string) => {
         const state = get();
         return Array.from(state.boards.values()).filter(
-          (board) => board.workstreamId === workstreamId
+          (board) => board.workstreamId === workstreamId,
         );
       },
 
@@ -483,7 +486,7 @@ export const useBoardStore = create<BoardStore>()(
         // Filter by workstream
         if (currentWorkstreamId) {
           boards = boards.filter(
-            (board) => board.workstreamId === currentWorkstreamId
+            (board) => board.workstreamId === currentWorkstreamId,
           );
         }
 
@@ -493,20 +496,20 @@ export const useBoardStore = create<BoardStore>()(
           boards = boards.filter(
             (board) =>
               board.name.toLowerCase().includes(query) ||
-              board.description?.toLowerCase().includes(query)
+              board.description?.toLowerCase().includes(query),
           );
         }
 
         // Filter by tags
         if (selectedTags.length > 0) {
           boards = boards.filter((board) =>
-            selectedTags.every((tag) => board.tags.includes(tag))
+            selectedTags.every((tag) => board.tags.includes(tag)),
           );
         }
 
         // Sort by last accessed (most recent first)
         return boards.sort(
-          (a, b) => b.lastAccessed.getTime() - a.lastAccessed.getTime()
+          (a, b) => b.lastAccessed.getTime() - a.lastAccessed.getTime(),
         );
       },
 
@@ -548,7 +551,9 @@ export const useBoardStore = create<BoardStore>()(
             boards: new Map(parsed.boards || []),
             boardData: new Map(parsed.boardData || []),
             workstreams: new Map(
-              parsed.workstreams || [[DEFAULT_WORKSTREAM_ID, createDefaultWorkstream()]]
+              parsed.workstreams || [
+                [DEFAULT_WORKSTREAM_ID, createDefaultWorkstream()],
+              ],
             ),
           },
           version: 0,
@@ -562,11 +567,55 @@ export const useBoardStore = create<BoardStore>()(
         // Don't persist patchQueue or flushStatus
       }),
       onRehydrateStorage: () => (state) => {
+        if (!state) return;
+
         // Ensure default workstream exists
-        if (state && !state.workstreams.has(DEFAULT_WORKSTREAM_ID)) {
-          state.workstreams.set(DEFAULT_WORKSTREAM_ID, createDefaultWorkstream());
+        if (!state.workstreams.has(DEFAULT_WORKSTREAM_ID)) {
+          state.workstreams.set(
+            DEFAULT_WORKSTREAM_ID,
+            createDefaultWorkstream(),
+          );
         }
+
+        // Rebuild workstream board links and fix orphaned boards after hydration
+        const boards = new Map(state.boards);
+        const rebuiltWorkstreams = new Map(
+          Array.from(state.workstreams.entries()).map(([id, ws]) => [
+            id,
+            {
+              ...ws,
+              boardIds: [],
+              metadata: {
+                ...ws.metadata,
+                boardCount: 0,
+              },
+            },
+          ]),
+        );
+
+        boards.forEach((board, boardId) => {
+          const targetWorkstreamId = rebuiltWorkstreams.has(board.workstreamId)
+            ? board.workstreamId
+            : DEFAULT_WORKSTREAM_ID;
+
+          if (board.workstreamId !== targetWorkstreamId) {
+            boards.set(boardId, { ...board, workstreamId: targetWorkstreamId });
+          }
+
+          const workstream = rebuiltWorkstreams.get(targetWorkstreamId);
+          if (workstream) {
+            workstream.boardIds.push(boardId);
+            workstream.metadata = {
+              ...workstream.metadata,
+              boardCount: workstream.boardIds.length,
+            };
+            rebuiltWorkstreams.set(targetWorkstreamId, workstream);
+          }
+        });
+
+        state.boards = boards;
+        state.workstreams = rebuiltWorkstreams;
       },
-    }
-  )
+    },
+  ),
 );
