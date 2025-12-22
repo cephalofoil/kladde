@@ -200,19 +200,21 @@ export function CanvasTile({
       const { clientX, clientY } = e;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
+        const toWorldDelta = (delta: number) => delta / zoom;
+        const snapToPixel = (value: number) => Math.round(value * zoom) / zoom;
         if (isDragging) {
-          const deltaX = clientX - dragStart.x;
-          const deltaY = clientY - dragStart.y;
+          const deltaX = toWorldDelta(clientX - dragStart.x);
+          const deltaY = toWorldDelta(clientY - dragStart.y);
 
           onUpdate({
-            x: dragStart.tileX + deltaX,
-            y: dragStart.tileY + deltaY,
+            x: snapToPixel(dragStart.tileX + deltaX),
+            y: snapToPixel(dragStart.tileY + deltaY),
           });
         }
 
         if (isResizing) {
-          const deltaX = clientX - resizeStart.x;
-          const deltaY = clientY - resizeStart.y;
+          const deltaX = toWorldDelta(clientX - resizeStart.x);
+          const deltaY = toWorldDelta(clientY - resizeStart.y);
           const isShiftPressed = e.shiftKey; // Check for proportional scaling
 
           let newX = resizeStart.tileX;
@@ -398,15 +400,15 @@ export function CanvasTile({
           }
 
           onUpdate({
-            x: adjX,
-            y: adjY,
-            width: clampedWidth,
-            height: clampedHeight,
+            x: snapToPixel(adjX),
+            y: snapToPixel(adjY),
+            width: snapToPixel(clampedWidth),
+            height: snapToPixel(clampedHeight),
           });
         }
       });
     },
-    [isDragging, isResizing, dragStart, resizeStart, onUpdate, tile.type],
+    [isDragging, isResizing, dragStart, resizeStart, onUpdate, tile.type, zoom],
   );
 
   const handleMouseUpGlobal = useCallback(() => {
@@ -908,22 +910,30 @@ export function CanvasTile({
   const handleSize = snapToPixel(toWorld(handleSizePx));
   const handleStrokeWidth = toWorld(handleStrokeWidthPx);
   const handleRadius = toWorld(handleRadiusPx);
-  const handleBaseStyle: React.CSSProperties = {
-    width: handleSize,
-    height: handleSize,
-    background: "var(--background)",
-    borderColor: "var(--selection-accent)",
-    borderWidth: handleStrokeWidth,
-    borderStyle: "solid",
-    borderRadius: handleRadius,
-    boxSizing: "border-box",
-    zIndex: 3,
-  };
-
   const handleInset = toWorld(handleInsetPx);
-  const handleOffset = snapToPixel(
-    selectionPadding + handleSize / 2 - handleInset,
-  );
+  const frameWidth = tile.width + selectionPadding * 2;
+  const frameHeight = tile.height + selectionPadding * 2;
+  const handleCenters = [
+    { key: "nw", x: handleInset, y: handleInset, cursor: "nwse-resize" },
+    {
+      key: "ne",
+      x: frameWidth - handleInset,
+      y: handleInset,
+      cursor: "nesw-resize",
+    },
+    {
+      key: "se",
+      x: frameWidth - handleInset,
+      y: frameHeight - handleInset,
+      cursor: "nwse-resize",
+    },
+    {
+      key: "sw",
+      x: handleInset,
+      y: frameHeight - handleInset,
+      cursor: "nesw-resize",
+    },
+  ];
 
   return (
     <>
@@ -949,18 +959,48 @@ export function CanvasTile({
         onDoubleClick={handleDoubleClick}
       >
         {isSelected && !isEditing && !isConnectionMode && (
-          <div
-            className="absolute pointer-events-none"
+          <svg
+            className="absolute"
             style={{
               left: -selectionPadding,
               top: -selectionPadding,
-              width: tile.width + selectionPadding * 2,
-              height: tile.height + selectionPadding * 2,
-              border: `${handleStrokeWidth}px solid var(--selection-accent)`,
-              borderRadius: 0,
+              width: frameWidth,
+              height: frameHeight,
+              overflow: "visible",
+              pointerEvents: "none",
               zIndex: 2,
             }}
-          />
+          >
+            <rect
+              x={0}
+              y={0}
+              width={frameWidth}
+              height={frameHeight}
+              fill="none"
+              stroke="var(--selection-accent)"
+              strokeWidth={handleStrokeWidth}
+            />
+            {handleCenters.map((handle) => (
+              <rect
+                key={handle.key}
+                x={handle.x - handleSize / 2}
+                y={handle.y - handleSize / 2}
+                width={handleSize}
+                height={handleSize}
+                fill="var(--background)"
+                stroke="var(--selection-accent)"
+                strokeWidth={handleStrokeWidth}
+                rx={handleRadius}
+                style={{ cursor: handle.cursor, pointerEvents: "all" }}
+                onMouseDown={(e) =>
+                  handleResizeMouseDown(
+                    e,
+                    handle.key as "nw" | "ne" | "se" | "sw",
+                  )
+                }
+              />
+            ))}
+          </svg>
         )}
         {tile.type !== "document" && tile.type !== "bookmark" && (
           <div
@@ -1019,51 +1059,7 @@ export function CanvasTile({
 
         {renderContent()}
 
-        {isSelected && !isEditing && !isConnectionMode && (
-          <>
-            {/* Corner handles for scaling */}
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                left: -handleOffset,
-                top: -handleOffset,
-                cursor: "nwse-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "nw")}
-            />
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                right: -handleOffset,
-                top: -handleOffset,
-                cursor: "nesw-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "ne")}
-            />
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                left: -handleOffset,
-                bottom: -handleOffset,
-                cursor: "nesw-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "sw")}
-            />
-            <div
-              className="absolute"
-              style={{
-                ...handleBaseStyle,
-                right: -handleOffset,
-                bottom: -handleOffset,
-                cursor: "nwse-resize",
-              }}
-              onMouseDown={(e) => handleResizeMouseDown(e, "se")}
-            />
-          </>
-        )}
+        {isSelected && !isEditing && !isConnectionMode && null}
 
         {isSelected && !isEditing && (
           <>
