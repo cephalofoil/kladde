@@ -35,6 +35,7 @@ import {
 interface CanvasTileProps {
   tile: TileData;
   isSelected: boolean;
+  zoom: number;
   onSelect: (multiSelect: boolean) => void;
   onUpdate: (updates: Partial<TileData>) => void;
   onDelete: () => void;
@@ -79,6 +80,7 @@ interface CanvasTileProps {
 export function CanvasTile({
   tile,
   isSelected,
+  zoom,
   onSelect,
   onUpdate,
   onDelete,
@@ -895,17 +897,31 @@ export function CanvasTile({
     }
   };
 
+  const selectionPadding = 6 / zoom;
+  const handleSize = 8 / zoom;
+  const handleStrokeWidth = 2 / zoom;
+  const handleBaseStyle: React.CSSProperties = {
+    width: handleSize,
+    height: handleSize,
+    background: "var(--background)",
+    borderColor: "var(--selection-accent)",
+    borderWidth: handleStrokeWidth,
+    borderStyle: "solid",
+    borderRadius: 2,
+    boxSizing: "border-box",
+  };
+
   return (
     <>
       <div
         ref={tileRef}
         className={`absolute rounded-lg ${tile.type === "document" ? "shadow-none" : "shadow-lg"} ${isConnectionMode ? "cursor-crosshair" : ""} select-none ${getTileColor()} flex items-end justify-between ${
-          isSelected
-            ? "ring-2 ring-blue-500 shadow-xl"
-            : tile.type === "document"
-              ? "ring-2 ring-blue-400"
-              : "ring-2 ring-gray-200"
-        } ${isConnectionTarget ? "ring-2 ring-green-400" : ""}`}
+          tile.type === "document"
+            ? "ring-2 ring-blue-400"
+            : "ring-2 ring-gray-200"
+        } ${isSelected ? "shadow-xl" : ""} ${
+          isConnectionTarget ? "ring-2 ring-green-400" : ""
+        }`}
         style={{
           left: tile.x,
           top: tile.y,
@@ -913,6 +929,8 @@ export function CanvasTile({
           height: tile.height,
           transform: `rotate(${tile.rotation || 0}deg)`,
           zIndex: isSelected ? 10 : 1,
+          outline: isSelected ? "2px solid var(--selection-accent)" : "none",
+          outlineOffset: isSelected ? `${selectionPadding}px` : "0px",
         }}
         onClick={handleSelect}
         onMouseUp={handleMouseUp}
@@ -979,37 +997,89 @@ export function CanvasTile({
           <>
             {/* Corner handles for scaling */}
             <div
-              className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                left: -handleSize / 2,
+                top: -handleSize / 2,
+                cursor: "nwse-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "nw")}
             />
             <div
-              className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                right: -handleSize / 2,
+                top: -handleSize / 2,
+                cursor: "nesw-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "ne")}
             />
             <div
-              className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                left: -handleSize / 2,
+                bottom: -handleSize / 2,
+                cursor: "nesw-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "sw")}
             />
             <div
-              className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                right: -handleSize / 2,
+                bottom: -handleSize / 2,
+                cursor: "nwse-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "se")}
             />
 
             {/* Edge handles for scaling */}
             <div
-              className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-blue-500 rounded-full cursor-n-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                left: "50%",
+                top: -handleSize / 2,
+                transform: "translateX(-50%)",
+                cursor: "ns-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "n")}
             />
             <div
-              className="absolute top-1/2 -right-1 transform -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full cursor-e-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                right: -handleSize / 2,
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "ew-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "e")}
             />
             <div
-              className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-blue-500 rounded-full cursor-s-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                left: "50%",
+                bottom: -handleSize / 2,
+                transform: "translateX(-50%)",
+                cursor: "ns-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "s")}
             />
             <div
-              className="absolute top-1/2 -left-1 transform -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full cursor-w-resize hover:bg-blue-600"
+              className="absolute"
+              style={{
+                ...handleBaseStyle,
+                left: -handleSize / 2,
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "ew-resize",
+              }}
               onMouseDown={(e) => handleResizeMouseDown(e, "w")}
             />
           </>

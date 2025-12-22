@@ -196,6 +196,23 @@ export function CanvasWorkspace({
     selectedTileIds.includes(tile.id),
   );
 
+  const selectedBounds = React.useMemo(() => {
+    if (selectedTiles.length === 0) return null;
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    selectedTiles.forEach((tile) => {
+      minX = Math.min(minX, tile.x);
+      minY = Math.min(minY, tile.y);
+      maxX = Math.max(maxX, tile.x + tile.width);
+      maxY = Math.max(maxY, tile.y + tile.height);
+    });
+
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }, [selectedTiles]);
+
   // Auto-save functionality
   const [isDirty, setIsDirty] = useState(false);
   // const [lastSaved, setLastSaved] = useState(Date.now()); // Unused for now
@@ -1417,6 +1434,16 @@ Exported: ${imageInfo.exportedAt}
     });
   };
 
+  const expandBounds = (
+    bounds: { x: number; y: number; width: number; height: number },
+    padding: number,
+  ) => ({
+    x: bounds.x - padding,
+    y: bounds.y - padding,
+    width: bounds.width + padding * 2,
+    height: bounds.height + padding * 2,
+  });
+
   // Connection rendering
   const renderConnections = () => {
     return connections.map((connection: Connection) => {
@@ -1610,6 +1637,104 @@ Exported: ${imageInfo.exportedAt}
     });
   };
 
+  const renderMultiSelectionFrame = () => {
+    if (!selectedBounds || selectedTileIds.length < 2) return null;
+
+    const selectionPadding = 6 / zoom;
+    const handleSize = 8 / zoom;
+    const visualBounds = expandBounds(selectedBounds, selectionPadding);
+
+    const combinedBounds = {
+      x: visualBounds.x - canvasBounds.minX,
+      y: visualBounds.y - canvasBounds.minY,
+      width: visualBounds.width,
+      height: visualBounds.height,
+    };
+
+    const handlePoints = [
+      {
+        x: combinedBounds.x,
+        y: combinedBounds.y,
+        cursor: "nwse-resize",
+      },
+      {
+        x: combinedBounds.x + combinedBounds.width / 2,
+        y: combinedBounds.y,
+        cursor: "ns-resize",
+      },
+      {
+        x: combinedBounds.x + combinedBounds.width,
+        y: combinedBounds.y,
+        cursor: "nesw-resize",
+      },
+      {
+        x: combinedBounds.x + combinedBounds.width,
+        y: combinedBounds.y + combinedBounds.height / 2,
+        cursor: "ew-resize",
+      },
+      {
+        x: combinedBounds.x + combinedBounds.width,
+        y: combinedBounds.y + combinedBounds.height,
+        cursor: "nwse-resize",
+      },
+      {
+        x: combinedBounds.x + combinedBounds.width / 2,
+        y: combinedBounds.y + combinedBounds.height,
+        cursor: "ns-resize",
+      },
+      {
+        x: combinedBounds.x,
+        y: combinedBounds.y + combinedBounds.height,
+        cursor: "nesw-resize",
+      },
+      {
+        x: combinedBounds.x,
+        y: combinedBounds.y + combinedBounds.height / 2,
+        cursor: "ew-resize",
+      },
+    ];
+
+    return (
+      <svg
+        className="absolute pointer-events-none"
+        style={{
+          left: canvasBounds.minX,
+          top: canvasBounds.minY,
+          width: canvasBounds.width,
+          height: canvasBounds.height,
+          overflow: "visible",
+        }}
+      >
+        <g>
+          <rect
+            x={combinedBounds.x}
+            y={combinedBounds.y}
+            width={combinedBounds.width}
+            height={combinedBounds.height}
+            fill="none"
+            stroke="var(--selection-accent)"
+            strokeWidth={2}
+            strokeDasharray="5,5"
+          />
+          {handlePoints.map((h, index) => (
+            <rect
+              key={`${h.x}-${h.y}-${index}`}
+              x={h.x - handleSize / 2}
+              y={h.y - handleSize / 2}
+              width={handleSize}
+              height={handleSize}
+              fill="var(--background)"
+              stroke="var(--selection-accent)"
+              strokeWidth={2 / zoom}
+              rx={2}
+              style={{ cursor: h.cursor }}
+            />
+          ))}
+        </g>
+      </svg>
+    );
+  };
+
   const handleDeleteTileWithConfirmation = useCallback(
     (id: string) => {
       confirmDelete(() => {
@@ -1662,17 +1787,20 @@ Exported: ${imageInfo.exportedAt}
             }
             handleCanvasClick(e);
           }}
-          style={{
-            cursor: activeTool
-              ? "crosshair"
-              : isPanning
-                ? "grabbing"
-                : isConnecting
-                  ? "crosshair"
-                  : isDraggingConnection
-                    ? "grabbing"
-                    : "grab",
-          }}
+          style={
+            {
+              cursor: activeTool
+                ? "crosshair"
+                : isPanning
+                  ? "grabbing"
+                  : isConnecting
+                    ? "crosshair"
+                    : isDraggingConnection
+                      ? "grabbing"
+                      : "grab",
+              "--selection-accent": "#3b82f6",
+            } as React.CSSProperties
+          }
         >
           <canvas
             ref={canvasRef}
@@ -1755,6 +1883,7 @@ Exported: ${imageInfo.exportedAt}
                   key={tile.id}
                   tile={tile}
                   isSelected={selectedTileIds.includes(tile.id)}
+                  zoom={zoom}
                   onSelect={(multiSelect) => selectTile(tile.id, multiSelect)}
                   onUpdate={(updates) => updateTile(tile.id, updates)}
                   onDelete={() => handleDeleteTileWithConfirmation(tile.id)}
@@ -1768,6 +1897,7 @@ Exported: ${imageInfo.exportedAt}
                 />
               ))}
             </div>
+            {renderMultiSelectionFrame()}
           </div>
         </div>
       </div>
