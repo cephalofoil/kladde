@@ -20,14 +20,27 @@ export function Header({ rightContent }: HeaderProps = {}) {
                 alt="kladde"
                 width={160}
                 height={32}
-                className="h-8 w-auto"
+                className="h-8 w-auto dark:hidden"
+                priority
+              />
+              <Image
+                src="/kladde-logo-bright-540.svg"
+                alt="kladde"
+                width={160}
+                height={32}
+                className="h-8 w-auto hidden dark:block"
                 priority
               />
             </Link>
 
             {/* Navigation */}
             <div className="hidden md:flex items-center gap-6 pt-px">
-              <Button asChild size="sm" variant="ghost" className="text-gray-900 dark:text-white">
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="text-gray-900 dark:text-white"
+              >
                 <Link href="/dashboard">Workspaces</Link>
               </Button>
 

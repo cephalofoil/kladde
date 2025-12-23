@@ -88,11 +88,20 @@ export default function BoardsPage() {
                 alt="Kladde"
                 width={120}
                 height={32}
-                className="h-8 w-auto"
+                className="h-8 w-auto dark:hidden"
+              />
+              <Image
+                src="/kladde-logo-bright-540.svg"
+                alt="Kladde"
+                width={120}
+                height={32}
+                className="h-8 w-auto hidden dark:block"
               />
               <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Dashboard
+                </h1>
                 <p className="text-muted-foreground">
                   {filteredBoards.length}{" "}
                   {filteredBoards.length === 1 ? "board" : "boards"}
