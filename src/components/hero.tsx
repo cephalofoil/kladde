@@ -37,8 +37,10 @@ export function Hero() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button className="rounded-lg" size="lg" variant="outline">
-              View on GitHub
+            <Button asChild className="rounded-lg" size="lg" variant="outline">
+              <Link href="https://github.com/cephalofoil/kladde">
+                View on GitHub
+              </Link>
             </Button>
           </div>
         </div>
