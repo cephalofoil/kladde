@@ -48,20 +48,20 @@ export function BoardFilters() {
     <div className="mt-4 space-y-3">
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
           placeholder="Search boards..."
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-[#1a1a1a] dark:bg-[#1a1a1a] dark:text-gray-100 dark:placeholder:text-gray-400 dark:focus:border-primary"
+          className="w-full rounded-lg border bg-background py-2 pl-10 pr-4 text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 border-border"
         />
       </div>
 
       {/* Tags */}
       {allTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-gray-600 dark:text-gray-400">
+          <span className="text-sm text-muted-foreground">
             Tags:
           </span>
           {allTags.map((tag) => (
@@ -71,7 +71,7 @@ export function BoardFilters() {
               className={`rounded-full px-3 py-1 text-sm transition-colors ${
                 selectedTags.includes(tag)
                   ? "bg-primary text-primary-foreground"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#1a1a1a] dark:text-gray-300 dark:hover:bg-[#262626]"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
               }`}
             >
               {tag}

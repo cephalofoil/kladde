@@ -75,10 +75,10 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
     return (
       <div
         onClick={handleClick}
-        className="flex cursor-pointer items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-[#1a1a1a] dark:bg-[#0f0f0f]"
+        className="flex cursor-pointer items-center gap-4 rounded-lg border bg-card p-4 transition-shadow hover:shadow-md border-border"
       >
         {/* Thumbnail */}
-        <div className="h-16 w-24 flex-shrink-0 rounded border border-gray-200 bg-gray-100 dark:border-[#1a1a1a] dark:bg-[#1a1a1a]">
+        <div className="h-16 w-24 flex-shrink-0 rounded border bg-muted border-border">
           {board.thumbnail ? (
             <img
               src={board.thumbnail}
@@ -86,7 +86,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               className="h-full w-full rounded object-cover"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               Empty
             </div>
           )}
@@ -102,13 +102,13 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
                 onChange={(e) => setNewName(e.target.value)}
                 onBlur={() => setIsRenaming(false)}
                 autoFocus
-                className="w-full rounded border border-primary bg-white px-2 py-1 font-semibold text-gray-900 outline-none dark:bg-[#1a1a1a] dark:text-gray-100"
+                className="w-full rounded border border-primary bg-background px-2 py-1 font-semibold text-foreground outline-none"
               />
             </form>
           ) : (
-            <h3 className="truncate font-semibold text-gray-900 dark:text-gray-100">{board.name}</h3>
+            <h3 className="truncate font-semibold text-card-foreground">{board.name}</h3>
           )}
-          <div className="mt-1 flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <span>{board.metadata.elementCount} elements</span>
             <span>•</span>
             <span>Updated {formatDate(board.updatedAt)}</span>
@@ -127,7 +127,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               </span>
             ))}
             {board.tags.length > 3 && (
-              <span className="text-xs text-gray-500">+{board.tags.length - 3}</span>
+              <span className="text-xs text-muted-foreground">+{board.tags.length - 3}</span>
             )}
           </div>
         )}
@@ -139,7 +139,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
-            className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="rounded p-1 hover:bg-muted"
           >
             <MoreVertical className="h-5 w-5" />
           </button>
@@ -149,24 +149,24 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
                 className="fixed inset-0 z-10"
                 onClick={() => setShowMenu(false)}
               />
-              <div className="absolute right-0 top-8 z-20 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+              <div className="absolute right-0 top-8 z-20 w-48 rounded-lg border bg-popover py-1 shadow-lg border-border">
                 <button
                   onClick={handleRename}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground hover:bg-muted"
                 >
                   <Edit2 className="h-4 w-4" />
                   Rename
                 </button>
                 <button
                   onClick={handleDuplicate}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground hover:bg-muted"
                 >
                   <Copy className="h-4 w-4" />
                   Duplicate
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-destructive hover:bg-muted"
                 >
                   <Trash2 className="h-4 w-4" />
                   Delete
@@ -183,10 +183,10 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
   return (
     <div
       onClick={handleClick}
-      className="group relative cursor-pointer rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-lg dark:border-[#1a1a1a] dark:bg-[#0f0f0f]"
+      className="group relative cursor-pointer rounded-lg border bg-card transition-shadow hover:shadow-lg border-border"
     >
       {/* Thumbnail */}
-      <div className="aspect-video w-full overflow-hidden rounded-t-lg bg-gray-100 dark:bg-[#1a1a1a]">
+      <div className="aspect-video w-full overflow-hidden rounded-t-lg bg-muted">
         {board.thumbnail ? (
           <img
             src={board.thumbnail}
@@ -194,7 +194,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-gray-400 dark:text-gray-500">
+          <div className="flex h-full items-center justify-center text-muted-foreground">
             <span className="text-sm">Empty board</span>
           </div>
         )}
@@ -210,14 +210,14 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               onChange={(e) => setNewName(e.target.value)}
               onBlur={() => setIsRenaming(false)}
               autoFocus
-              className="w-full rounded border border-primary bg-white px-2 py-1 font-semibold text-gray-900 outline-none dark:bg-gray-700 dark:text-gray-100"
+              className="w-full rounded border border-primary bg-background px-2 py-1 font-semibold text-foreground outline-none"
             />
           </form>
         ) : (
-          <h3 className="truncate font-semibold text-gray-900 dark:text-gray-100">{board.name}</h3>
+          <h3 className="truncate font-semibold text-card-foreground">{board.name}</h3>
         )}
 
-        <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+        <div className="mt-2 text-xs text-muted-foreground">
           <p>{board.metadata.elementCount} elements</p>
           <p className="mt-1">Updated {formatDate(board.updatedAt)}</p>
         </div>
@@ -234,7 +234,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               </span>
             ))}
             {board.tags.length > 2 && (
-              <span className="text-xs text-gray-500">+{board.tags.length - 2}</span>
+              <span className="text-xs text-muted-foreground">+{board.tags.length - 2}</span>
             )}
           </div>
         )}
@@ -247,7 +247,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
             e.stopPropagation();
             setShowMenu(!showMenu);
           }}
-          className="rounded bg-white p-1.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800"
+          className="rounded bg-card p-1.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-muted"
         >
           <MoreVertical className="h-4 w-4" />
         </button>
@@ -257,24 +257,24 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               className="fixed inset-0 z-10"
               onClick={() => setShowMenu(false)}
             />
-            <div className="absolute right-0 top-10 z-20 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <div className="absolute right-0 top-10 z-20 w-48 rounded-lg border bg-popover py-1 shadow-lg border-border">
               <button
                 onClick={handleRename}
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground hover:bg-muted"
               >
                 <Edit2 className="h-4 w-4" />
                 Rename
               </button>
               <button
                 onClick={handleDuplicate}
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-popover-foreground hover:bg-muted"
               >
                 <Copy className="h-4 w-4" />
                 Duplicate
               </button>
               <button
                 onClick={handleDelete}
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-destructive hover:bg-muted"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete

@@ -60,11 +60,11 @@ export function WorkstreamSidebar() {
   };
 
   return (
-    <aside className="w-64 border-r border-gray-200 bg-white dark:border-[#1a1a1a] dark:bg-[#0f0f0f]">
+    <aside className="w-64 border-r bg-white dark:bg-sidebar border-border">
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="border-b border-gray-200 p-4 dark:border-[#1a1a1a]">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Workstreams</h2>
+        <div className="border-b border-border p-4">
+          <h2 className="text-lg font-semibold text-foreground">Workstreams</h2>
         </div>
 
         {/* Workstream List */}
@@ -79,8 +79,8 @@ export function WorkstreamSidebar() {
                 key={workstream.id}
                 className={`group relative mb-1 rounded-lg ${
                   isActive
-                    ? "bg-gray-100 dark:bg-[#1a1a1a]"
-                    : "hover:bg-gray-50 dark:hover:bg-[#1a1a1a]/50"
+                    ? "bg-secondary"
+                    : "hover:bg-muted/50"
                 }`}
               >
                 <button
@@ -103,14 +103,14 @@ export function WorkstreamSidebar() {
                       }}
                       onClick={(e) => e.stopPropagation()}
                       autoFocus
-                      className="flex-1 rounded border border-primary bg-white px-1 text-sm text-gray-900 outline-none dark:bg-[#1a1a1a] dark:text-gray-100"
+                      className="flex-1 rounded border border-primary bg-background px-1 text-sm text-foreground outline-none"
                     />
                   ) : (
                     <>
-                      <span className="flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <span className="flex-1 truncate text-sm font-medium text-foreground">
                         {workstream.name}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {boardCount}
                       </span>
                     </>
@@ -125,7 +125,7 @@ export function WorkstreamSidebar() {
                         e.stopPropagation();
                         handleEdit(workstream.id, workstream.name);
                       }}
-                      className="rounded p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="rounded p-1 hover:bg-muted"
                       title="Rename"
                     >
                       <Edit2 className="h-3 w-3" />
@@ -158,13 +158,13 @@ export function WorkstreamSidebar() {
                 }}
                 placeholder="Workstream name"
                 autoFocus
-                className="w-full rounded border border-blue-500 px-2 py-1 text-sm outline-none dark:bg-gray-900"
+                className="w-full rounded border border-primary bg-background px-2 py-1 text-sm text-foreground outline-none"
               />
             </form>
           ) : (
             <button
               onClick={() => setIsCreating(true)}
-              className="mt-2 flex w-full items-center gap-2 rounded-lg p-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-[#1a1a1a]"
+              className="mt-2 flex w-full items-center gap-2 rounded-lg p-3 text-left text-sm text-muted-foreground hover:bg-muted/50"
             >
               <Plus className="h-4 w-4" />
               New Workstream
