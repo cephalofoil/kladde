@@ -46,7 +46,7 @@ export default function BoardRoomPage({ params }: PageProps) {
 
       // If board doesn't exist, redirect to dashboard
       if (!loadedBoard) {
-        router.push("/boards");
+        router.push("/dashboard");
       }
     }
   }, [isClient, boardId, loadBoard, router]);

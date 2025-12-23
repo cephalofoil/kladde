@@ -1559,7 +1559,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
       {/* Save File Dialog */}
       {showSaveDialog && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-6 w-96 max-w-[90vw]">
             <h2 className="text-lg font-semibold mb-4">Save Shadeworks File</h2>
             <div className="mb-4">
