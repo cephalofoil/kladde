@@ -269,10 +269,18 @@ export default function BoardsPage() {
 
             <div className="flex min-h-[46px] flex-wrap items-center gap-2 overflow-x-auto">
               {pinnedBoards.map((board) => (
-                <button
+                <div
                   key={board.id}
                   onClick={() => router.push(`/board/${board.id}`)}
-                  className="group relative flex shrink-0 items-center gap-2 rounded-lg border-2 border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:ring-2 hover:ring-[var(--workspace-color)]"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/board/${board.id}`);
+                    }
+                  }}
+                  className="group relative flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:ring-2 hover:ring-[var(--workspace-color)]"
                   style={{
                     ["--workspace-color" as string]:
                       currentWorkstream?.color || "transparent",
@@ -311,7 +319,7 @@ export default function BoardsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </button>
+                </div>
               ))}
             </div>
           </div>
