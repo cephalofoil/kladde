@@ -72,14 +72,14 @@ export default function BoardsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+    <div className="flex h-screen bg-gray-50 dark:bg-background">
       {/* Workstream Sidebar */}
       <WorkstreamSidebar />
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="border-b bg-white dark:bg-[#0f0f0f] dark:border-[#1a1a1a] px-6 py-4">
+        <header className="border-b bg-white dark:bg-card border-border px-6 py-4">
           {/* Top Row */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -88,12 +88,21 @@ export default function BoardsPage() {
                 alt="Kladde"
                 width={120}
                 height={32}
-                className="h-8 w-auto"
+                className="h-8 w-auto dark:hidden"
               />
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
+              <Image
+                src="/kladde-logo-bright-540.svg"
+                alt="Kladde"
+                width={120}
+                height={32}
+                className="h-8 w-auto hidden dark:block"
+              />
+              <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-                <p className="text-gray-600 dark:text-gray-400">
+                <h1 className="text-2xl font-bold text-foreground">
+                  Dashboard
+                </h1>
+                <p className="text-muted-foreground">
                   {filteredBoards.length}{" "}
                   {filteredBoards.length === 1 ? "board" : "boards"}
                 </p>
@@ -111,7 +120,7 @@ export default function BoardsPage() {
                   className={`p-2 rounded ${
                     dashboardView === "grid"
                       ? "bg-primary text-primary-foreground"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                      : "hover:bg-muted text-foreground"
                   }`}
                   title="Grid view"
                 >
@@ -122,7 +131,7 @@ export default function BoardsPage() {
                   className={`p-2 rounded ${
                     dashboardView === "list"
                       ? "bg-primary text-primary-foreground"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                      : "hover:bg-muted text-foreground"
                   }`}
                   title="List view"
                 >
@@ -148,12 +157,12 @@ export default function BoardsPage() {
         {/* Boards Grid/List */}
         <main className="flex-1 overflow-y-auto p-6">
           {filteredBoards.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-gray-500">
-              <FileText className="h-16 w-16 text-gray-300 mb-6" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+              <FileText className="h-16 w-16 text-muted mb-6" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">
                 No boards found
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-muted-foreground mb-6">
                 {searchQuery || selectedTags.length > 0
                   ? "Try adjusting your search or filter criteria"
                   : "Get started by creating your first board"}
