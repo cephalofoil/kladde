@@ -60,11 +60,11 @@ export function WorkstreamSidebar() {
   };
 
   return (
-    <aside className="w-64 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+    <aside className="w-64 border-r border-gray-200 bg-white dark:border-[#1a1a1a] dark:bg-[#0f0f0f]">
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="border-b border-gray-200 p-4 dark:border-gray-800">
-          <h2 className="text-lg font-semibold">Workstreams</h2>
+        <div className="border-b border-gray-200 p-4 dark:border-[#1a1a1a]">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Workstreams</h2>
         </div>
 
         {/* Workstream List */}
@@ -79,8 +79,8 @@ export function WorkstreamSidebar() {
                 key={workstream.id}
                 className={`group relative mb-1 rounded-lg ${
                   isActive
-                    ? "bg-blue-50 dark:bg-blue-950/30"
-                    : "hover:bg-gray-50 dark:hover:bg-gray-900"
+                    ? "bg-gray-100 dark:bg-[#1a1a1a]"
+                    : "hover:bg-gray-50 dark:hover:bg-[#1a1a1a]/50"
                 }`}
               >
                 <button
@@ -103,14 +103,14 @@ export function WorkstreamSidebar() {
                       }}
                       onClick={(e) => e.stopPropagation()}
                       autoFocus
-                      className="flex-1 rounded border border-blue-500 px-1 text-sm outline-none"
+                      className="flex-1 rounded border border-primary bg-white px-1 text-sm text-gray-900 outline-none dark:bg-[#1a1a1a] dark:text-gray-100"
                     />
                   ) : (
                     <>
-                      <span className="flex-1 truncate text-sm font-medium">
+                      <span className="flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                         {workstream.name}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {boardCount}
                       </span>
                     </>
@@ -164,7 +164,7 @@ export function WorkstreamSidebar() {
           ) : (
             <button
               onClick={() => setIsCreating(true)}
-              className="mt-2 flex w-full items-center gap-2 rounded-lg p-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-900"
+              className="mt-2 flex w-full items-center gap-2 rounded-lg p-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-[#1a1a1a]"
             >
               <Plus className="h-4 w-4" />
               New Workstream

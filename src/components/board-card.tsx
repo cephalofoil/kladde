@@ -75,10 +75,10 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
     return (
       <div
         onClick={handleClick}
-        className="flex cursor-pointer items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-950"
+        className="flex cursor-pointer items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-[#1a1a1a] dark:bg-[#0f0f0f]"
       >
         {/* Thumbnail */}
-        <div className="h-16 w-24 flex-shrink-0 rounded border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+        <div className="h-16 w-24 flex-shrink-0 rounded border border-gray-200 bg-gray-100 dark:border-[#1a1a1a] dark:bg-[#1a1a1a]">
           {board.thumbnail ? (
             <img
               src={board.thumbnail}
@@ -86,7 +86,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               className="h-full w-full rounded object-cover"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-gray-400">
+            <div className="flex h-full items-center justify-center text-xs text-gray-400 dark:text-gray-500">
               Empty
             </div>
           )}
@@ -102,11 +102,11 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
                 onChange={(e) => setNewName(e.target.value)}
                 onBlur={() => setIsRenaming(false)}
                 autoFocus
-                className="w-full rounded border border-blue-500 px-2 py-1 font-semibold outline-none"
+                className="w-full rounded border border-primary bg-white px-2 py-1 font-semibold text-gray-900 outline-none dark:bg-[#1a1a1a] dark:text-gray-100"
               />
             </form>
           ) : (
-            <h3 className="truncate font-semibold">{board.name}</h3>
+            <h3 className="truncate font-semibold text-gray-900 dark:text-gray-100">{board.name}</h3>
           )}
           <div className="mt-1 flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
             <span>{board.metadata.elementCount} elements</span>
@@ -183,10 +183,10 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
   return (
     <div
       onClick={handleClick}
-      className="group relative cursor-pointer rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-lg dark:border-gray-800 dark:bg-gray-950"
+      className="group relative cursor-pointer rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-lg dark:border-[#1a1a1a] dark:bg-[#0f0f0f]"
     >
       {/* Thumbnail */}
-      <div className="aspect-video w-full overflow-hidden rounded-t-lg bg-gray-100 dark:bg-gray-800">
+      <div className="aspect-video w-full overflow-hidden rounded-t-lg bg-gray-100 dark:bg-[#1a1a1a]">
         {board.thumbnail ? (
           <img
             src={board.thumbnail}
@@ -194,7 +194,7 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-gray-400">
+          <div className="flex h-full items-center justify-center text-gray-400 dark:text-gray-500">
             <span className="text-sm">Empty board</span>
           </div>
         )}
@@ -210,11 +210,11 @@ export function BoardCard({ board, viewMode = "grid" }: BoardCardProps) {
               onChange={(e) => setNewName(e.target.value)}
               onBlur={() => setIsRenaming(false)}
               autoFocus
-              className="w-full rounded border border-blue-500 px-2 py-1 font-semibold outline-none"
+              className="w-full rounded border border-primary bg-white px-2 py-1 font-semibold text-gray-900 outline-none dark:bg-gray-700 dark:text-gray-100"
             />
           </form>
         ) : (
-          <h3 className="truncate font-semibold">{board.name}</h3>
+          <h3 className="truncate font-semibold text-gray-900 dark:text-gray-100">{board.name}</h3>
         )}
 
         <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">

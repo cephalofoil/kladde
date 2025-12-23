@@ -8,6 +8,7 @@ import { BoardFilters } from "@/components/board-filters";
 import { WorkstreamSidebar } from "@/components/workstream-sidebar";
 import { Plus, Grid3x3, List, FileText } from "lucide-react";
 import Image from "next/image";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function BoardsPage() {
   const router = useRouter();
@@ -71,14 +72,14 @@ export default function BoardsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Workstream Sidebar */}
       <WorkstreamSidebar />
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="border-b bg-white px-6 py-4">
+        <header className="border-b bg-white dark:bg-[#0f0f0f] dark:border-[#1a1a1a] px-6 py-4">
           {/* Top Row */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -89,10 +90,10 @@ export default function BoardsPage() {
                 height={32}
                 className="h-8 w-auto"
               />
-              <div className="h-6 w-px bg-gray-300" />
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="text-gray-600">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+                <p className="text-gray-600 dark:text-gray-400">
                   {filteredBoards.length}{" "}
                   {filteredBoards.length === 1 ? "board" : "boards"}
                 </p>
@@ -100,6 +101,9 @@ export default function BoardsPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
               {/* View Toggle */}
               <div className="flex items-center gap-2">
                 <button
@@ -107,7 +111,7 @@ export default function BoardsPage() {
                   className={`p-2 rounded ${
                     dashboardView === "grid"
                       ? "bg-primary text-primary-foreground"
-                      : "hover:bg-gray-100"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                   title="Grid view"
                 >
@@ -118,7 +122,7 @@ export default function BoardsPage() {
                   className={`p-2 rounded ${
                     dashboardView === "list"
                       ? "bg-primary text-primary-foreground"
-                      : "hover:bg-gray-100"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                   title="List view"
                 >

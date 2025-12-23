@@ -48,13 +48,13 @@ export function BoardFilters() {
     <div className="mt-4 space-y-3">
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
         <input
           type="text"
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
           placeholder="Search boards..."
-          className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:focus:border-blue-600"
+          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 outline-none placeholder:text-gray-500 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-[#1a1a1a] dark:bg-[#1a1a1a] dark:text-gray-100 dark:placeholder:text-gray-400 dark:focus:border-primary"
         />
       </div>
 
@@ -70,8 +70,8 @@ export function BoardFilters() {
               onClick={() => toggleTag(tag)}
               className={`rounded-full px-3 py-1 text-sm transition-colors ${
                 selectedTags.includes(tag)
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#1a1a1a] dark:text-gray-300 dark:hover:bg-[#262626]"
               }`}
             >
               {tag}
