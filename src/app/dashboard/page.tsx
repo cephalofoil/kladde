@@ -207,17 +207,17 @@ export default function BoardsPage() {
                   key={workstream.id}
                   onClick={() => switchWorkstream(workstream.id)}
                   aria-current={isActive ? "page" : undefined}
-                  className={`relative flex shrink-0 items-center gap-2.5 px-6 py-3 text-sm font-medium transition-all hover:bg-[var(--workspace-color-soft)] ${
+                  className={`relative flex shrink-0 items-center gap-2.5 px-6 py-3 text-sm font-medium transition-all ${
                     isActive
-                      ? "z-10 bg-background text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "z-10 bg-[var(--workspace-color)] text-white"
+                      : "text-muted-foreground hover:bg-[var(--workspace-color-soft)] hover:text-foreground"
                   }`}
                   style={{
                     borderTopLeftRadius: "12px",
                     borderTopRightRadius: "12px",
                     ["--workspace-color" as string]: workstream.color,
                     ["--workspace-color-soft" as string]:
-                      "color-mix(in oklch, var(--workspace-color) 18%, transparent)",
+                      "color-mix(in oklch, var(--workspace-color) 55%, transparent)",
                     borderTop: "3px solid var(--workspace-color)",
                     borderLeft: "3px solid var(--workspace-color)",
                     borderRight: "3px solid var(--workspace-color)",
