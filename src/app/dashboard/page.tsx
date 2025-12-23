@@ -6,7 +6,8 @@ import { useBoardStore } from "@/store/board-store";
 import { BoardCard } from "@/components/board-card";
 import { BoardFilters } from "@/components/board-filters";
 import { WorkstreamSidebar } from "@/components/workstream-sidebar";
-import { Plus, Grid3x3, List } from "lucide-react";
+import { Plus, Grid3x3, List, FileText } from "lucide-react";
+import Image from "next/image";
 
 export default function BoardsPage() {
   const router = useRouter();
@@ -63,63 +64,74 @@ export default function BoardsPage() {
 
   if (!isClient) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="text-lg">Loading boards...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-screen bg-gray-50">
       {/* Workstream Sidebar */}
       <WorkstreamSidebar />
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-950">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">My Boards</h1>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {filteredBoards.length}{" "}
-                {filteredBoards.length === 1 ? "board" : "boards"}
-              </p>
+        <header className="border-b bg-white px-6 py-4">
+          {/* Top Row */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Image
+                src="/kladde-logo.svg"
+                alt="Kladde"
+                width={120}
+                height={32}
+                className="h-8 w-auto"
+              />
+              <div className="h-6 w-px bg-gray-300" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+                <p className="text-gray-600">
+                  {filteredBoards.length}{" "}
+                  {filteredBoards.length === 1 ? "board" : "boards"}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
               {/* View Toggle */}
-              <div className="flex rounded-lg border border-gray-300 dark:border-gray-700">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setDashboardView("grid")}
-                  className={`p-2 ${
+                  className={`p-2 rounded ${
                     dashboardView === "grid"
-                      ? "bg-gray-100 dark:bg-gray-800"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-gray-100"
                   }`}
                   title="Grid view"
                 >
-                  <Grid3x3 className="h-5 w-5" />
+                  <Grid3x3 className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setDashboardView("list")}
-                  className={`p-2 ${
+                  className={`p-2 rounded ${
                     dashboardView === "list"
-                      ? "bg-gray-100 dark:bg-gray-800"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-gray-100"
                   }`}
                   title="List view"
                 >
-                  <List className="h-5 w-5" />
+                  <List className="h-4 w-4" />
                 </button>
               </div>
 
               {/* Create Board Button */}
               <button
                 onClick={handleCreateBoard}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:opacity-90 transition-opacity"
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-4 w-4" />
                 New Board
               </button>
             </div>
@@ -133,12 +145,21 @@ export default function BoardsPage() {
         <main className="flex-1 overflow-y-auto p-6">
           {filteredBoards.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-gray-500">
-              <p className="text-lg">No boards found</p>
+              <FileText className="h-16 w-16 text-gray-300 mb-6" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No boards found
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {searchQuery || selectedTags.length > 0
+                  ? "Try adjusting your search or filter criteria"
+                  : "Get started by creating your first board"}
+              </p>
               <button
                 onClick={handleCreateBoard}
-                className="mt-4 text-blue-600 hover:underline"
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:opacity-90 transition-opacity"
               >
-                Create your first board
+                <Plus className="h-4 w-4" />
+                Create New Board
               </button>
             </div>
           ) : dashboardView === "grid" ? (
