@@ -221,9 +221,7 @@ export default function BoardsPage() {
                     borderTop: "3px solid var(--workspace-color)",
                     borderLeft: "3px solid var(--workspace-color)",
                     borderRight: "3px solid var(--workspace-color)",
-                    borderBottom: isActive
-                      ? "1px solid hsl(var(--background))"
-                      : "1px solid transparent",
+                    borderBottom: "none",
                     marginBottom: isActive ? "-1px" : "0",
                   }}
                 >
