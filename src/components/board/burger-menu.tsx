@@ -229,7 +229,7 @@ export function BurgerMenu({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "p-2.5 rounded-md transition-all duration-200 inline-flex items-center justify-center leading-none select-none",
+            "h-10 w-10 rounded-md transition-all duration-200 inline-flex items-center justify-center leading-none select-none",
             "bg-card/95 backdrop-blur-md border border-border",
             "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
             "shadow-2xl",

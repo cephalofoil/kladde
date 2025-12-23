@@ -1243,16 +1243,16 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         {!hideLogoBar && (
           <a
             href="/"
-            className="bg-card/95 backdrop-blur-md border border-border rounded-md px-3 py-2 shadow-2xl hover:bg-muted/60 transition-colors"
+            className="h-10 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
           >
             <img
               src={
                 (resolvedTheme || theme) === "light"
-                  ? "/logo-text-sw-dark.svg"
-                  : "/logo-text-sw-white.svg"
+                  ? "/kladde-logo.svg"
+                  : "/kladde-logo-bright-540.svg"
               }
-              alt="Shadeworks"
-              className="h-6"
+              alt="Kladde"
+              className="h-5 w-auto"
             />
           </a>
         )}
