@@ -1,0 +1,2682 @@
+import { useCallback } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { v4 as uuid } from "uuid";
+import type { Tool, BoardElement, Point } from "@/lib/board-types";
+import { isClosedShape } from "@/lib/board-types";
+import type { CollaborationManager } from "@/lib/collaboration";
+import type { CanvasState } from "../hooks/useCanvasState";
+import type { BoundingBox, ConnectorDragKind, ResizeHandle } from "../types";
+import {
+    expandBounds,
+    getBoundsCenter,
+    getOppositeResizeHandle,
+    getHandlePointFromBounds,
+    getResizeHandleFromSelectionEdge,
+    getRotatedResizeCursor,
+    radToDeg,
+    rotatePoint,
+    rotateVector,
+} from "../geometry";
+import {
+    getCubicBezierPoint,
+    getCatmullRomControlPoints,
+    getElbowPolylineForVertices,
+    simplifyElbowPolyline,
+} from "../curves";
+import {
+    getBoundingBox,
+    getBoxSelectedIds,
+    getGroupSelectionIds,
+} from "../shapes";
+import {
+    getMinSingleCharWidth,
+    measureWrappedTextHeightPx,
+} from "../text-utils";
+
+interface UseCanvasHandlersProps {
+    state: CanvasState;
+    tool: Tool;
+    strokeColor: string;
+    strokeWidth: number;
+    fillColor: string;
+    opacity: number;
+    strokeStyle: "solid" | "dashed" | "dotted";
+    lineCap: "butt" | "round";
+    connectorStyle: "sharp" | "curved" | "elbow";
+    arrowStart: NonNullable<BoardElement["arrowStart"]>;
+    arrowEnd: NonNullable<BoardElement["arrowEnd"]>;
+    cornerRadius: number;
+    fontFamily: string;
+    textAlign: "left" | "center" | "right";
+    fontSize: number;
+    letterSpacing: number;
+    lineHeight: number;
+    fillPattern: "none" | "solid" | "criss-cross";
+    collaboration: CollaborationManager | null;
+    elements: BoardElement[];
+    selectedBounds: BoundingBox | null;
+    selectedElements: BoardElement[];
+    onAddElement: (element: BoardElement) => void;
+    onUpdateElement: (id: string, updates: Partial<BoardElement>) => void;
+    onDeleteElement: (id: string) => void;
+    onStartTransform?: () => void;
+    onToolChange?: (tool: Tool) => void;
+    onManualViewportChange?: () => void;
+    isToolLocked: boolean;
+    isReadOnly: boolean;
+}
+
+export function useCanvasHandlers({
+    state,
+    tool,
+    strokeColor,
+    strokeWidth,
+    fillColor,
+    opacity,
+    strokeStyle,
+    lineCap,
+    connectorStyle,
+    arrowStart,
+    arrowEnd,
+    cornerRadius,
+    fontFamily,
+    textAlign,
+    fontSize,
+    letterSpacing,
+    lineHeight,
+    fillPattern,
+    collaboration,
+    elements,
+    selectedBounds,
+    selectedElements,
+    onAddElement,
+    onUpdateElement,
+    onDeleteElement,
+    onStartTransform,
+    onToolChange,
+    onManualViewportChange,
+    isToolLocked,
+    isReadOnly,
+}: UseCanvasHandlersProps) {
+    const {
+        drawing,
+        selection,
+        transform,
+        viewport,
+        text,
+        eraser,
+        laser,
+        ui,
+        refs,
+    } = state;
+    const {
+        isDrawing,
+        setIsDrawing,
+        currentElement,
+        setCurrentElement,
+        startPoint,
+        setStartPoint,
+    } = drawing;
+    const { selectedIds, setSelectedIds, remotelySelectedIds } = selection;
+    const {
+        isDragging,
+        setIsDragging,
+        isResizing,
+        setIsResizing,
+        isRotating,
+        setIsRotating,
+        dragStart,
+        setDragStart,
+        resizeHandle,
+        setResizeHandle,
+        originalElements,
+        setOriginalElements,
+        originalBounds,
+        setOriginalBounds,
+        rotateStart,
+        setRotateStart,
+        rotateHandleSide,
+        draggingConnectorPoint,
+        setDraggingConnectorPoint,
+    } = transform;
+    const {
+        pan,
+        setPan,
+        zoom,
+        isPanning,
+        setIsPanning,
+        panStart,
+        setPanStart,
+    } = viewport;
+    const {
+        textInput,
+        setTextInput,
+        textValue,
+        setTextValue,
+        editingTextElementId,
+        setEditingTextElementId,
+        editingTextStyle,
+        setEditingTextStyle,
+    } = text;
+    const { eraserMarkedIds, setEraserMarkedIds, setEraserCursorPos } = eraser;
+    const { setLaserCursorPos } = laser;
+    const {
+        hoverCursor,
+        setHoverCursor,
+        lastMousePos,
+        setLastMousePos,
+        isBoxSelecting,
+        setIsBoxSelecting,
+        selectionBox,
+        setSelectionBox,
+        shiftPressed,
+    } = ui;
+    const {
+        svgRef,
+        eraserTrailRef,
+        textInputRef,
+        pendingCursorPosRef,
+        cursorBroadcastRafRef,
+        textSaveTimeoutRef,
+    } = refs;
+
+    const getMousePosition = useCallback(
+        (e: ReactMouseEvent): Point => {
+            const svg = svgRef.current;
+            if (!svg) return { x: 0, y: 0 };
+
+            const rect = svg.getBoundingClientRect();
+            return {
+                x: (e.clientX - rect.left - pan.x) / zoom,
+                y: (e.clientY - rect.top - pan.y) / zoom,
+            };
+        },
+        [pan, zoom, svgRef],
+    );
+
+    // Helper function to check if a point is near a line segment
+    const pointToLineDistance = (
+        point: Point,
+        lineStart: Point,
+        lineEnd: Point,
+    ): number => {
+        const dx = lineEnd.x - lineStart.x;
+        const dy = lineEnd.y - lineStart.y;
+        const lengthSquared = dx * dx + dy * dy;
+
+        if (lengthSquared === 0) {
+            // Line segment is actually a point
+            return Math.hypot(point.x - lineStart.x, point.y - lineStart.y);
+        }
+
+        // Calculate projection of point onto line segment
+        let t =
+            ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) /
+            lengthSquared;
+        t = Math.max(0, Math.min(1, t));
+
+        const projX = lineStart.x + t * dx;
+        const projY = lineStart.y + t * dy;
+
+        return Math.hypot(point.x - projX, point.y - projY);
+    };
+
+    // Helper function to find elements at a point that should be erased
+    const getElementsToErase = useCallback(
+        (point: Point): string[] => {
+            const eraseRadius = strokeWidth * 2;
+            const toErase: string[] = [];
+
+            elements.forEach((el) => {
+                // Skip elements that are selected by remote users
+                if (remotelySelectedIds.has(el.id)) return;
+                if (
+                    el.type === "pen" ||
+                    el.type === "line" ||
+                    el.type === "arrow"
+                ) {
+                    const getConnectorHitTestPoints = (): Point[] => {
+                        if (
+                            (el.type !== "line" && el.type !== "arrow") ||
+                            el.points.length < 2
+                        ) {
+                            return el.points;
+                        }
+
+                        const style = el.connectorStyle || "sharp";
+
+                        if (style === "elbow") {
+                            if (el.points.length === 2) return el.points;
+
+                            const start = el.points[0];
+                            const end =
+                                el.points[el.points.length - 1] ?? start;
+                            const control = el.points[1] ?? start;
+                            const route =
+                                el.elbowRoute ||
+                                (Math.abs(end.x - start.x) >=
+                                Math.abs(end.y - start.y)
+                                    ? "vertical"
+                                    : "horizontal");
+
+                            const elbowEps = 0.5 / zoom;
+                            const points =
+                                el.points.length === 3
+                                    ? route === "vertical"
+                                        ? [
+                                              start,
+                                              { x: control.x, y: start.y },
+                                              { x: control.x, y: end.y },
+                                              end,
+                                          ]
+                                        : [
+                                              start,
+                                              { x: start.x, y: control.y },
+                                              { x: end.x, y: control.y },
+                                              end,
+                                          ]
+                                    : getElbowPolylineForVertices(
+                                          el.points,
+                                          elbowEps,
+                                      );
+                            return points;
+                        }
+
+                        if (style === "curved") {
+                            const sampleQuadratic = (
+                                p0: Point,
+                                c: Point,
+                                p1: Point,
+                                segments: number,
+                            ): Point[] => {
+                                const pts: Point[] = [];
+                                for (let i = 0; i <= segments; i++) {
+                                    const t = i / segments;
+                                    const mt = 1 - t;
+                                    pts.push({
+                                        x:
+                                            mt * mt * p0.x +
+                                            2 * mt * t * c.x +
+                                            t * t * p1.x,
+                                        y:
+                                            mt * mt * p0.y +
+                                            2 * mt * t * c.y +
+                                            t * t * p1.y,
+                                    });
+                                }
+                                return pts;
+                            };
+
+                            const sampleCatmullRom = (
+                                points: Point[],
+                                stepsPerSegment: number,
+                            ): Point[] => {
+                                if (points.length < 2) return points;
+                                const out: Point[] = [];
+                                for (let i = 0; i < points.length - 1; i++) {
+                                    const p0 = points[i - 1] ?? points[i];
+                                    const p1 = points[i];
+                                    const p2 = points[i + 1];
+                                    const p3 = points[i + 2] ?? p2;
+                                    const { c1, c2 } =
+                                        getCatmullRomControlPoints(
+                                            p0,
+                                            p1,
+                                            p2,
+                                            p3,
+                                        );
+                                    const startStep = i === 0 ? 0 : 1;
+                                    for (
+                                        let s = startStep;
+                                        s <= stepsPerSegment;
+                                        s++
+                                    ) {
+                                        const t = s / stepsPerSegment;
+                                        out.push(
+                                            getCubicBezierPoint(
+                                                p1,
+                                                c1,
+                                                c2,
+                                                p2,
+                                                t,
+                                            ),
+                                        );
+                                    }
+                                }
+                                return out;
+                            };
+
+                            const start = el.points[0];
+                            const end =
+                                el.points[el.points.length - 1] ?? start;
+                            const control = el.points[1] ?? start;
+
+                            if (el.points.length === 3) {
+                                return sampleQuadratic(start, control, end, 32);
+                            }
+
+                            return sampleCatmullRom(el.points, 12);
+                        }
+
+                        return el.points;
+                    };
+
+                    const pointsToCheck =
+                        el.type === "pen"
+                            ? el.points
+                            : getConnectorHitTestPoints();
+                    // Check if eraser intersects with any segment of the path
+                    let isNear = false;
+                    for (let i = 0; i < pointsToCheck.length - 1; i++) {
+                        const distance = pointToLineDistance(
+                            point,
+                            pointsToCheck[i],
+                            pointsToCheck[i + 1],
+                        );
+                        if (distance < eraseRadius + (el.strokeWidth || 2)) {
+                            isNear = true;
+                            break;
+                        }
+                    }
+                    // Also check if eraser is near any single point (for pen strokes with single points)
+                    if (!isNear && pointsToCheck.length === 1) {
+                        isNear =
+                            Math.hypot(
+                                point.x - pointsToCheck[0].x,
+                                point.y - pointsToCheck[0].y,
+                            ) < eraseRadius;
+                    }
+                    if (isNear) toErase.push(el.id);
+                } else if (
+                    el.type === "rectangle" ||
+                    el.type === "diamond" ||
+                    el.type === "ellipse"
+                ) {
+                    if (
+                        el.x !== undefined &&
+                        el.y !== undefined &&
+                        el.width !== undefined &&
+                        el.height !== undefined
+                    ) {
+                        // Check if eraser circle intersects with the shape bounds
+                        const closestX = Math.max(
+                            el.x,
+                            Math.min(point.x, el.x + el.width),
+                        );
+                        const closestY = Math.max(
+                            el.y,
+                            Math.min(point.y, el.y + el.height),
+                        );
+                        const distance = Math.hypot(
+                            point.x - closestX,
+                            point.y - closestY,
+                        );
+                        if (distance < eraseRadius) toErase.push(el.id);
+                    }
+                } else if (el.type === "text") {
+                    const bounds = getBoundingBox(el);
+                    if (bounds) {
+                        // Check if eraser circle intersects with text bounds
+                        const closestX = Math.max(
+                            bounds.x,
+                            Math.min(point.x, bounds.x + bounds.width),
+                        );
+                        const closestY = Math.max(
+                            bounds.y,
+                            Math.min(point.y, bounds.y + bounds.height),
+                        );
+                        const distance = Math.hypot(
+                            point.x - closestX,
+                            point.y - closestY,
+                        );
+                        if (distance < eraseRadius) toErase.push(el.id);
+                    }
+                } else if (el.type === "frame" || el.type === "web-embed") {
+                    if (
+                        el.x !== undefined &&
+                        el.y !== undefined &&
+                        el.width !== undefined &&
+                        el.height !== undefined
+                    ) {
+                        // Check if eraser circle intersects with the frame bounds
+                        const closestX = Math.max(
+                            el.x,
+                            Math.min(point.x, el.x + el.width),
+                        );
+                        const closestY = Math.max(
+                            el.y,
+                            Math.min(point.y, el.y + el.height),
+                        );
+                        const distance = Math.hypot(
+                            point.x - closestX,
+                            point.y - closestY,
+                        );
+                        if (distance < eraseRadius) toErase.push(el.id);
+                    }
+                }
+            });
+
+            return toErase;
+        },
+        [elements, strokeWidth, remotelySelectedIds, zoom],
+    );
+
+    const handleMouseMove = useCallback(
+        (e: ReactMouseEvent) => {
+            if (isReadOnly && !isPanning) return;
+
+            const point = getMousePosition(e);
+            setLastMousePos(point);
+
+            // Track eraser cursor position
+            if (tool === "eraser") {
+                setEraserCursorPos(point);
+            }
+
+            // Track laser cursor position
+            if (tool === "laser") {
+                setLaserCursorPos(point);
+            }
+
+            if (!isReadOnly && collaboration) {
+                pendingCursorPosRef.current = point;
+                if (cursorBroadcastRafRef.current === null) {
+                    cursorBroadcastRafRef.current = requestAnimationFrame(
+                        () => {
+                            cursorBroadcastRafRef.current = null;
+                            const pending = pendingCursorPosRef.current;
+                            if (pending) {
+                                collaboration.updateCursor(
+                                    pending.x,
+                                    pending.y,
+                                );
+                            }
+                        },
+                    );
+                }
+            }
+
+            // Handle panning
+            if (isPanning) {
+                setPan({
+                    x: e.clientX - panStart.x,
+                    y: e.clientY - panStart.y,
+                });
+                return;
+            }
+
+            // Handle box selection
+            if (isBoxSelecting && startPoint) {
+                const x = Math.min(startPoint.x, point.x);
+                const y = Math.min(startPoint.y, point.y);
+                const width = Math.abs(point.x - startPoint.x);
+                const height = Math.abs(point.y - startPoint.y);
+                const nextSelectionBox = { x, y, width, height };
+                setSelectionBox(nextSelectionBox);
+
+                // Live-update selection while dragging: only select elements that are fully inside the box.
+                const minBoxSize = 5;
+                if (
+                    nextSelectionBox.width >= minBoxSize ||
+                    nextSelectionBox.height >= minBoxSize
+                ) {
+                    // Filter out remotely selected elements from box selection
+                    const boxSelected = getBoxSelectedIds(
+                        elements,
+                        nextSelectionBox,
+                    ).filter((id) => !remotelySelectedIds.has(id));
+                    setSelectedIds(boxSelected);
+                } else {
+                    setSelectedIds([]);
+                }
+                return;
+            }
+
+            // Handle rotate dragging (single selection)
+            if (isRotating && rotateStart) {
+                const currentPointerAngleRad = Math.atan2(
+                    point.y - rotateStart.center.y,
+                    point.x - rotateStart.center.x,
+                );
+                const deltaDeg = radToDeg(
+                    currentPointerAngleRad - rotateStart.startPointerAngleRad,
+                );
+                let nextRotationDeg = rotateStart.startRotationDeg + deltaDeg;
+
+                if (shiftPressed) {
+                    const snap = 15;
+                    nextRotationDeg = Math.round(nextRotationDeg / snap) * snap;
+                }
+
+                onUpdateElement(rotateStart.elementId, {
+                    rotation: nextRotationDeg,
+                });
+                return;
+            }
+
+            // Hover feedback for selection border resize / rotate handle (single selection)
+            if (
+                tool === "select" &&
+                !isDragging &&
+                !isResizing &&
+                !isRotating &&
+                !isBoxSelecting &&
+                selectedBounds &&
+                selectedIds.length === 1
+            ) {
+                const selectionPadding = 6 / zoom;
+                const visualBounds = expandBounds(
+                    selectedBounds,
+                    selectionPadding,
+                );
+                const selectedElement = elements.find(
+                    (el) => el.id === selectedIds[0],
+                );
+                const rotationDeg = selectedElement?.rotation ?? 0;
+
+                const edgeHandle = getResizeHandleFromSelectionEdge(
+                    point,
+                    visualBounds,
+                    rotationDeg,
+                    10 / zoom,
+                );
+                if (edgeHandle) {
+                    setHoverCursor(
+                        getRotatedResizeCursor(edgeHandle, rotationDeg),
+                    );
+                } else if (
+                    selectedElement &&
+                    selectedElement.type !== "laser" &&
+                    (selectedElement.type !== "line" &&
+                    selectedElement.type !== "arrow"
+                        ? true
+                        : selectedElement.points.length >= 3)
+                ) {
+                    const center = getBoundsCenter(visualBounds);
+                    const rotateHandleDistance = 28 / zoom;
+                    const rotateHandleRadius = 4 / zoom;
+
+                    const localAnchor: Point =
+                        rotateHandleSide === "n"
+                            ? {
+                                  x: visualBounds.x + visualBounds.width / 2,
+                                  y: visualBounds.y,
+                              }
+                            : rotateHandleSide === "e"
+                              ? {
+                                    x: visualBounds.x + visualBounds.width,
+                                    y: visualBounds.y + visualBounds.height / 2,
+                                }
+                              : rotateHandleSide === "s"
+                                ? {
+                                      x:
+                                          visualBounds.x +
+                                          visualBounds.width / 2,
+                                      y: visualBounds.y + visualBounds.height,
+                                  }
+                                : {
+                                      x: visualBounds.x,
+                                      y:
+                                          visualBounds.y +
+                                          visualBounds.height / 2,
+                                  };
+
+                    const outward: Point =
+                        rotateHandleSide === "n"
+                            ? { x: 0, y: -1 }
+                            : rotateHandleSide === "e"
+                              ? { x: 1, y: 0 }
+                              : rotateHandleSide === "s"
+                                ? { x: 0, y: 1 }
+                                : { x: -1, y: 0 };
+
+                    const localHandle: Point = {
+                        x: localAnchor.x + outward.x * rotateHandleDistance,
+                        y: localAnchor.y + outward.y * rotateHandleDistance,
+                    };
+
+                    const handlePos = rotationDeg
+                        ? rotatePoint(localHandle, center, rotationDeg)
+                        : localHandle;
+                    if (
+                        Math.hypot(
+                            point.x - handlePos.x,
+                            point.y - handlePos.y,
+                        ) <=
+                        rotateHandleRadius * 2.25
+                    ) {
+                        setHoverCursor("grab");
+                    } else {
+                        setHoverCursor(null);
+                    }
+                } else {
+                    setHoverCursor(null);
+                }
+            } else if (hoverCursor) {
+                setHoverCursor(null);
+            }
+
+            // Handle connector point dragging (line/arrow)
+            if (draggingConnectorPoint && originalElements.length === 1) {
+                const originalElement = originalElements[0];
+                if (
+                    (originalElement.type === "line" ||
+                        originalElement.type === "arrow") &&
+                    originalElement.points.length >= 2
+                ) {
+                    const rotationDeg = originalElement.rotation ?? 0;
+                    let localPoint = point;
+                    if (rotationDeg) {
+                        const bounds = getBoundingBox(originalElement);
+                        if (bounds) {
+                            const center = getBoundsCenter(bounds);
+                            localPoint = rotatePoint(
+                                point,
+                                center,
+                                -rotationDeg,
+                            );
+                        }
+                    }
+
+                    const style =
+                        originalElement.connectorStyle ?? connectorStyle;
+                    const index = draggingConnectorPoint.index;
+                    let newPoints = [...originalElement.points];
+
+                    if (
+                        draggingConnectorPoint.kind === "elbowOrtho" &&
+                        style === "elbow" &&
+                        index >= 0 &&
+                        index < newPoints.length
+                    ) {
+                        const axis = draggingConnectorPoint.axis ?? "x";
+                        const current = newPoints[index];
+                        const eps = 0.5 / zoom;
+
+                        const delta =
+                            axis === "x"
+                                ? localPoint.x - current.x
+                                : localPoint.y - current.y;
+                        const same = (a: number, b: number) =>
+                            Math.abs(a - b) <= eps;
+
+                        let left = index;
+                        let right = index;
+
+                        if (axis === "x") {
+                            const base = current.x;
+                            while (
+                                left > 0 &&
+                                same(newPoints[left - 1].x, base)
+                            )
+                                left--;
+                            while (
+                                right < newPoints.length - 1 &&
+                                same(newPoints[right + 1].x, base)
+                            )
+                                right++;
+
+                            for (let i = left; i <= right; i++) {
+                                newPoints[i] = {
+                                    x: newPoints[i].x + delta,
+                                    y: newPoints[i].y,
+                                };
+                            }
+                        } else {
+                            const base = current.y;
+                            while (
+                                left > 0 &&
+                                same(newPoints[left - 1].y, base)
+                            )
+                                left--;
+                            while (
+                                right < newPoints.length - 1 &&
+                                same(newPoints[right + 1].y, base)
+                            )
+                                right++;
+
+                            for (let i = left; i <= right; i++) {
+                                newPoints[i] = {
+                                    x: newPoints[i].x,
+                                    y: newPoints[i].y + delta,
+                                };
+                            }
+                        }
+
+                        onUpdateElement(originalElement.id, {
+                            points: newPoints,
+                        });
+                        return;
+                    }
+
+                    if (
+                        draggingConnectorPoint.kind === "elbowEdge" &&
+                        style === "elbow" &&
+                        draggingConnectorPoint.range &&
+                        draggingConnectorPoint.anchor
+                    ) {
+                        const [r0, r1] = draggingConnectorPoint.range;
+                        if (r0 >= 0 && r1 >= r0 && r1 < newPoints.length) {
+                            const axis = draggingConnectorPoint.axis ?? "x";
+                            const delta =
+                                axis === "x"
+                                    ? localPoint.x -
+                                      draggingConnectorPoint.anchor.x
+                                    : localPoint.y -
+                                      draggingConnectorPoint.anchor.y;
+                            const orig = originalElement.points;
+                            const nextPoints = orig.map((p) => ({ ...p }));
+                            for (let i = r0; i <= r1; i++) {
+                                nextPoints[i] =
+                                    axis === "x"
+                                        ? {
+                                              x: nextPoints[i].x + delta,
+                                              y: nextPoints[i].y,
+                                          }
+                                        : {
+                                              x: nextPoints[i].x,
+                                              y: nextPoints[i].y + delta,
+                                          };
+                            }
+                            onUpdateElement(originalElement.id, {
+                                points: nextPoints,
+                            });
+                            return;
+                        }
+                    }
+
+                    if (
+                        draggingConnectorPoint.kind === "createCorner" &&
+                        index === 1 &&
+                        newPoints.length === 2
+                    ) {
+                        const pStart = newPoints[0];
+                        const pEnd = newPoints[newPoints.length - 1];
+
+                        if (style === "curved") {
+                            newPoints = [
+                                pStart,
+                                {
+                                    x:
+                                        2 * localPoint.x -
+                                        (pStart.x + pEnd.x) / 2,
+                                    y:
+                                        2 * localPoint.y -
+                                        (pStart.y + pEnd.y) / 2,
+                                },
+                                pEnd,
+                            ];
+                            onUpdateElement(originalElement.id, {
+                                points: newPoints,
+                            });
+                            return;
+                        }
+
+                        const updates: Partial<BoardElement> = {
+                            points: [pStart, localPoint, pEnd],
+                        };
+                        if (
+                            style === "elbow" &&
+                            originalElement.elbowRoute === undefined
+                        ) {
+                            updates.elbowRoute =
+                                Math.abs(pEnd.x - pStart.x) >=
+                                Math.abs(pEnd.y - pStart.y)
+                                    ? "vertical"
+                                    : "horizontal";
+                        }
+                        onUpdateElement(originalElement.id, updates);
+                        return;
+                    }
+
+                    if (
+                        draggingConnectorPoint.kind === "curvedMid" &&
+                        style === "curved" &&
+                        index === 1 &&
+                        newPoints.length >= 3
+                    ) {
+                        const pStart = newPoints[0];
+                        const pEnd = newPoints[newPoints.length - 1];
+                        newPoints[1] = {
+                            x: 2 * localPoint.x - (pStart.x + pEnd.x) / 2,
+                            y: 2 * localPoint.y - (pStart.y + pEnd.y) / 2,
+                        };
+                    } else if (
+                        draggingConnectorPoint.kind === "elbowHandle" &&
+                        style === "elbow" &&
+                        index === 1 &&
+                        newPoints.length >= 3
+                    ) {
+                        const pStart = newPoints[0];
+                        const pEnd = newPoints[newPoints.length - 1];
+                        const route =
+                            originalElement.elbowRoute ??
+                            (Math.abs(pEnd.x - pStart.x) >=
+                            Math.abs(pEnd.y - pStart.y)
+                                ? "vertical"
+                                : "horizontal");
+                        const existingControl = newPoints[1];
+                        newPoints[1] =
+                            route === "vertical"
+                                ? { x: localPoint.x, y: existingControl.y }
+                                : { x: existingControl.x, y: localPoint.y };
+                    } else if (
+                        draggingConnectorPoint.kind === "elbowEndpoint" &&
+                        style === "elbow" &&
+                        newPoints.length >= 3
+                    ) {
+                        // For elbow endpoints: move endpoint, adjust adjacent point to maintain
+                        // the second edge's axis. All other edges stay completely fixed.
+                        const isStart = index === 0;
+                        const isEnd = index === newPoints.length - 1;
+                        const eps = 0.5 / zoom;
+
+                        if (isStart) {
+                            // Dragging start (point 0):
+                            // - Point 0 moves freely
+                            // - Point 1 adjusts to maintain edge 1→2 on its axis
+                            // - Points 2+ stay fixed
+                            const p1 = newPoints[1];
+                            const p2 = newPoints[2];
+
+                            // Determine if edge 1→2 is horizontal or vertical
+                            const edge12Horizontal =
+                                Math.abs(p1.y - p2.y) <= eps;
+                            const edge12Vertical = Math.abs(p1.x - p2.x) <= eps;
+
+                            newPoints[0] = localPoint;
+
+                            if (edge12Vertical) {
+                                // Edge 1→2 is vertical (same X), so point 1 keeps X from point 2
+                                // but takes Y from new point 0 to connect the first edge
+                                newPoints[1] = { x: p2.x, y: localPoint.y };
+                            } else if (edge12Horizontal) {
+                                // Edge 1→2 is horizontal (same Y), so point 1 keeps Y from point 2
+                                // but takes X from new point 0 to connect the first edge
+                                newPoints[1] = { x: localPoint.x, y: p2.y };
+                            } else {
+                                // Not axis-aligned, keep point 1 fixed
+                            }
+                        } else if (isEnd) {
+                            // Dragging end (last point):
+                            // - Last point moves freely
+                            // - Second-to-last adjusts to maintain its edge to the third-to-last
+                            // - All other points stay fixed
+                            const lastIdx = newPoints.length - 1;
+                            const p1 = newPoints[lastIdx - 1]; // second to last
+                            const p2 = newPoints[lastIdx - 2]; // third to last
+
+                            // Determine if edge p2→p1 is horizontal or vertical
+                            const edgeHorizontal = Math.abs(p1.y - p2.y) <= eps;
+                            const edgeVertical = Math.abs(p1.x - p2.x) <= eps;
+
+                            newPoints[lastIdx] = localPoint;
+
+                            if (edgeVertical) {
+                                // Edge p2→p1 is vertical (same X), so p1 keeps X from p2
+                                // but takes Y from new endpoint to connect the last edge
+                                newPoints[lastIdx - 1] = {
+                                    x: p2.x,
+                                    y: localPoint.y,
+                                };
+                            } else if (edgeHorizontal) {
+                                // Edge p2→p1 is horizontal (same Y), so p1 keeps Y from p2
+                                // but takes X from new endpoint to connect the last edge
+                                newPoints[lastIdx - 1] = {
+                                    x: localPoint.x,
+                                    y: p2.y,
+                                };
+                            } else {
+                                // Not axis-aligned, keep p1 fixed
+                            }
+                        }
+                    } else if (index >= 0 && index < newPoints.length) {
+                        newPoints[index] = localPoint;
+                    }
+
+                    onUpdateElement(originalElement.id, { points: newPoints });
+                }
+                return;
+            }
+
+            // Handle dragging (moving elements)
+            if (isDragging && dragStart && originalElements.length > 0) {
+                const dx = point.x - dragStart.x;
+                const dy = point.y - dragStart.y;
+
+                originalElements.forEach((origEl) => {
+                    if (
+                        origEl.type === "pen" ||
+                        origEl.type === "line" ||
+                        origEl.type === "arrow"
+                    ) {
+                        const newPoints = origEl.points.map((p) => ({
+                            x: p.x + dx,
+                            y: p.y + dy,
+                        }));
+                        onUpdateElement(origEl.id, { points: newPoints });
+                    } else {
+                        onUpdateElement(origEl.id, {
+                            x: (origEl.x ?? 0) + dx,
+                            y: (origEl.y ?? 0) + dy,
+                        });
+                    }
+                });
+                return;
+            }
+
+            // Handle resizing (single element or multi-selection group)
+            if (
+                isResizing &&
+                dragStart &&
+                originalBounds &&
+                resizeHandle &&
+                originalElements.length > 0
+            ) {
+                const originalElement =
+                    originalElements.length === 1 ? originalElements[0] : null;
+                const rotationDeg = originalElement?.rotation ?? 0;
+                const supportsRotatedResize =
+                    !!originalElement &&
+                    (originalElement.type === "rectangle" ||
+                        originalElement.type === "diamond" ||
+                        originalElement.type === "ellipse" ||
+                        originalElement.type === "frame" ||
+                        originalElement.type === "web-embed");
+
+                const centerForResize = supportsRotatedResize
+                    ? getBoundsCenter(originalBounds)
+                    : null;
+
+                // Rotated resize for box-like elements: keep opposite handle fixed in world space,
+                // compute size in local space (similar to Excalidraw).
+                if (
+                    supportsRotatedResize &&
+                    centerForResize &&
+                    rotationDeg &&
+                    selectedIds.length === 1 &&
+                    originalElements.length === 1
+                ) {
+                    const startHandle = resizeHandle as Exclude<
+                        ResizeHandle,
+                        null
+                    >;
+                    const fixedHandle = getOppositeResizeHandle(startHandle);
+
+                    const fixedLocalPoint = getHandlePointFromBounds(
+                        originalBounds,
+                        fixedHandle,
+                    );
+                    const fixedWorldPoint = rotatePoint(
+                        fixedLocalPoint,
+                        centerForResize,
+                        rotationDeg,
+                    );
+
+                    const vWorld = {
+                        x: point.x - fixedWorldPoint.x,
+                        y: point.y - fixedWorldPoint.y,
+                    };
+                    const vLocal = rotateVector(vWorld, -rotationDeg);
+
+                    // Calculate minimum width based on the widest character in the actual text
+                    const minAbsWidth =
+                        originalElement?.type === "text"
+                            ? getMinSingleCharWidth(
+                                  originalElement.text || "",
+                                  originalElement.fontSize ??
+                                      originalElement.strokeWidth * 4 + 12,
+                                  originalElement.fontFamily ||
+                                      "var(--font-inter)",
+                                  originalElement.letterSpacing ?? 0,
+                              )
+                            : 0;
+                    const minAbsHeight =
+                        originalElement?.type === "text"
+                            ? Math.max(
+                                  2,
+                                  (originalElement.fontSize ??
+                                      originalElement.strokeWidth * 4 + 12) *
+                                      (originalElement.lineHeight ?? 1.4),
+                              )
+                            : 0;
+
+                    const expectedSignX = startHandle.includes("w")
+                        ? -1
+                        : startHandle.includes("e")
+                          ? 1
+                          : 0;
+                    const expectedSignY = startHandle.includes("n")
+                        ? -1
+                        : startHandle.includes("s")
+                          ? 1
+                          : 0;
+                    const clampDirectional = (
+                        value: number,
+                        expectedSign: -1 | 0 | 1,
+                        minAbs: number,
+                    ) => {
+                        if (expectedSign === 0) return value;
+                        const projected = expectedSign * value;
+                        return expectedSign * Math.max(minAbs, projected);
+                    };
+
+                    let widthSigned = originalBounds.width;
+                    let heightSigned = originalBounds.height;
+
+                    const isCorner = startHandle.length === 2;
+                    if (isCorner) {
+                        widthSigned = clampDirectional(
+                            vLocal.x,
+                            expectedSignX,
+                            minAbsWidth,
+                        );
+                        heightSigned = clampDirectional(
+                            vLocal.y,
+                            expectedSignY,
+                            minAbsHeight,
+                        );
+
+                        if (shiftPressed) {
+                            const aspect =
+                                originalBounds.height === 0
+                                    ? 1
+                                    : originalBounds.width /
+                                      originalBounds.height;
+                            const signX =
+                                widthSigned === 0 ? 1 : Math.sign(widthSigned);
+                            const signY =
+                                heightSigned === 0
+                                    ? 1
+                                    : Math.sign(heightSigned);
+                            const absW = Math.abs(widthSigned);
+                            const absH = Math.abs(heightSigned);
+                            const wFromH = absH * aspect;
+                            const hFromW = absW / aspect;
+                            if (
+                                Math.abs(wFromH - absW) <
+                                Math.abs(hFromW - absH)
+                            ) {
+                                widthSigned = signX * wFromH;
+                            } else {
+                                heightSigned = signY * hFromW;
+                            }
+                        }
+                    } else if (startHandle === "e" || startHandle === "w") {
+                        widthSigned = clampDirectional(
+                            vLocal.x,
+                            expectedSignX,
+                            minAbsWidth,
+                        );
+                        heightSigned = originalBounds.height;
+                    } else if (startHandle === "n" || startHandle === "s") {
+                        widthSigned = originalBounds.width;
+                        heightSigned = clampDirectional(
+                            vLocal.y,
+                            expectedSignY,
+                            minAbsHeight,
+                        );
+                    }
+
+                    const nextW = Math.abs(widthSigned);
+                    const nextH = Math.abs(heightSigned);
+
+                    const centerOffsetLocal = isCorner
+                        ? { x: widthSigned / 2, y: heightSigned / 2 }
+                        : startHandle === "e" || startHandle === "w"
+                          ? { x: widthSigned / 2, y: 0 }
+                          : { x: 0, y: heightSigned / 2 };
+
+                    const centerOffsetWorld = rotateVector(
+                        centerOffsetLocal,
+                        rotationDeg,
+                    );
+                    const nextCenter = {
+                        x: fixedWorldPoint.x + centerOffsetWorld.x,
+                        y: fixedWorldPoint.y + centerOffsetWorld.y,
+                    };
+
+                    const nextX = nextCenter.x - nextW / 2;
+                    const nextY = nextCenter.y - nextH / 2;
+
+                    if (
+                        originalElement.type === "rectangle" ||
+                        originalElement.type === "diamond" ||
+                        originalElement.type === "ellipse" ||
+                        originalElement.type === "frame" ||
+                        originalElement.type === "web-embed"
+                    ) {
+                        onUpdateElement(selectedIds[0], {
+                            x: nextX,
+                            y: nextY,
+                            width: nextW,
+                            height: nextH,
+                        });
+                        return;
+                    }
+
+                    if (originalElement.type === "text") {
+                        onUpdateElement(selectedIds[0], {
+                            x: nextX,
+                            y: nextY,
+                            width: nextW,
+                            height: nextH,
+                        });
+                        return;
+                    }
+                }
+
+                const dx = point.x - dragStart.x;
+                const dy = point.y - dragStart.y;
+
+                let newX = originalBounds.x;
+                let newY = originalBounds.y;
+                let newWidth = originalBounds.width;
+                let newHeight = originalBounds.height;
+
+                const aspectRatio =
+                    originalBounds.height === 0
+                        ? 1
+                        : originalBounds.width / originalBounds.height;
+                const originalLeft = originalBounds.x;
+                const originalTop = originalBounds.y;
+                const originalRight = originalBounds.x + originalBounds.width;
+                const originalBottom = originalBounds.y + originalBounds.height;
+
+                switch (resizeHandle) {
+                    case "nw":
+                        newX = originalBounds.x + dx;
+                        newY = originalBounds.y + dy;
+                        newWidth = originalBounds.width - dx;
+                        newHeight = originalBounds.height - dy;
+                        if (shiftPressed) {
+                            const avgDelta = (dx + dy) / 2;
+                            newX = originalBounds.x + avgDelta;
+                            newY = originalBounds.y + avgDelta / aspectRatio;
+                            newWidth = originalBounds.width - avgDelta;
+                            newHeight = newWidth / aspectRatio;
+                        }
+                        break;
+                    case "n":
+                        newY = originalBounds.y + dy;
+                        newHeight = originalBounds.height - dy;
+                        if (shiftPressed) {
+                            newWidth = newHeight * aspectRatio;
+                            newX =
+                                originalBounds.x +
+                                (originalBounds.width - newWidth) / 2;
+                        }
+                        break;
+                    case "ne":
+                        newY = originalBounds.y + dy;
+                        newWidth = originalBounds.width + dx;
+                        newHeight = originalBounds.height - dy;
+                        if (shiftPressed) {
+                            const avgDelta = (dx - dy) / 2;
+                            newWidth = originalBounds.width + avgDelta;
+                            newHeight = newWidth / aspectRatio;
+                            newY =
+                                originalBounds.y +
+                                originalBounds.height -
+                                newHeight;
+                        }
+                        break;
+                    case "e":
+                        newWidth = originalBounds.width + dx;
+                        if (shiftPressed) {
+                            newHeight = newWidth / aspectRatio;
+                            newY =
+                                originalBounds.y +
+                                (originalBounds.height - newHeight) / 2;
+                        }
+                        break;
+                    case "se":
+                        newWidth = originalBounds.width + dx;
+                        newHeight = originalBounds.height + dy;
+                        if (shiftPressed) {
+                            const avgDelta = (dx + dy) / 2;
+                            newWidth = originalBounds.width + avgDelta;
+                            newHeight = newWidth / aspectRatio;
+                        }
+                        break;
+                    case "s":
+                        newHeight = originalBounds.height + dy;
+                        if (shiftPressed) {
+                            newWidth = newHeight * aspectRatio;
+                            newX =
+                                originalBounds.x +
+                                (originalBounds.width - newWidth) / 2;
+                        }
+                        break;
+                    case "sw":
+                        newX = originalBounds.x + dx;
+                        newWidth = originalBounds.width - dx;
+                        newHeight = originalBounds.height + dy;
+                        if (shiftPressed) {
+                            const avgDelta = (-dx + dy) / 2;
+                            newWidth = originalBounds.width + avgDelta;
+                            newHeight = newWidth / aspectRatio;
+                            newX =
+                                originalBounds.x +
+                                originalBounds.width -
+                                newWidth;
+                        }
+                        break;
+                    case "w":
+                        newX = originalBounds.x + dx;
+                        newWidth = originalBounds.width - dx;
+                        if (shiftPressed) {
+                            newHeight = newWidth / aspectRatio;
+                            newY =
+                                originalBounds.y +
+                                (originalBounds.height - newHeight) / 2;
+                        }
+                        break;
+                }
+
+                // Text should never flip/invert. Clamp to minimum size and keep the opposite edge fixed.
+                if (selectedIds.length === 1 && originalElements.length === 1) {
+                    const originalElement = originalElements[0];
+                    if (originalElement.type === "text") {
+                        const fs =
+                            originalElement.fontSize ??
+                            originalElement.strokeWidth * 4 + 12;
+                        const ff =
+                            originalElement.fontFamily || "var(--font-inter)";
+                        const elLetterSpacing =
+                            originalElement.letterSpacing ?? 0;
+                        const textContent = originalElement.text || "";
+                        // Calculate minimum width based on the widest character in the actual text
+                        const minW = getMinSingleCharWidth(
+                            textContent,
+                            fs,
+                            ff,
+                            elLetterSpacing,
+                        );
+                        const lh = originalElement.lineHeight ?? 1.4;
+                        const lineHeightPx = fs * lh;
+                        const minH = Math.max(2, lineHeightPx);
+
+                        const effectiveWidth = Math.max(minW, newWidth);
+                        // Always calculate required height based on current width, not stored height
+                        // This ensures height shrinks back when width expands
+                        const requiredHeight = Math.max(
+                            minH,
+                            measureWrappedTextHeightPx({
+                                text: textContent,
+                                width: effectiveWidth,
+                                fontSize: fs,
+                                lineHeight: lh,
+                                fontFamily: ff,
+                                letterSpacing: elLetterSpacing,
+                                textAlign: originalElement.textAlign ?? "left",
+                            }),
+                        );
+
+                        if (newWidth < minW) {
+                            newWidth = minW;
+                            if (
+                                resizeHandle.includes("w") &&
+                                !resizeHandle.includes("e")
+                            ) {
+                                newX = originalRight - minW;
+                            } else {
+                                newX = originalLeft;
+                            }
+                        }
+
+                        // Set height to exactly what's required for the text at this width
+                        newHeight = requiredHeight;
+                        // Adjust Y position if dragging from top edge
+                        if (
+                            resizeHandle.includes("n") &&
+                            !resizeHandle.includes("s")
+                        ) {
+                            newY = originalBottom - requiredHeight;
+                        }
+
+                        const normalizedX = Math.min(newX, newX + newWidth);
+                        const normalizedY = Math.min(newY, newY + newHeight);
+                        const normalizedWidth = Math.abs(newWidth);
+                        const normalizedHeight = Math.abs(newHeight);
+                        onUpdateElement(selectedIds[0], {
+                            x: normalizedX,
+                            y: normalizedY,
+                            width: normalizedWidth,
+                            height: normalizedHeight,
+                        });
+                        return;
+                    }
+                }
+
+                // Single element resize keeps the existing behavior (including mirroring for point-based shapes).
+                if (selectedIds.length === 1 && originalElements.length === 1) {
+                    const originalElement = originalElements[0];
+
+                    const fontSizeForMin =
+                        originalElement.type === "text"
+                            ? (originalElement.fontSize ??
+                              originalElement.strokeWidth * 4 + 12)
+                            : null;
+                    const fontFamilyForMin =
+                        originalElement.type === "text"
+                            ? originalElement.fontFamily || "var(--font-inter)"
+                            : null;
+
+                    // Calculate minimum width based on the widest character in the actual text
+                    const minAbsWidth =
+                        originalElement.type === "text"
+                            ? getMinSingleCharWidth(
+                                  originalElement.text || "",
+                                  fontSizeForMin!,
+                                  fontFamilyForMin!,
+                                  originalElement.letterSpacing ?? 0,
+                              )
+                            : originalElement.type === "rectangle" ||
+                                originalElement.type === "diamond" ||
+                                originalElement.type === "ellipse" ||
+                                originalElement.type === "frame" ||
+                                originalElement.type === "web-embed"
+                              ? 2
+                              : 0;
+
+                    const minAbsHeight =
+                        originalElement.type === "text"
+                            ? Math.max(
+                                  2,
+                                  fontSizeForMin! *
+                                      (originalElement.lineHeight ?? 1.4),
+                              )
+                            : originalElement.type === "rectangle" ||
+                                originalElement.type === "diamond" ||
+                                originalElement.type === "ellipse" ||
+                                originalElement.type === "frame" ||
+                                originalElement.type === "web-embed"
+                              ? 2
+                              : 0;
+
+                    // Avoid snapping/flipping when elements get very small (especially lines/pen),
+                    // while still keeping box-like elements at a small minimum size.
+                    const clampSignedWidth = (size: number) => {
+                        if (Number.isNaN(size)) return minAbsWidth;
+                        if (minAbsWidth <= 0) return size;
+                        if (size === 0) return 0;
+                        if (Math.abs(size) < minAbsWidth)
+                            return Math.sign(size) * minAbsWidth;
+                        return size;
+                    };
+                    const clampSignedHeight = (size: number) => {
+                        if (Number.isNaN(size)) return minAbsHeight;
+                        if (minAbsHeight <= 0) return size;
+                        if (size === 0) return 0;
+                        if (Math.abs(size) < minAbsHeight)
+                            return Math.sign(size) * minAbsHeight;
+                        return size;
+                    };
+
+                    const nextWidth = clampSignedWidth(newWidth);
+                    if (nextWidth !== newWidth) {
+                        if (
+                            resizeHandle.includes("w") &&
+                            !resizeHandle.includes("e")
+                        ) {
+                            newX = originalRight - nextWidth;
+                        } else if (
+                            resizeHandle.includes("e") &&
+                            !resizeHandle.includes("w")
+                        ) {
+                            newX = originalLeft;
+                        } else {
+                            const centerX = newX + newWidth / 2;
+                            newX = centerX - nextWidth / 2;
+                        }
+                        newWidth = nextWidth;
+                    }
+
+                    const nextHeight = clampSignedHeight(newHeight);
+                    if (nextHeight !== newHeight) {
+                        if (
+                            resizeHandle.includes("n") &&
+                            !resizeHandle.includes("s")
+                        ) {
+                            newY = originalBottom - nextHeight;
+                        } else if (
+                            resizeHandle.includes("s") &&
+                            !resizeHandle.includes("n")
+                        ) {
+                            newY = originalTop;
+                        } else {
+                            const centerY = newY + newHeight / 2;
+                            newY = centerY - nextHeight / 2;
+                        }
+                        newHeight = nextHeight;
+                    }
+
+                    if (
+                        originalElement.type === "rectangle" ||
+                        originalElement.type === "diamond" ||
+                        originalElement.type === "ellipse" ||
+                        originalElement.type === "frame" ||
+                        originalElement.type === "web-embed"
+                    ) {
+                        const normalizedX = Math.min(newX, newX + newWidth);
+                        const normalizedY = Math.min(newY, newY + newHeight);
+                        const normalizedWidth = Math.abs(newWidth);
+                        const normalizedHeight = Math.abs(newHeight);
+                        onUpdateElement(selectedIds[0], {
+                            x: normalizedX,
+                            y: normalizedY,
+                            width: normalizedWidth,
+                            height: normalizedHeight,
+                        });
+                    } else if (
+                        originalElement.type === "pen" ||
+                        originalElement.type === "line" ||
+                        originalElement.type === "arrow" ||
+                        originalElement.type === "laser"
+                    ) {
+                        // `newWidth/newHeight` can be negative here, which intentionally mirrors the element.
+                        const scaleX = newWidth / (originalBounds.width || 1);
+                        const scaleY = newHeight / (originalBounds.height || 1);
+                        const newPoints = originalElement.points.map((p) => ({
+                            x: newX + (p.x - originalBounds.x) * scaleX,
+                            y: newY + (p.y - originalBounds.y) * scaleY,
+                        }));
+                        onUpdateElement(selectedIds[0], { points: newPoints });
+                    } else if (originalElement.type === "text") {
+                        onUpdateElement(selectedIds[0], {
+                            x: Math.min(newX, newX + newWidth),
+                            y: Math.min(newY, newY + newHeight),
+                            width: Math.abs(newWidth),
+                            height: Math.abs(newHeight),
+                        });
+                    }
+                    return;
+                }
+
+                // Multi-selection: scale all elements relative to the original selection bounds.
+                const normalizedX = Math.min(newX, newX + newWidth);
+                const normalizedY = Math.min(newY, newY + newHeight);
+                const normalizedWidth = Math.max(1, Math.abs(newWidth));
+                const normalizedHeight = Math.max(1, Math.abs(newHeight));
+
+                const scaleX = normalizedWidth / (originalBounds.width || 1);
+                const scaleY = normalizedHeight / (originalBounds.height || 1);
+
+                originalElements.forEach((origEl) => {
+                    if (
+                        origEl.type === "pen" ||
+                        origEl.type === "line" ||
+                        origEl.type === "arrow" ||
+                        origEl.type === "laser"
+                    ) {
+                        const newPoints = origEl.points.map((p) => ({
+                            x: normalizedX + (p.x - originalBounds.x) * scaleX,
+                            y: normalizedY + (p.y - originalBounds.y) * scaleY,
+                        }));
+                        onUpdateElement(origEl.id, { points: newPoints });
+                        return;
+                    }
+
+                    const ox = origEl.x ?? 0;
+                    const oy = origEl.y ?? 0;
+                    const ow = origEl.width ?? 0;
+                    const oh = origEl.height ?? 0;
+
+                    const left = ox;
+                    const top = oy;
+                    const right = ox + ow;
+                    const bottom = oy + oh;
+
+                    const nextLeft =
+                        normalizedX + (left - originalBounds.x) * scaleX;
+                    const nextTop =
+                        normalizedY + (top - originalBounds.y) * scaleY;
+                    const nextRight =
+                        normalizedX + (right - originalBounds.x) * scaleX;
+                    const nextBottom =
+                        normalizedY + (bottom - originalBounds.y) * scaleY;
+
+                    const nextX = Math.min(nextLeft, nextRight);
+                    const nextY = Math.min(nextTop, nextBottom);
+                    const nextW = Math.abs(nextRight - nextLeft);
+                    const nextH = Math.abs(nextBottom - nextTop);
+
+                    if (origEl.type === "text") {
+                        onUpdateElement(origEl.id, {
+                            x: nextX,
+                            y: nextY,
+                            width: nextW,
+                            height: nextH,
+                        });
+                        return;
+                    }
+
+                    onUpdateElement(origEl.id, {
+                        x: nextX,
+                        y: nextY,
+                        width: nextW,
+                        height: nextH,
+                    });
+                });
+                return;
+            }
+
+            // Handle eraser tool - mark elements for deletion preview
+            if (tool === "eraser" && isDrawing) {
+                // Add point to eraser trail animation
+                if (eraserTrailRef.current) {
+                    eraserTrailRef.current.addPoint(point.x, point.y);
+                }
+                const elementsToMark = getElementsToErase(point);
+                if (elementsToMark.length > 0) {
+                    setEraserMarkedIds((prev) => {
+                        const newSet = new Set(prev);
+                        elementsToMark.forEach((id) => newSet.add(id));
+                        return newSet;
+                    });
+                }
+                return;
+            }
+
+            if (!isDrawing || !currentElement || !startPoint) return;
+
+            switch (tool) {
+                case "pen": {
+                    setCurrentElement({
+                        ...currentElement,
+                        points: [...currentElement.points, point],
+                    });
+                    break;
+                }
+                case "line":
+                case "arrow": {
+                    const endPoint = point;
+                    const activeConnectorStyle =
+                        currentElement.connectorStyle ?? connectorStyle;
+                    if (activeConnectorStyle === "elbow") {
+                        const dx = endPoint.x - startPoint.x;
+                        const dy = endPoint.y - startPoint.y;
+                        const elbowRoute =
+                            Math.abs(dx) >= Math.abs(dy)
+                                ? "vertical"
+                                : "horizontal";
+                        setCurrentElement({
+                            ...currentElement,
+                            points: [
+                                startPoint,
+                                {
+                                    x: (startPoint.x + endPoint.x) / 2,
+                                    y: (startPoint.y + endPoint.y) / 2,
+                                },
+                                endPoint,
+                            ],
+                            connectorStyle: "elbow",
+                            elbowRoute,
+                        });
+                    } else {
+                        setCurrentElement({
+                            ...currentElement,
+                            points: [startPoint, endPoint],
+                        });
+                    }
+                    break;
+                }
+                case "rectangle":
+                case "diamond": {
+                    const width = point.x - startPoint.x;
+                    const height = point.y - startPoint.y;
+                    let finalWidth = Math.abs(width);
+                    let finalHeight = Math.abs(height);
+
+                    if (shiftPressed) {
+                        const size = Math.max(finalWidth, finalHeight);
+                        finalWidth = size;
+                        finalHeight = size;
+                    }
+
+                    setCurrentElement({
+                        ...currentElement,
+                        x: width < 0 ? startPoint.x - finalWidth : startPoint.x,
+                        y:
+                            height < 0
+                                ? startPoint.y - finalHeight
+                                : startPoint.y,
+                        width: finalWidth,
+                        height: finalHeight,
+                    });
+                    break;
+                }
+                case "ellipse": {
+                    const width = point.x - startPoint.x;
+                    const height = point.y - startPoint.y;
+                    let finalWidth = Math.abs(width);
+                    let finalHeight = Math.abs(height);
+
+                    if (shiftPressed) {
+                        const size = Math.max(finalWidth, finalHeight);
+                        finalWidth = size;
+                        finalHeight = size;
+                    }
+
+                    setCurrentElement({
+                        ...currentElement,
+                        x: width < 0 ? startPoint.x - finalWidth : startPoint.x,
+                        y:
+                            height < 0
+                                ? startPoint.y - finalHeight
+                                : startPoint.y,
+                        width: finalWidth,
+                        height: finalHeight,
+                    });
+                    break;
+                }
+                case "laser": {
+                    setCurrentElement({
+                        ...currentElement,
+                        points: [...currentElement.points, point],
+                    });
+                    break;
+                }
+            }
+        },
+        [
+            isDrawing,
+            currentElement,
+            startPoint,
+            tool,
+            isReadOnly,
+            collaboration,
+            getMousePosition,
+            isPanning,
+            panStart,
+            elements,
+            onDeleteElement,
+            strokeWidth,
+            isDragging,
+            isResizing,
+            isRotating,
+            rotateStart,
+            selectedIds,
+            dragStart,
+            originalElements,
+            originalBounds,
+            resizeHandle,
+            onUpdateElement,
+            shiftPressed,
+            isBoxSelecting,
+            lastMousePos,
+            setLastMousePos,
+            setSelectedIds,
+            draggingConnectorPoint,
+            connectorStyle,
+            getElementsToErase,
+            remotelySelectedIds,
+        ],
+    );
+
+    const handleMouseDown = useCallback(
+        (e: ReactMouseEvent) => {
+            // Middle mouse button for panning OR hand tool with left click
+            const shouldPan =
+                e.button === 1 || (e.button === 0 && tool === "hand");
+            if (shouldPan) {
+                setIsPanning(true);
+                setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+                // User manually panning - stop following
+                onManualViewportChange?.();
+                return;
+            }
+
+            if (isReadOnly) return;
+
+            if (e.button !== 0) return;
+
+            const point = getMousePosition(e);
+            setStartPoint(point);
+
+            // Get the element ID from the clicked SVG element (check parent if needed)
+            let target = e.target as SVGElement;
+            let clickedElementId = target.getAttribute("data-element-id");
+
+            // If not found on target, check parent elements up to the SVG root
+            if (!clickedElementId && target.parentElement) {
+                let parent: Element | null = target.parentElement;
+                while (
+                    parent &&
+                    parent.tagName !== "svg" &&
+                    !clickedElementId
+                ) {
+                    clickedElementId = parent.getAttribute("data-element-id");
+                    if (!clickedElementId && parent.parentElement) {
+                        parent = parent.parentElement;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            const clickedElement = clickedElementId
+                ? elements.find((el) => el.id === clickedElementId)
+                : null;
+            // Don't allow selecting elements that are selected by remote users
+            const isRemotelySelected = clickedElement
+                ? remotelySelectedIds.has(clickedElement.id)
+                : false;
+            const selectableClickedElement =
+                clickedElement?.type === "laser" || isRemotelySelected
+                    ? null
+                    : clickedElement;
+
+            if (tool === "select") {
+                // Double-click text to edit (Excalidraw-style).
+                if (
+                    e.detail === 2 &&
+                    selectableClickedElement &&
+                    selectableClickedElement.type === "text" &&
+                    !isRemotelySelected
+                ) {
+                    const editFontSize =
+                        selectableClickedElement.fontSize ??
+                        selectableClickedElement.strokeWidth * 4 + 12;
+                    const editLineHeight =
+                        selectableClickedElement.lineHeight ?? 1.4;
+                    setTextInput({
+                        x: selectableClickedElement.x ?? 0,
+                        y: selectableClickedElement.y ?? 0,
+                        width: selectableClickedElement.width,
+                        height:
+                            selectableClickedElement.height ??
+                            editFontSize * editLineHeight,
+                        isTextBox: true,
+                    });
+                    setTextValue(selectableClickedElement.text ?? "");
+                    setEditingTextElementId(selectableClickedElement.id);
+                    setEditingTextStyle({
+                        strokeColor: selectableClickedElement.strokeColor,
+                        strokeWidth: selectableClickedElement.strokeWidth,
+                        opacity: selectableClickedElement.opacity ?? 100,
+                        fontFamily:
+                            selectableClickedElement.fontFamily ||
+                            "var(--font-inter)",
+                        textAlign: selectableClickedElement.textAlign || "left",
+                        fontSize:
+                            selectableClickedElement.fontSize ?? editFontSize,
+                        letterSpacing:
+                            selectableClickedElement.letterSpacing ?? 0,
+                        lineHeight:
+                            selectableClickedElement.lineHeight ??
+                            editLineHeight,
+                    });
+                    setSelectedIds([selectableClickedElement.id]);
+                    setTimeout(() => {
+                        const editor = textInputRef.current;
+                        editor?.focus();
+                        if (editor) {
+                            editor.setSelectionRange(0, editor.value.length);
+                        }
+                    }, 10);
+                    return;
+                }
+
+                // Check if clicking on a resize handle first (supports multi-selection)
+                if (selectedBounds && selectedIds.length >= 1) {
+                    const handleSize = 10 / zoom;
+                    const selectionPadding = 6 / zoom;
+                    const visualBounds = expandBounds(
+                        selectedBounds,
+                        selectionPadding,
+                    );
+
+                    // Rotate handle (single selection)
+                    if (selectedIds.length === 1) {
+                        const selectedElement = elements.find(
+                            (el) => el.id === selectedIds[0],
+                        );
+                        if (
+                            selectedElement &&
+                            selectedElement.type !== "laser" &&
+                            (selectedElement.type !== "line" &&
+                            selectedElement.type !== "arrow"
+                                ? true
+                                : selectedElement.points.length >= 3)
+                        ) {
+                            const rotationDeg = selectedElement.rotation ?? 0;
+                            const center = getBoundsCenter(visualBounds);
+                            const rotateHandleDistance = 28 / zoom;
+                            const rotateHandleRadius = 4 / zoom;
+
+                            const localAnchor: Point =
+                                rotateHandleSide === "n"
+                                    ? {
+                                          x:
+                                              visualBounds.x +
+                                              visualBounds.width / 2,
+                                          y: visualBounds.y,
+                                      }
+                                    : rotateHandleSide === "e"
+                                      ? {
+                                            x:
+                                                visualBounds.x +
+                                                visualBounds.width,
+                                            y:
+                                                visualBounds.y +
+                                                visualBounds.height / 2,
+                                        }
+                                      : rotateHandleSide === "s"
+                                        ? {
+                                              x:
+                                                  visualBounds.x +
+                                                  visualBounds.width / 2,
+                                              y:
+                                                  visualBounds.y +
+                                                  visualBounds.height,
+                                          }
+                                        : {
+                                              x: visualBounds.x,
+                                              y:
+                                                  visualBounds.y +
+                                                  visualBounds.height / 2,
+                                          };
+
+                            const outward: Point =
+                                rotateHandleSide === "n"
+                                    ? { x: 0, y: -1 }
+                                    : rotateHandleSide === "e"
+                                      ? { x: 1, y: 0 }
+                                      : rotateHandleSide === "s"
+                                        ? { x: 0, y: 1 }
+                                        : { x: -1, y: 0 };
+
+                            const localHandle: Point = {
+                                x:
+                                    localAnchor.x +
+                                    outward.x * rotateHandleDistance,
+                                y:
+                                    localAnchor.y +
+                                    outward.y * rotateHandleDistance,
+                            };
+
+                            const handlePos = rotationDeg
+                                ? rotatePoint(localHandle, center, rotationDeg)
+                                : localHandle;
+
+                            if (
+                                Math.hypot(
+                                    point.x - handlePos.x,
+                                    point.y - handlePos.y,
+                                ) <=
+                                rotateHandleRadius * 2.25
+                            ) {
+                                onStartTransform?.();
+                                setIsRotating(true);
+                                setRotateStart({
+                                    elementId: selectedElement.id,
+                                    center,
+                                    startPointerAngleRad: Math.atan2(
+                                        point.y - center.y,
+                                        point.x - center.x,
+                                    ),
+                                    startRotationDeg: rotationDeg,
+                                });
+                                return;
+                            }
+                        }
+                    }
+
+                    const rotationDegForHandles =
+                        selectedIds.length === 1
+                            ? (elements.find((el) => el.id === selectedIds[0])
+                                  ?.rotation ?? 0)
+                            : 0;
+                    const centerForHandles = getBoundsCenter(visualBounds);
+
+                    // Only show corner handles for single selection.
+                    const baseHandlePoints: Array<{
+                        h: Exclude<ResizeHandle, null>;
+                        x: number;
+                        y: number;
+                    }> =
+                        selectedIds.length === 1
+                            ? [
+                                  {
+                                      h: "nw",
+                                      x: visualBounds.x,
+                                      y: visualBounds.y,
+                                  },
+                                  {
+                                      h: "ne",
+                                      x: visualBounds.x + visualBounds.width,
+                                      y: visualBounds.y,
+                                  },
+                                  {
+                                      h: "se",
+                                      x: visualBounds.x + visualBounds.width,
+                                      y: visualBounds.y + visualBounds.height,
+                                  },
+                                  {
+                                      h: "sw",
+                                      x: visualBounds.x,
+                                      y: visualBounds.y + visualBounds.height,
+                                  },
+                              ]
+                            : [
+                                  {
+                                      h: "nw",
+                                      x: visualBounds.x,
+                                      y: visualBounds.y,
+                                  },
+                                  {
+                                      h: "n",
+                                      x:
+                                          visualBounds.x +
+                                          visualBounds.width / 2,
+                                      y: visualBounds.y,
+                                  },
+                                  {
+                                      h: "ne",
+                                      x: visualBounds.x + visualBounds.width,
+                                      y: visualBounds.y,
+                                  },
+                                  {
+                                      h: "e",
+                                      x: visualBounds.x + visualBounds.width,
+                                      y:
+                                          visualBounds.y +
+                                          visualBounds.height / 2,
+                                  },
+                                  {
+                                      h: "se",
+                                      x: visualBounds.x + visualBounds.width,
+                                      y: visualBounds.y + visualBounds.height,
+                                  },
+                                  {
+                                      h: "s",
+                                      x:
+                                          visualBounds.x +
+                                          visualBounds.width / 2,
+                                      y: visualBounds.y + visualBounds.height,
+                                  },
+                                  {
+                                      h: "sw",
+                                      x: visualBounds.x,
+                                      y: visualBounds.y + visualBounds.height,
+                                  },
+                                  {
+                                      h: "w",
+                                      x: visualBounds.x,
+                                      y:
+                                          visualBounds.y +
+                                          visualBounds.height / 2,
+                                  },
+                              ];
+
+                    // Hit-testing uses the *local* handle id (so resize math stays stable), but positions are rotated.
+                    const handles: Array<{
+                        handle: Exclude<ResizeHandle, null>;
+                        x: number;
+                        y: number;
+                    }> = baseHandlePoints.map((h) => {
+                        const p = rotationDegForHandles
+                            ? rotatePoint(
+                                  { x: h.x, y: h.y },
+                                  centerForHandles,
+                                  rotationDegForHandles,
+                              )
+                            : { x: h.x, y: h.y };
+                        return { handle: h.h, x: p.x, y: p.y };
+                    });
+
+                    for (const h of handles) {
+                        if (
+                            Math.abs(point.x - h.x) <= handleSize &&
+                            Math.abs(point.y - h.y) <= handleSize
+                        ) {
+                            onStartTransform?.();
+                            setIsResizing(true);
+                            setResizeHandle(h.handle);
+                            setDragStart(point);
+                            setOriginalElements(
+                                selectedElements.map((el) => ({ ...el })),
+                            );
+                            setOriginalBounds({ ...selectedBounds });
+                            return;
+                        }
+                    }
+
+                    // Dragging directly on the selection edge should resize too (single selection only).
+                    if (selectedIds.length === 1) {
+                        const edgeThreshold = 10 / zoom;
+                        const edgeHandle = getResizeHandleFromSelectionEdge(
+                            point,
+                            visualBounds,
+                            rotationDegForHandles,
+                            edgeThreshold,
+                        );
+                        if (edgeHandle) {
+                            onStartTransform?.();
+                            setIsResizing(true);
+                            setResizeHandle(edgeHandle);
+                            setDragStart(point);
+                            setOriginalElements(
+                                selectedElements.map((el) => ({ ...el })),
+                            );
+                            setOriginalBounds({ ...selectedBounds });
+                            return;
+                        }
+                    }
+
+                    // Allow dragging the current selection by grabbing anywhere inside its visual frame.
+                    // Clicking inside the frame should not clear the selection.
+                    const clickedIsInSelection = selectableClickedElement
+                        ? selectedIds.includes(selectableClickedElement.id)
+                        : true;
+                    const pointInSelectionFrame =
+                        point.x >= visualBounds.x &&
+                        point.x <= visualBounds.x + visualBounds.width &&
+                        point.y >= visualBounds.y &&
+                        point.y <= visualBounds.y + visualBounds.height;
+
+                    if (pointInSelectionFrame && clickedIsInSelection) {
+                        onStartTransform?.();
+                        setIsDragging(true);
+                        setDragStart(point);
+                        setOriginalElements(
+                            selectedElements.map((el) => ({ ...el })),
+                        );
+                        return;
+                    }
+                }
+
+                // Use clicked element from event target
+                if (selectableClickedElement) {
+                    const clickedIds = getGroupSelectionIds(
+                        selectableClickedElement,
+                        elements,
+                    );
+                    const clickedAllSelected = clickedIds.every((id) =>
+                        selectedIds.includes(id),
+                    );
+
+                    // Shift-click to add to selection
+                    if (shiftPressed) {
+                        if (clickedAllSelected) {
+                            setSelectedIds(
+                                selectedIds.filter(
+                                    (id) => !clickedIds.includes(id),
+                                ),
+                            );
+                        } else {
+                            setSelectedIds([
+                                ...selectedIds,
+                                ...clickedIds.filter(
+                                    (id) => !selectedIds.includes(id),
+                                ),
+                            ]);
+                        }
+                    } else {
+                        setSelectedIds(clickedIds);
+                        onStartTransform?.();
+                        setIsDragging(true);
+                        setDragStart(point);
+                        setOriginalElements(
+                            elements
+                                .filter((el) => clickedIds.includes(el.id))
+                                .map((el) => ({ ...el })),
+                        );
+                    }
+                } else {
+                    // Start box selection
+                    setSelectedIds([]);
+                    setIsBoxSelecting(true);
+                    setSelectionBox({
+                        x: point.x,
+                        y: point.y,
+                        width: 0,
+                        height: 0,
+                    });
+                }
+                return;
+            }
+
+            // For drawing tools, if we clicked on an element, select it instead
+            if (
+                tool !== "eraser" &&
+                tool !== "text" &&
+                selectableClickedElement
+            ) {
+                setSelectedIds(
+                    getGroupSelectionIds(selectableClickedElement, elements),
+                );
+                return;
+            }
+
+            if (tool === "text") {
+                // Check if we clicked on an existing text element to edit it
+                // Don't allow editing text elements that are selected by remote users
+                if (
+                    clickedElement &&
+                    clickedElement.type === "text" &&
+                    !isRemotelySelected
+                ) {
+                    const editFontSize =
+                        clickedElement.fontSize ??
+                        clickedElement.strokeWidth * 4 + 12;
+                    const editLineHeight = clickedElement.lineHeight ?? 1.4;
+                    const padding = 8;
+                    const minHeight =
+                        editFontSize * editLineHeight + padding * 2 + 4 / zoom;
+
+                    // Enter edit mode for the existing text element
+                    setTextInput({
+                        x: clickedElement.x ?? 0,
+                        y: clickedElement.isTextBox
+                            ? (clickedElement.y ?? 0)
+                            : (clickedElement.y ?? 0) + editFontSize * 0.82,
+                        width: clickedElement.width,
+                        height: Math.max(clickedElement.height ?? 0, minHeight),
+                        isTextBox: true,
+                    });
+                    setTextValue(clickedElement.text ?? "");
+                    setEditingTextElementId(clickedElement.id);
+                    setEditingTextStyle({
+                        strokeColor: clickedElement.strokeColor,
+                        strokeWidth: clickedElement.strokeWidth,
+                        opacity: clickedElement.opacity ?? 100,
+                        fontFamily:
+                            clickedElement.fontFamily || "var(--font-inter)",
+                        textAlign: clickedElement.textAlign || "left",
+                        fontSize: clickedElement.fontSize ?? editFontSize,
+                        letterSpacing: clickedElement.letterSpacing ?? 0,
+                        lineHeight: clickedElement.lineHeight ?? editLineHeight,
+                    });
+                    setSelectedIds([clickedElement.id]);
+                    setTimeout(() => textInputRef.current?.focus(), 10);
+                    return;
+                }
+
+                // Start tracking if user drags to create a text box (click does nothing)
+                setEditingTextElementId(null);
+                setEditingTextStyle(null);
+                setStartPoint(point);
+                setIsDrawing(true);
+                return;
+            }
+
+            if (tool === "eraser") {
+                setIsDrawing(true);
+                // Start eraser trail animation
+                if (eraserTrailRef.current) {
+                    eraserTrailRef.current.startPath(point.x, point.y);
+                }
+                // Mark elements at initial point for deletion preview
+                const elementsToMark = getElementsToErase(point);
+                if (elementsToMark.length > 0) {
+                    setEraserMarkedIds(new Set(elementsToMark));
+                }
+                return;
+            }
+
+            if (tool === "laser") {
+                const newElement: BoardElement = {
+                    id: uuid(),
+                    type: "laser",
+                    points: [point],
+                    strokeColor: "#ef4444", // Force red color for laser
+                    strokeWidth,
+                    timestamp: Date.now(),
+                    opacity,
+                    strokeStyle,
+                    lineCap,
+                };
+                setCurrentElement(newElement);
+                setIsDrawing(true);
+                return;
+            }
+
+            const elementType: BoardElement["type"] =
+                tool === "arrow"
+                    ? "arrow"
+                    : (tool as
+                          | "pen"
+                          | "line"
+                          | "rectangle"
+                          | "diamond"
+                          | "ellipse"
+                          | "text");
+
+            const newElement: BoardElement = {
+                id: uuid(),
+                type: elementType,
+                points: [point],
+                strokeColor,
+                strokeWidth,
+                opacity,
+                strokeStyle,
+                lineCap,
+                cornerRadius,
+                ...(elementType === "line" || elementType === "arrow"
+                    ? { connectorStyle }
+                    : {}),
+                ...(elementType === "arrow" ? { arrowStart, arrowEnd } : {}),
+            };
+
+            if (tool === "pen") {
+                newElement.fillPattern = fillPattern;
+            }
+
+            if (
+                tool === "rectangle" ||
+                tool === "diamond" ||
+                tool === "ellipse"
+            ) {
+                newElement.x = point.x;
+                newElement.y = point.y;
+                newElement.width = 0;
+                newElement.height = 0;
+                newElement.fillColor = fillColor;
+            }
+
+            setCurrentElement(newElement);
+            setIsDrawing(true);
+        },
+        [
+            tool,
+            isReadOnly,
+            strokeColor,
+            strokeWidth,
+            fillColor,
+            opacity,
+            strokeStyle,
+            lineCap,
+            connectorStyle,
+            arrowStart,
+            arrowEnd,
+            cornerRadius,
+            fillPattern,
+            getMousePosition,
+            elements,
+            pan,
+            zoom,
+            selectedBounds,
+            selectedElements,
+            selectedIds,
+            shiftPressed,
+            rotateHandleSide,
+            onStartTransform,
+            getElementsToErase,
+            onDeleteElement,
+            remotelySelectedIds,
+        ],
+    );
+
+    const handleMouseUp = useCallback(() => {
+        if (isReadOnly && !isPanning) return;
+        if (isPanning) {
+            setIsPanning(false);
+            return;
+        }
+
+        // Handle eraser - delete marked elements on mouse release
+        if (tool === "eraser" && isDrawing) {
+            // End eraser trail animation
+            if (eraserTrailRef.current) {
+                eraserTrailRef.current.endPath();
+            }
+            if (eraserMarkedIds.size > 0) {
+                eraserMarkedIds.forEach((id) => onDeleteElement(id));
+            }
+            setEraserMarkedIds(new Set());
+            setIsDrawing(false);
+            return;
+        }
+
+        // Finish box selection
+        if (isBoxSelecting && selectionBox) {
+            // Only perform box selection if the box has a minimum size (5px)
+            // This prevents accidental selections from single clicks
+            const minBoxSize = 5;
+            if (
+                selectionBox.width >= minBoxSize ||
+                selectionBox.height >= minBoxSize
+            ) {
+                // Filter out remotely selected elements from box selection
+                const boxSelected = getBoxSelectedIds(
+                    elements,
+                    selectionBox,
+                ).filter((id) => !remotelySelectedIds.has(id));
+                setSelectedIds(boxSelected);
+            }
+            setIsBoxSelecting(false);
+            setSelectionBox(null);
+            return;
+        }
+
+        if (draggingConnectorPoint) {
+            // Cleanup elbow polylines after edge drags so temporary points don't "stick" until the next drag.
+            if (originalElements.length === 1) {
+                const orig = originalElements[0];
+                if (
+                    (orig.type === "line" || orig.type === "arrow") &&
+                    (orig.connectorStyle ?? connectorStyle) === "elbow"
+                ) {
+                    const current = elements.find((el) => el.id === orig.id);
+                    if (current?.points && current.points.length >= 2) {
+                        const eps = 0.5 / zoom;
+                        const hasDiagonal = current.points.some((p, i) => {
+                            const prev = current.points[i - 1];
+                            if (!prev) return false;
+                            return (
+                                Math.abs(p.x - prev.x) > eps &&
+                                Math.abs(p.y - prev.y) > eps
+                            );
+                        });
+                        if (!hasDiagonal) {
+                            const simplified = simplifyElbowPolyline(
+                                current.points,
+                                eps,
+                            );
+                            if (simplified.length !== current.points.length) {
+                                onUpdateElement(current.id, {
+                                    points: simplified,
+                                    elbowRoute: undefined,
+                                    connectorStyle: "elbow",
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            setDraggingConnectorPoint(null);
+            setOriginalElements([]);
+            return;
+        }
+
+        if (isRotating) {
+            setIsRotating(false);
+            setRotateStart(null);
+            return;
+        }
+
+        if (isDragging) {
+            setIsDragging(false);
+            setDragStart(null);
+            setOriginalElements([]);
+            return;
+        }
+
+        if (isResizing) {
+            setIsResizing(false);
+            setResizeHandle(null);
+            setDragStart(null);
+            setOriginalElements([]);
+            setOriginalBounds(null);
+            return;
+        }
+
+        // Handle text tool - determine if it was a click or drag
+        if (tool === "text" && isDrawing && startPoint) {
+            const currentPoint = lastMousePos;
+            const dragDistance = Math.hypot(
+                currentPoint.x - startPoint.x,
+                currentPoint.y - startPoint.y,
+            );
+
+            // Only create text on a drag; a click does nothing.
+            if (dragDistance >= 5) {
+                const width = Math.abs(currentPoint.x - startPoint.x);
+                const x = Math.min(startPoint.x, currentPoint.x);
+                const y = Math.min(startPoint.y, currentPoint.y);
+
+                const minHeight = fontSize * lineHeight;
+
+                setTextInput({
+                    x,
+                    y,
+                    width,
+                    height: minHeight,
+                    isTextBox: true,
+                });
+                setTextValue("");
+                setTimeout(() => textInputRef.current?.focus(), 10);
+            }
+            setIsDrawing(false);
+            setStartPoint(null);
+            return;
+        }
+
+        if (currentElement && isDrawing) {
+            let elementAdded = false;
+
+            if (
+                currentElement.type === "pen" &&
+                currentElement.points.length >= 1
+            ) {
+                // Check if shape is closed
+                const isClosed = isClosedShape(currentElement.points);
+
+                // Add closed flag and apply fill pattern only if shape is closed
+                const finalElement: BoardElement = {
+                    ...currentElement,
+                    isClosed,
+                    fillPattern: (isClosed &&
+                    currentElement.fillPattern !== "none"
+                        ? currentElement.fillPattern
+                        : "none") as "none" | "solid" | "criss-cross",
+                };
+
+                onAddElement(finalElement);
+                elementAdded = true;
+            } else if (
+                (currentElement.type === "line" ||
+                    currentElement.type === "arrow") &&
+                currentElement.points.length >= 2
+            ) {
+                onAddElement(currentElement);
+                elementAdded = true;
+            } else if (
+                currentElement.type === "laser" &&
+                currentElement.points.length > 1
+            ) {
+                // Add laser element; fade-out is computed client-side based on timestamp.
+                onAddElement({ ...currentElement, timestamp: Date.now() });
+                // Don't switch tool for laser
+            } else if (
+                (currentElement.type === "rectangle" ||
+                    currentElement.type === "diamond" ||
+                    currentElement.type === "ellipse") &&
+                currentElement.width &&
+                currentElement.height &&
+                currentElement.width > 2 &&
+                currentElement.height > 2
+            ) {
+                onAddElement(currentElement);
+                elementAdded = true;
+            }
+
+            // Switch back to select tool and select the new element (except for pen tool)
+            // Only auto-switch if tool is not locked
+            if (
+                elementAdded &&
+                currentElement.type !== "pen" &&
+                !isToolLocked
+            ) {
+                setSelectedIds([currentElement.id]);
+                if (onToolChange) {
+                    onToolChange("select");
+                }
+            }
+        }
+
+        setIsDrawing(false);
+        setCurrentElement(null);
+        setStartPoint(null);
+    }, [
+        currentElement,
+        isDrawing,
+        onAddElement,
+        isReadOnly,
+        isPanning,
+        isDragging,
+        isResizing,
+        isRotating,
+        isBoxSelecting,
+        selectionBox,
+        elements,
+        tool,
+        onDeleteElement,
+        onUpdateElement,
+        onToolChange,
+        lastMousePos,
+        startPoint,
+        textInputRef,
+        setTextInput,
+        setTextValue,
+        setIsDrawing,
+        setStartPoint,
+        setSelectedIds,
+        draggingConnectorPoint,
+        eraserMarkedIds,
+        zoom,
+        connectorStyle,
+        originalElements,
+        remotelySelectedIds,
+        fontSize,
+        lineHeight,
+        isToolLocked,
+    ]);
+
+    const handleMouseLeave = useCallback(() => {
+        // Clear eraser cursor when mouse leaves canvas
+        setEraserCursorPos(null);
+        // Clear laser cursor when mouse leaves canvas
+        setLaserCursorPos(null);
+        setHoverCursor(null);
+        // Note: We intentionally do NOT clear the cursor position broadcast here
+        // so that other users can still see where our cursor was last positioned
+        // Also handle mouse up logic
+        handleMouseUp();
+    }, [handleMouseUp, setEraserCursorPos, setLaserCursorPos, setHoverCursor]);
+
+    const handleTextSubmit = useCallback(() => {
+        if (textInput && textValue.trim()) {
+            // Always create a text box (single-line by default, expands on Enter).
+            const activeStrokeColor =
+                editingTextStyle?.strokeColor ?? strokeColor;
+            const activeStrokeWidth =
+                editingTextStyle?.strokeWidth ?? strokeWidth;
+            const activeOpacity = editingTextStyle?.opacity ?? opacity;
+            const activeFontFamily = editingTextStyle?.fontFamily ?? fontFamily;
+            const activeTextAlign = editingTextStyle?.textAlign ?? textAlign;
+            const activeFontSize = editingTextStyle?.fontSize ?? fontSize;
+            const activeLetterSpacing =
+                editingTextStyle?.letterSpacing ?? letterSpacing;
+            const activeLineHeight = editingTextStyle?.lineHeight ?? lineHeight;
+
+            const nextElementId = editingTextElementId ?? uuid();
+            const measuredWidth = textInputRef.current
+                ? textInputRef.current.offsetWidth
+                : undefined;
+            const measuredHeight = textInputRef.current
+                ? measureWrappedTextHeightPx({
+                      text: textValue,
+                      width: measuredWidth ?? textInput.width ?? 200,
+                      fontSize: activeFontSize,
+                      lineHeight: activeLineHeight,
+                      fontFamily: activeFontFamily,
+                      letterSpacing: activeLetterSpacing,
+                      textAlign: activeTextAlign,
+                  })
+                : undefined;
+            const nextElement: BoardElement = {
+                id: nextElementId,
+                type: "text",
+                points: [],
+                strokeColor: activeStrokeColor,
+                strokeWidth: activeStrokeWidth,
+                text: textValue,
+                x: textInput.x,
+                y: textInput.y,
+                width: measuredWidth ?? textInput.width ?? 200,
+                height:
+                    measuredHeight ??
+                    textInput.height ??
+                    activeFontSize * activeLineHeight,
+                isTextBox: true,
+                scaleX: 1,
+                scaleY: 1,
+                opacity: activeOpacity,
+                fontFamily: activeFontFamily,
+                textAlign: activeTextAlign,
+                fontSize: activeFontSize,
+                letterSpacing: activeLetterSpacing,
+                lineHeight: activeLineHeight,
+            };
+
+            if (editingTextElementId) {
+                const { id: _ignoredId, ...updates } = nextElement;
+                onUpdateElement(editingTextElementId, updates);
+            } else {
+                onAddElement(nextElement);
+            }
+
+            setSelectedIds([nextElementId]);
+            if (onToolChange && !isToolLocked) {
+                onToolChange("select");
+            }
+        }
+        setTextInput(null);
+        setTextValue("");
+        setEditingTextElementId(null);
+        setEditingTextStyle(null);
+    }, [
+        editingTextElementId,
+        editingTextStyle,
+        textInput,
+        textValue,
+        strokeColor,
+        strokeWidth,
+        opacity,
+        fontFamily,
+        textAlign,
+        fontSize,
+        letterSpacing,
+        lineHeight,
+        onAddElement,
+        onUpdateElement,
+        onToolChange,
+        setSelectedIds,
+        textInputRef,
+        zoom,
+        isToolLocked,
+    ]);
+
+    const handleTextChange = useCallback(
+        (value: string) => {
+            setTextValue(value);
+
+            // Clear existing timeout
+            if (textSaveTimeoutRef.current) {
+                clearTimeout(textSaveTimeoutRef.current);
+            }
+
+            // Auto-save after 2 seconds of no typing (optional, can be removed if unwanted)
+            // textSaveTimeoutRef.current = setTimeout(() => {
+            //   if (textInput && value.trim()) {
+            //     handleTextSubmit();
+            //   }
+            // }, 2000);
+        },
+        [setTextValue, textSaveTimeoutRef],
+    );
+
+    return {
+        getMousePosition,
+        handleMouseMove,
+        handleMouseDown,
+        handleMouseUp,
+        handleMouseLeave,
+        handleTextSubmit,
+        handleTextChange,
+    };
+}

@@ -274,3 +274,5 @@ export function useCanvasState({
         },
     };
 }
+
+export type CanvasState = ReturnType<typeof useCanvasState>;
