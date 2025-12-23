@@ -8,6 +8,7 @@ import { PanelRight } from "lucide-react";
 import { Canvas } from "./canvas";
 import { Toolbar } from "./toolbar";
 import { ToolSidebar } from "./tool-sidebar";
+import { LayersSidebar } from "./layers-sidebar";
 import { BurgerMenu } from "./burger-menu";
 import { ExportImageModal } from "./export-image-modal";
 import { FindCanvas } from "./find-canvas";
@@ -124,6 +125,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [showFindCanvas, setShowFindCanvas] = useState(false);
   const [showHotkeysDialog, setShowHotkeysDialog] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showLayersSidebar, setShowLayersSidebar] = useState(false);
   const [pendingName, setPendingName] = useState<string | null>(null);
   const [highlightedElementIds, setHighlightedElementIds] = useState<string[]>(
     [],
@@ -1104,6 +1106,60 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     );
   }, [selectedElements, elements, saveToUndoStack, handleUpdateElement]);
 
+  const handleSelectElementFromLayers = useCallback(
+    (id: string, addToSelection: boolean) => {
+      const element = elements.find((el) => el.id === id);
+      if (!element) return;
+
+      if (addToSelection) {
+        const isAlreadySelected = selectedElements.some((el) => el.id === id);
+        if (isAlreadySelected) {
+          setSelectedElements(selectedElements.filter((el) => el.id !== id));
+        } else {
+          setSelectedElements([...selectedElements, element]);
+        }
+      } else {
+        setSelectedElements([element]);
+      }
+    },
+    [elements, selectedElements],
+  );
+
+  const handleReorderElement = useCallback(
+    (id: string, direction: "up" | "down") => {
+      const element = elements.find((el) => el.id === id);
+      if (!element) return;
+
+      saveToUndoStack();
+
+      // Sort elements by zIndex to get the proper order
+      const sortedElements = [...elements].sort((a, b) => {
+        const zIndexA = a.zIndex ?? 0;
+        const zIndexB = b.zIndex ?? 0;
+        return zIndexA - zIndexB;
+      });
+
+      const currentIndex = sortedElements.findIndex((el) => el.id === id);
+      if (currentIndex === -1) return;
+
+      // Get the element to swap with
+      const swapIndex =
+        direction === "up" ? currentIndex + 1 : currentIndex - 1;
+      if (swapIndex < 0 || swapIndex >= sortedElements.length) return;
+
+      const currentElement = sortedElements[currentIndex];
+      const swapElement = sortedElements[swapIndex];
+
+      const currentZIndex = currentElement.zIndex ?? 0;
+      const swapZIndex = swapElement.zIndex ?? 0;
+
+      // Swap the zIndex values
+      handleUpdateElement(currentElement.id, { zIndex: swapZIndex });
+      handleUpdateElement(swapElement.id, { zIndex: currentZIndex });
+    },
+    [elements, saveToUndoStack, handleUpdateElement],
+  );
+
   // Sync sidebar properties with selected elements
   useEffect(() => {
     if (selectedElements.length > 0) {
@@ -1225,293 +1281,313 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     : null;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden">
-      {/* Burger Menu and Logo - Top Left */}
-      <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
-        <BurgerMenu
-          onClear={handleClear}
-          onSave={handleSave}
-          onOpen={handleOpen}
-          onExportImage={handleExportImage}
-          onFindOnCanvas={handleFindOnCanvas}
-          onHelp={() => setShowHotkeysDialog(true)}
-          onInvite={() => setShowInviteDialog(true)}
-          canvasBackground={canvasBackground}
-          onCanvasBackgroundChange={setCanvasBackground}
-          isReadOnly={isReadOnly}
-        />
-        {!hideLogoBar && (
-          <a
-            href="/"
-            className="h-10 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
-          >
-            <img
-              src={
-                (resolvedTheme || theme) === "light"
-                  ? "/kladde-logo.svg"
-                  : "/kladde-logo-bright-540.svg"
-              }
-              alt="Kladde"
-              className="h-5 w-auto"
-            />
-          </a>
-        )}
-      </div>
-
-      {/* Collaboration + Hotkeys - Top Right */}
-      {!isReadOnly && (
-        <div className="absolute top-4 right-4 z-50 flex items-stretch gap-2">
-          <CollaborationBar
-            peerCount={peerCount}
-            connectionStatus={connectionStatus}
-            myName={myName || "Connecting..."}
-            collaboratorUsers={collaboratorUsers}
-            onFollowUser={handleFollowUser}
-            followedUserId={followedUserId}
-            spectatedUserIds={spectatedUserIds}
-            isBeingSpectated={myUserId ? spectatedUserIds.has(myUserId) : false}
+    <div className="relative w-screen h-screen overflow-hidden flex">
+      {/* Main Content Area */}
+      <div className="relative flex-1 overflow-hidden">
+        {/* Burger Menu and Logo - Top Left */}
+        <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
+          <BurgerMenu
+            onClear={handleClear}
+            onSave={handleSave}
+            onOpen={handleOpen}
+            onExportImage={handleExportImage}
+            onFindOnCanvas={handleFindOnCanvas}
+            onHelp={() => setShowHotkeysDialog(true)}
             onInvite={() => setShowInviteDialog(true)}
+            canvasBackground={canvasBackground}
+            onCanvasBackgroundChange={setCanvasBackground}
+            isReadOnly={isReadOnly}
           />
-          <button
-            onClick={() => setShowHotkeysDialog(true)}
-            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-            aria-label="Keyboard shortcuts"
-          >
-            <span className="text-base font-semibold leading-none">?</span>
-          </button>
-          <button
-            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-            aria-label="Sidebar (placeholder)"
-          >
-            <PanelRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      <HotkeysDialog
-        open={showHotkeysDialog}
-        onOpenChange={setShowHotkeysDialog}
-      />
-
-      <InviteDialog
-        open={showInviteDialog}
-        onOpenChange={setShowInviteDialog}
-        roomId={roomId}
-        currentName={myName || undefined}
-        onNameChange={(newName) => {
-          setMyName(newName);
-          collaboration?.updateUserName(newName);
-        }}
-      />
-
-      {/* Find Canvas */}
-      <FindCanvas
-        isOpen={showFindCanvas}
-        onClose={() => setShowFindCanvas(false)}
-        elements={elements}
-        onFocusElement={handleFocusElement}
-        onHighlightElements={setHighlightedElementIds}
-      />
-
-      {/* Colored frame when following a user */}
-      {followedUser && (
-        <div
-          className="absolute inset-0 pointer-events-none z-[100]"
-          style={{
-            boxShadow: `inset 0 0 0 4px ${followedUser.color}`,
-          }}
-        >
-          <div
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-card/95 backdrop-blur-md border-2 shadow-lg flex items-center gap-2 pointer-events-auto"
-            style={{ borderColor: followedUser.color }}
-          >
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: followedUser.color }}
-            />
-            <span className="text-sm font-medium">
-              Following {followedUser.name}
-            </span>
-            <button
-              onClick={() => setFollowedUserId(null)}
-              className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
+          {!hideLogoBar && (
+            <a
+              href="/"
+              className="h-10 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
             >
-              ✕
+              <img
+                src={
+                  (resolvedTheme || theme) === "light"
+                    ? "/kladde-logo.svg"
+                    : "/kladde-logo-bright-540.svg"
+                }
+                alt="Kladde"
+                className="h-5 w-auto"
+              />
+            </a>
+          )}
+        </div>
+
+        {/* Collaboration + Hotkeys - Top Right */}
+        {!isReadOnly && (
+          <div className="absolute top-4 right-4 z-50 flex items-stretch gap-2">
+            <CollaborationBar
+              peerCount={peerCount}
+              connectionStatus={connectionStatus}
+              myName={myName || "Connecting..."}
+              collaboratorUsers={collaboratorUsers}
+              onFollowUser={handleFollowUser}
+              followedUserId={followedUserId}
+              spectatedUserIds={spectatedUserIds}
+              isBeingSpectated={
+                myUserId ? spectatedUserIds.has(myUserId) : false
+              }
+              onInvite={() => setShowInviteDialog(true)}
+            />
+            <button
+              onClick={() => setShowHotkeysDialog(true)}
+              className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+              aria-label="Keyboard shortcuts"
+            >
+              <span className="text-base font-semibold leading-none">?</span>
+            </button>
+            <button
+              onClick={() => setShowLayersSidebar(!showLayersSidebar)}
+              className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+              aria-label="Toggle layers sidebar"
+            >
+              <PanelRight className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {!isReadOnly && (
-        <Toolbar
-          selectedTool={tool}
-          onToolChange={setTool}
-          strokeColor={strokeColor}
-          onStrokeColorChange={setStrokeColor}
-          strokeWidth={strokeWidth}
-          onStrokeWidthChange={setStrokeWidth}
-          onClear={handleClear}
-          isToolLocked={isToolLocked}
-          onToggleToolLock={() => setIsToolLocked(!isToolLocked)}
+        <HotkeysDialog
+          open={showHotkeysDialog}
+          onOpenChange={setShowHotkeysDialog}
         />
-      )}
 
-      {!isReadOnly && (
-        <ToolSidebar
-          selectedTool={tool}
-          strokeColor={strokeColor}
-          onStrokeColorChange={handleStrokeColorChange}
-          strokeWidth={strokeWidth}
-          onStrokeWidthChange={handleStrokeWidthChange}
-          fillColor={fillColor}
-          onFillColorChange={handleFillColorChange}
-          opacity={opacity}
-          onOpacityChange={handleOpacityChange}
-          strokeStyle={strokeStyle}
-          onStrokeStyleChange={handleStrokeStyleChange}
-          lineCap={lineCap}
-          onLineCapChange={handleLineCapChange}
-          connectorStyle={connectorStyle}
-          onConnectorStyleChange={handleConnectorStyleChange}
-          arrowStart={arrowStart}
-          onArrowStartChange={handleArrowStartChange}
-          arrowEnd={arrowEnd}
-          onArrowEndChange={handleArrowEndChange}
-          cornerRadius={cornerRadius}
-          onCornerRadiusChange={handleCornerRadiusChange}
-          fontFamily={fontFamily}
-          onFontFamilyChange={handleFontFamilyChange}
-          textAlign={textAlign}
-          onTextAlignChange={handleTextAlignChange}
-          fontSize={fontSize}
-          onFontSizeChange={handleFontSizeChange}
-          letterSpacing={letterSpacing}
-          onLetterSpacingChange={handleLetterSpacingChange}
-          lineHeight={lineHeight}
-          onLineHeightChange={handleLineHeightChange}
-          fillPattern={fillPattern}
-          onFillPatternChange={handleFillPatternChange}
-          selectedElements={selectedElements}
-          onBringToFront={handleBringToFront}
-          onSendToBack={handleSendToBack}
-          onMoveForward={handleMoveForward}
-          onMoveBackward={handleMoveBackward}
-          onAlignLeft={handleAlignLeft}
-          onAlignCenterHorizontal={handleAlignCenterHorizontal}
-          onAlignRight={handleAlignRight}
-          onAlignTop={handleAlignTop}
-          onAlignCenterVertical={handleAlignCenterVertical}
-          onAlignBottom={handleAlignBottom}
-          onCopySelected={handleCopySelected}
-          onDeleteSelected={handleDeleteSelected}
-          onToggleGroupSelection={handleToggleGroupSelection}
-          isEditArrowMode={isEditArrowMode}
-          onToggleEditArrowMode={handleToggleEditArrowMode}
+        <InviteDialog
+          open={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+          roomId={roomId}
+          currentName={myName || undefined}
+          onNameChange={(newName) => {
+            setMyName(newName);
+            collaboration?.updateUserName(newName);
+          }}
         />
-      )}
 
-      <Canvas
-        tool={effectiveTool}
-        strokeColor={strokeColor}
-        strokeWidth={strokeWidth}
-        fillColor={fillColor}
-        opacity={opacity}
-        strokeStyle={strokeStyle}
-        lineCap={lineCap}
-        connectorStyle={connectorStyle}
-        arrowStart={arrowStart}
-        arrowEnd={arrowEnd}
-        cornerRadius={cornerRadius}
-        fontFamily={fontFamily}
-        textAlign={textAlign}
-        fontSize={fontSize}
-        letterSpacing={letterSpacing}
-        lineHeight={lineHeight}
-        fillPattern={fillPattern}
-        collaboration={collaboration}
-        elements={elements}
-        onAddElement={handleAddElement}
-        onUpdateElement={handleUpdateElement}
-        onDeleteElement={handleDeleteElement}
-        onStartTransform={handleStartTransform}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onToolChange={isReadOnly ? undefined : setTool}
-        onSetViewport={(setter) => {
-          setViewportRef.current = setter;
-        }}
-        onManualViewportChange={() => setFollowedUserId(null)}
-        onSelectionChange={setSelectedElements}
-        onStrokeColorChange={handleStrokeColorChange}
-        onFillColorChange={handleFillColorChange}
-        canvasBackground={canvasBackground}
-        highlightedElementIds={highlightedElementIds}
-        isToolLocked={isToolLocked}
-        isEditArrowMode={isEditArrowMode}
-        remoteSelections={isReadOnly ? [] : remoteSelections}
-        isReadOnly={isReadOnly}
-        showRemoteCursors={!isReadOnly}
-        showUndoRedo={!isReadOnly}
-      />
+        {/* Find Canvas */}
+        <FindCanvas
+          isOpen={showFindCanvas}
+          onClose={() => setShowFindCanvas(false)}
+          elements={elements}
+          onFocusElement={handleFocusElement}
+          onHighlightElements={setHighlightedElementIds}
+        />
 
-      {/* Save File Dialog */}
-      {showSaveDialog && (
-        <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-6 w-96 max-w-[90vw]">
-            <h2 className="text-lg font-semibold mb-4">Save Shadeworks File</h2>
-            <div className="mb-4">
-              <label
-                htmlFor="filename"
-                className="block text-sm font-medium mb-2 text-muted-foreground"
-              >
-                File name
-              </label>
-              <input
-                id="filename"
-                type="text"
-                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                value={saveFileName}
-                onChange={(e) => setSaveFileName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleConfirmSave();
-                  } else if (e.key === "Escape") {
-                    setShowSaveDialog(false);
-                  }
-                }}
-                autoFocus
-                placeholder="Enter file name"
+        {/* Colored frame when following a user */}
+        {followedUser && (
+          <div
+            className="absolute inset-0 pointer-events-none z-[100]"
+            style={{
+              boxShadow: `inset 0 0 0 4px ${followedUser.color}`,
+            }}
+          >
+            <div
+              className="absolute bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-card/95 backdrop-blur-md border-2 shadow-lg flex items-center gap-2 pointer-events-auto"
+              style={{ borderColor: followedUser.color }}
+            >
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: followedUser.color }}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {saveFileName && !saveFileName.endsWith(".shadeworks")}
-              </p>
-            </div>
-            <div className="flex gap-2 justify-end">
+              <span className="text-sm font-medium">
+                Following {followedUser.name}
+              </span>
               <button
-                onClick={() => setShowSaveDialog(false)}
-                className="px-4 py-2 rounded-md bg-background hover:bg-muted transition-colors border border-border"
+                onClick={() => setFollowedUserId(null)}
+                className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmSave}
-                disabled={!saveFileName.trim()}
-                className="px-4 py-2 rounded-md bg-accent hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save
+                ✕
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Export Image Dialog */}
-      <ExportImageModal
-        isOpen={showExportDialog}
-        onClose={() => setShowExportDialog(false)}
-        elements={elements}
-        canvasBackground={canvasBackground}
-      />
+        {!isReadOnly && (
+          <Toolbar
+            selectedTool={tool}
+            onToolChange={setTool}
+            strokeColor={strokeColor}
+            onStrokeColorChange={setStrokeColor}
+            strokeWidth={strokeWidth}
+            onStrokeWidthChange={setStrokeWidth}
+            onClear={handleClear}
+            isToolLocked={isToolLocked}
+            onToggleToolLock={() => setIsToolLocked(!isToolLocked)}
+          />
+        )}
+
+        {!isReadOnly && (
+          <ToolSidebar
+            selectedTool={tool}
+            strokeColor={strokeColor}
+            onStrokeColorChange={handleStrokeColorChange}
+            strokeWidth={strokeWidth}
+            onStrokeWidthChange={handleStrokeWidthChange}
+            fillColor={fillColor}
+            onFillColorChange={handleFillColorChange}
+            opacity={opacity}
+            onOpacityChange={handleOpacityChange}
+            strokeStyle={strokeStyle}
+            onStrokeStyleChange={handleStrokeStyleChange}
+            lineCap={lineCap}
+            onLineCapChange={handleLineCapChange}
+            connectorStyle={connectorStyle}
+            onConnectorStyleChange={handleConnectorStyleChange}
+            arrowStart={arrowStart}
+            onArrowStartChange={handleArrowStartChange}
+            arrowEnd={arrowEnd}
+            onArrowEndChange={handleArrowEndChange}
+            cornerRadius={cornerRadius}
+            onCornerRadiusChange={handleCornerRadiusChange}
+            fontFamily={fontFamily}
+            onFontFamilyChange={handleFontFamilyChange}
+            textAlign={textAlign}
+            onTextAlignChange={handleTextAlignChange}
+            fontSize={fontSize}
+            onFontSizeChange={handleFontSizeChange}
+            letterSpacing={letterSpacing}
+            onLetterSpacingChange={handleLetterSpacingChange}
+            lineHeight={lineHeight}
+            onLineHeightChange={handleLineHeightChange}
+            fillPattern={fillPattern}
+            onFillPatternChange={handleFillPatternChange}
+            selectedElements={selectedElements}
+            onBringToFront={handleBringToFront}
+            onSendToBack={handleSendToBack}
+            onMoveForward={handleMoveForward}
+            onMoveBackward={handleMoveBackward}
+            onAlignLeft={handleAlignLeft}
+            onAlignCenterHorizontal={handleAlignCenterHorizontal}
+            onAlignRight={handleAlignRight}
+            onAlignTop={handleAlignTop}
+            onAlignCenterVertical={handleAlignCenterVertical}
+            onAlignBottom={handleAlignBottom}
+            onCopySelected={handleCopySelected}
+            onDeleteSelected={handleDeleteSelected}
+            onToggleGroupSelection={handleToggleGroupSelection}
+            isEditArrowMode={isEditArrowMode}
+            onToggleEditArrowMode={handleToggleEditArrowMode}
+          />
+        )}
+
+        <Canvas
+          tool={effectiveTool}
+          strokeColor={strokeColor}
+          strokeWidth={strokeWidth}
+          fillColor={fillColor}
+          opacity={opacity}
+          strokeStyle={strokeStyle}
+          lineCap={lineCap}
+          connectorStyle={connectorStyle}
+          arrowStart={arrowStart}
+          arrowEnd={arrowEnd}
+          cornerRadius={cornerRadius}
+          fontFamily={fontFamily}
+          textAlign={textAlign}
+          fontSize={fontSize}
+          letterSpacing={letterSpacing}
+          lineHeight={lineHeight}
+          fillPattern={fillPattern}
+          collaboration={collaboration}
+          elements={elements}
+          onAddElement={handleAddElement}
+          onUpdateElement={handleUpdateElement}
+          onDeleteElement={handleDeleteElement}
+          onStartTransform={handleStartTransform}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onToolChange={isReadOnly ? undefined : setTool}
+          onSetViewport={(setter) => {
+            setViewportRef.current = setter;
+          }}
+          onManualViewportChange={() => setFollowedUserId(null)}
+          onSelectionChange={setSelectedElements}
+          onStrokeColorChange={handleStrokeColorChange}
+          onFillColorChange={handleFillColorChange}
+          canvasBackground={canvasBackground}
+          highlightedElementIds={highlightedElementIds}
+          isToolLocked={isToolLocked}
+          isEditArrowMode={isEditArrowMode}
+          remoteSelections={isReadOnly ? [] : remoteSelections}
+          isReadOnly={isReadOnly}
+          showRemoteCursors={!isReadOnly}
+          showUndoRedo={!isReadOnly}
+        />
+
+        {/* Save File Dialog */}
+        {showSaveDialog && (
+          <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-6 w-96 max-w-[90vw]">
+              <h2 className="text-lg font-semibold mb-4">
+                Save Shadeworks File
+              </h2>
+              <div className="mb-4">
+                <label
+                  htmlFor="filename"
+                  className="block text-sm font-medium mb-2 text-muted-foreground"
+                >
+                  File name
+                </label>
+                <input
+                  id="filename"
+                  type="text"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                  value={saveFileName}
+                  onChange={(e) => setSaveFileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleConfirmSave();
+                    } else if (e.key === "Escape") {
+                      setShowSaveDialog(false);
+                    }
+                  }}
+                  autoFocus
+                  placeholder="Enter file name"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {saveFileName && !saveFileName.endsWith(".shadeworks")}
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowSaveDialog(false)}
+                  className="px-4 py-2 rounded-md bg-background hover:bg-muted transition-colors border border-border"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmSave}
+                  disabled={!saveFileName.trim()}
+                  className="px-4 py-2 rounded-md bg-accent hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Export Image Dialog */}
+        <ExportImageModal
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          elements={elements}
+          canvasBackground={canvasBackground}
+        />
+      </div>
+
+      {/* Layers Sidebar */}
+      {showLayersSidebar && (
+        <LayersSidebar
+          elements={elements}
+          selectedIds={new Set(selectedElements.map((el) => el.id))}
+          onClose={() => setShowLayersSidebar(false)}
+          onSelectElement={handleSelectElementFromLayers}
+          onDeleteElement={handleDeleteElement}
+          onReorderElement={handleReorderElement}
+        />
+      )}
     </div>
   );
 }
