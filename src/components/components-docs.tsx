@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
+import type React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,24 +17,24 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"
-import { CodeBlock as StyledCodeBlock } from "@/components/ui/code-block"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
+} from "@/components/ui/accordion";
+import { CodeBlock as StyledCodeBlock } from "@/components/ui/code-block";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import {
   Sheet,
   SheetContent,
@@ -42,34 +42,37 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"
-import { ColorPicker } from "@/components/ui/color-picker"
-import { ArrowLeft, ArrowRight, Download, Heart, Settings } from "lucide-react"
-import { AnimateCursorApiReference, AnimateCursorFollowPreview, AnimateCursorMinimalPreview } from "@/components/animate-ui/docs/animate-cursor-docs"
-import { PropsTable, type PropRow } from "@/components/docs/props-table"
+} from "@/components/ui/sheet";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { ArrowLeft, ArrowRight, Download, Heart, Settings } from "lucide-react";
+import {
+  AnimateCursorApiReference,
+  AnimateCursorFollowPreview,
+  AnimateCursorMinimalPreview,
+} from "@/components/animate-ui/docs/animate-cursor-docs";
+import { PropsTable, type PropRow } from "@/components/docs/props-table";
 
 type PreviewVariant = {
-  id: string
-  name: string
-  description?: string
-  code: string
-  Preview: () => React.ReactNode
-}
+  id: string;
+  name: string;
+  description?: string;
+  code: string;
+  Preview: () => React.ReactNode;
+};
 
 type ComponentEntry = {
-  id: string
-  name: string
-  description: string
-  code: string
-  previewVariants?: PreviewVariant[]
-  Preview: () => React.ReactNode
-  ApiReference?: () => React.ReactNode
-}
+  id: string;
+  name: string;
+  description: string;
+  code: string;
+  previewVariants?: PreviewVariant[];
+  Preview: () => React.ReactNode;
+  ApiReference?: () => React.ReactNode;
+};
 
 function useComponentRegistry() {
-  return useMemo<ComponentEntry[]>(
-    () => {
-      const entries: ComponentEntry[] = [
+  return useMemo<ComponentEntry[]>(() => {
+    const entries: ComponentEntry[] = [
       {
         id: "animate-cursor",
         name: "Cursor",
@@ -111,7 +114,7 @@ export function Example() {
   )
 }`,
             Preview: function Preview() {
-              return <AnimateCursorMinimalPreview />
+              return <AnimateCursorMinimalPreview />;
             },
           },
           {
@@ -134,21 +137,22 @@ export function Example() {
   )
 }`,
             Preview: function Preview() {
-              return <AnimateCursorFollowPreview />
+              return <AnimateCursorFollowPreview />;
             },
           },
         ],
         Preview: function Preview() {
-          return <AnimateCursorFollowPreview />
+          return <AnimateCursorFollowPreview />;
         },
         ApiReference: function ApiReference() {
-          return <AnimateCursorApiReference />
+          return <AnimateCursorApiReference />;
         },
       },
       {
         id: "buttons",
         name: "Button",
-        description: "Interactive buttons with smooth click animations and multiple style variants.",
+        description:
+          "Interactive buttons with smooth click animations and multiple style variants.",
         code: `'use client'
 
 import { Button } from "@/components/ui/button"
@@ -177,7 +181,7 @@ export function Example() {
                   <Button variant="ghost">Ghost</Button>
                   <Button variant="link">Link</Button>
                 </div>
-              )
+              );
             },
           },
           {
@@ -212,7 +216,7 @@ export function Example() {
                   <div className="w-px self-stretch bg-border mx-1" />
                   <Button variant="secondary">Share</Button>
                 </div>
-              )
+              );
             },
           },
         ],
@@ -225,7 +229,7 @@ export function Example() {
               <Button variant="ghost">Ghost</Button>
               <Button variant="link">Link</Button>
             </div>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const rows: PropRow[] = [
@@ -253,17 +257,16 @@ export function Example() {
               defaultValue: "—",
               description: "All standard button props.",
             },
-          ]
+          ];
 
-          return (
-            <PropsTable title="Button" rows={rows} />
-          )
+          return <PropsTable title="Button" rows={rows} />;
         },
       },
       {
         id: "code-block",
         name: "Code Block",
-        description: "Styled code block with syntax highlighting, copy button, and optional filename header.",
+        description:
+          "Styled code block with syntax highlighting, copy button, and optional filename header.",
         code: `'use client'
 
 import { CodeBlock } from "@/components/ui/code-block"
@@ -299,7 +302,7 @@ function MyComponent(props: MyComponentProps) {
   )
 }
 
-export { MyComponent, type MyComponentProps }`
+export { MyComponent, type MyComponentProps }`;
 
               return (
                 <StyledCodeBlock
@@ -307,7 +310,7 @@ export { MyComponent, type MyComponentProps }`
                   language="tsx"
                   filename="my-component.tsx"
                 />
-              )
+              );
             },
           },
           {
@@ -321,7 +324,7 @@ export { MyComponent, type MyComponentProps }`
                   code={`console.log("copy me")\n`}
                   language="tsx"
                 />
-              )
+              );
             },
           },
         ],
@@ -342,7 +345,7 @@ function MyComponent(props: MyComponentProps) {
   )
 }
 
-export { MyComponent, type MyComponentProps }`
+export { MyComponent, type MyComponentProps }`;
 
           return (
             <StyledCodeBlock
@@ -350,26 +353,50 @@ export { MyComponent, type MyComponentProps }`
               language="tsx"
               filename="my-component.tsx"
             />
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const rows: PropRow[] = [
-            { prop: "code", type: "string", defaultValue: "—", description: "Code string to render." },
-            { prop: "language", type: "string", defaultValue: `"tsx"`, description: "Syntax highlighter language." },
-            { prop: "filename", type: "string", defaultValue: "—", description: "Optional filename header." },
-            { prop: "showCopy", type: "boolean", defaultValue: "true", description: "Shows the copy button." },
-            { prop: "className", type: "string", defaultValue: "—", description: "Wrapper className." },
-          ]
+            {
+              prop: "code",
+              type: "string",
+              defaultValue: "—",
+              description: "Code string to render.",
+            },
+            {
+              prop: "language",
+              type: "string",
+              defaultValue: `"tsx"`,
+              description: "Syntax highlighter language.",
+            },
+            {
+              prop: "filename",
+              type: "string",
+              defaultValue: "—",
+              description: "Optional filename header.",
+            },
+            {
+              prop: "showCopy",
+              type: "boolean",
+              defaultValue: "true",
+              description: "Shows the copy button.",
+            },
+            {
+              prop: "className",
+              type: "string",
+              defaultValue: "—",
+              description: "Wrapper className.",
+            },
+          ];
 
-          return (
-            <PropsTable title="CodeBlock" rows={rows} />
-          )
+          return <PropsTable title="CodeBlock" rows={rows} />;
         },
       },
       {
         id: "dropdown",
         name: "Dropdown Menu",
-        description: "Action menu with smooth animations, nested submenus, and keyboard shortcut hints.",
+        description:
+          "Action menu with smooth animations, nested submenus, and keyboard shortcut hints.",
         code: `'use client'
 
 import { Button } from "@/components/ui/button"
@@ -417,10 +444,12 @@ export function Example() {
                     <DropdownMenuItem>Profile</DropdownMenuItem>
                     <DropdownMenuItem>Settings</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive">Sign out</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive">
+                      Sign out
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              )
+              );
             },
           },
           {
@@ -476,7 +505,7 @@ export function Example() {
                     <DropdownMenuItem>Support</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              )
+              );
             },
           },
         ],
@@ -530,7 +559,7 @@ export function Example() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const contentRows: PropRow[] = [
@@ -552,10 +581,15 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix content props.",
             },
-          ]
+          ];
 
           const itemRows: PropRow[] = [
-            { prop: "inset", type: "boolean", defaultValue: "—", description: "Adds left padding when true." },
+            {
+              prop: "inset",
+              type: "boolean",
+              defaultValue: "—",
+              description: "Adds left padding when true.",
+            },
             {
               prop: "variant",
               type: `"default" | "destructive"`,
@@ -568,23 +602,25 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix item props.",
             },
-          ]
+          ];
 
           return (
             <div className="space-y-6">
               <div className="text-sm text-muted-foreground">
-                This file is a thin wrapper around `@radix-ui/react-dropdown-menu` primitives.
+                This file is a thin wrapper around
+                `@radix-ui/react-dropdown-menu` primitives.
               </div>
               <PropsTable title="DropdownMenuContent" rows={contentRows} />
               <PropsTable title="DropdownMenuItem" rows={itemRows} />
             </div>
-          )
+          );
         },
       },
       {
         id: "kbd",
         name: "Kbd",
-        description: "Keyboard key component for displaying keyboard shortcuts and key combinations.",
+        description:
+          "Keyboard key component for displaying keyboard shortcuts and key combinations.",
         code: `'use client'
 
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
@@ -623,7 +659,7 @@ export function Example() {
                   <Kbd>A</Kbd>
                   <Kbd>K</Kbd>
                 </div>
-              )
+              );
             },
           },
           {
@@ -670,7 +706,9 @@ export function Example() {
               return (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Copy</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Copy
+                    </span>
                     <KbdGroup>
                       <span>⌘</span>
                       <span className="text-sm opacity-85">+</span>
@@ -678,7 +716,9 @@ export function Example() {
                     </KbdGroup>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Paste</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Paste
+                    </span>
                     <KbdGroup>
                       <span>⌘</span>
                       <span className="text-sm opacity-85">+</span>
@@ -686,7 +726,9 @@ export function Example() {
                     </KbdGroup>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Save</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Save
+                    </span>
                     <KbdGroup>
                       <span>⌘</span>
                       <span className="text-sm opacity-85">+</span>
@@ -694,7 +736,9 @@ export function Example() {
                     </KbdGroup>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Force Quit</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Force Quit
+                    </span>
                     <KbdGroup>
                       <span>⌘</span>
                       <span className="text-sm opacity-85">+</span>
@@ -704,7 +748,7 @@ export function Example() {
                     </KbdGroup>
                   </div>
                 </div>
-              )
+              );
             },
           },
           {
@@ -751,7 +795,9 @@ export function Example() {
               return (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Copy</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Copy
+                    </span>
                     <div className="inline-flex items-center gap-1">
                       <Kbd>⌘</Kbd>
                       <span className="text-muted-foreground text-xs">+</span>
@@ -759,7 +805,9 @@ export function Example() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Paste</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Paste
+                    </span>
                     <div className="inline-flex items-center gap-1">
                       <Kbd>⌘</Kbd>
                       <span className="text-muted-foreground text-xs">+</span>
@@ -767,7 +815,9 @@ export function Example() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Save</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Save
+                    </span>
                     <div className="inline-flex items-center gap-1">
                       <Kbd>⌘</Kbd>
                       <span className="text-muted-foreground text-xs">+</span>
@@ -775,7 +825,9 @@ export function Example() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground w-32">Force Quit</span>
+                    <span className="text-sm text-muted-foreground w-32">
+                      Force Quit
+                    </span>
                     <div className="inline-flex items-center gap-1">
                       <Kbd>⌘</Kbd>
                       <span className="text-muted-foreground text-xs">+</span>
@@ -785,7 +837,7 @@ export function Example() {
                     </div>
                   </div>
                 </div>
-              )
+              );
             },
           },
         ],
@@ -802,7 +854,9 @@ export function Example() {
               </div>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground w-32">Single Pill</span>
+                  <span className="text-sm text-muted-foreground w-32">
+                    Single Pill
+                  </span>
                   <KbdGroup>
                     <span>⌘</span>
                     <span className="text-sm opacity-85">+</span>
@@ -810,7 +864,9 @@ export function Example() {
                   </KbdGroup>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground w-32">Multiple Pills</span>
+                  <span className="text-sm text-muted-foreground w-32">
+                    Multiple Pills
+                  </span>
                   <div className="inline-flex items-center gap-1">
                     <Kbd>⌘</Kbd>
                     <span className="text-muted-foreground text-xs">+</span>
@@ -819,7 +875,7 @@ export function Example() {
                 </div>
               </div>
             </div>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const kbdRows: PropRow[] = [
@@ -841,14 +897,15 @@ export function Example() {
               defaultValue: "—",
               description: "All standard kbd element props.",
             },
-          ]
+          ];
 
           const groupRows: PropRow[] = [
             {
               prop: "children",
               type: "React.ReactNode",
               defaultValue: "—",
-              description: "Key combination content (e.g., '⌘ C' or '⌘ Shift S').",
+              description:
+                "Key combination content (e.g., '⌘ C' or '⌘ Shift S').",
             },
             {
               prop: "className",
@@ -862,27 +919,35 @@ export function Example() {
               defaultValue: "—",
               description: "All standard kbd element props.",
             },
-          ]
+          ];
 
           return (
             <div className="space-y-6">
               <div className="text-sm text-muted-foreground">
-                The Kbd component displays individual keyboard keys. For key combinations, use either:
+                The Kbd component displays individual keyboard keys. For key
+                combinations, use either:
                 <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li><strong>KbdGroup</strong>: All keys in a single pill with + signs between</li>
-                  <li><strong>Multiple Kbd</strong>: Separate pills with + signs between</li>
+                  <li>
+                    <strong>KbdGroup</strong>: All keys in a single pill with +
+                    signs between
+                  </li>
+                  <li>
+                    <strong>Multiple Kbd</strong>: Separate pills with + signs
+                    between
+                  </li>
                 </ul>
               </div>
               <PropsTable title="Kbd" rows={kbdRows} />
               <PropsTable title="KbdGroup" rows={groupRows} />
             </div>
-          )
+          );
         },
       },
       {
         id: "select",
         name: "Select",
-        description: "Polished select with border highlights, smooth animations, and sliding text on hover.",
+        description:
+          "Polished select with border highlights, smooth animations, and sliding text on hover.",
         code: `'use client'
 
 import { useState } from "react"
@@ -926,7 +991,7 @@ export function Example() {
   </Select>
 </div>`,
             Preview: function Preview() {
-              const [value, setValue] = useState("floyd")
+              const [value, setValue] = useState("floyd");
               return (
                 <div className="w-64 space-y-2">
                   <Label>Algorithm</Label>
@@ -941,7 +1006,7 @@ export function Example() {
                     </SelectContent>
                   </Select>
                 </div>
-              )
+              );
             },
           },
           {
@@ -965,7 +1030,7 @@ export function Example() {
   <p className="text-xs text-muted-foreground">This value is used by the editor.</p>
 </div>`,
             Preview: function Preview() {
-              const [value, setValue] = useState("floyd")
+              const [value, setValue] = useState("floyd");
               return (
                 <div className="w-96 rounded-lg border bg-muted/10 p-6 space-y-4">
                   <div className="space-y-2">
@@ -981,14 +1046,16 @@ export function Example() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <p className="text-xs text-muted-foreground">This value is used by the editor.</p>
+                  <p className="text-xs text-muted-foreground">
+                    This value is used by the editor.
+                  </p>
                 </div>
-              )
+              );
             },
           },
         ],
         Preview: function Preview() {
-          const [value, setValue] = useState("floyd")
+          const [value, setValue] = useState("floyd");
           return (
             <div className="w-80 space-y-2">
               <Label>Dithering Algorithm</Label>
@@ -1008,7 +1075,7 @@ export function Example() {
                 </SelectContent>
               </Select>
             </div>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const triggerRows: PropRow[] = [
@@ -1018,14 +1085,15 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix trigger props (forwardRef).",
             },
-          ]
+          ];
 
           const contentRows: PropRow[] = [
             {
               prop: "position",
               type: "string",
               defaultValue: `"popper"`,
-              description: "Forwarded to Radix content; affects layout classes.",
+              description:
+                "Forwarded to Radix content; affects layout classes.",
             },
             {
               prop: "...props",
@@ -1033,7 +1101,7 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix content props (forwardRef).",
             },
-          ]
+          ];
 
           const itemRows: PropRow[] = [
             {
@@ -1042,24 +1110,26 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix item props (forwardRef).",
             },
-          ]
+          ];
 
           return (
             <div className="space-y-6">
               <div className="text-sm text-muted-foreground">
-                `Select` is a re-export of Radix `SelectPrimitive.Root`; the other exports are forwardRef wrappers.
+                `Select` is a re-export of Radix `SelectPrimitive.Root`; the
+                other exports are forwardRef wrappers.
               </div>
               <PropsTable title="SelectTrigger" rows={triggerRows} />
               <PropsTable title="SelectContent" rows={contentRows} />
               <PropsTable title="SelectItem" rows={itemRows} />
             </div>
-          )
+          );
         },
       },
       {
         id: "slider",
         name: "Slider",
-        description: "Smooth animated slider with track height transitions and glow effects.",
+        description:
+          "Smooth animated slider with track height transitions and glow effects.",
         code: `'use client'
 
 import { useState } from "react"
@@ -1090,7 +1160,7 @@ export function Example() {
   step={1}
 />`,
             Preview: function Preview() {
-              const [value, setValue] = useState(55)
+              const [value, setValue] = useState(55);
               return (
                 <div className="w-96">
                   <Slider
@@ -1104,7 +1174,7 @@ export function Example() {
                     step={1}
                   />
                 </div>
-              )
+              );
             },
           },
           {
@@ -1115,14 +1185,20 @@ export function Example() {
             Preview: function Preview() {
               return (
                 <div className="w-96">
-                  <Slider label="Strength" showValue unit="%" value={[55]} disabled />
+                  <Slider
+                    label="Strength"
+                    showValue
+                    unit="%"
+                    value={[55]}
+                    disabled
+                  />
                 </div>
-              )
+              );
             },
           },
         ],
         Preview: function Preview() {
-          const [value, setValue] = useState(55)
+          const [value, setValue] = useState(55);
           return (
             <div className="w-96">
               <Slider
@@ -1136,33 +1212,92 @@ export function Example() {
                 step={1}
               />
             </div>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const rows: PropRow[] = [
-            { prop: "min", type: "number", defaultValue: "0", description: "Minimum value." },
-            { prop: "max", type: "number", defaultValue: "100", description: "Maximum value." },
-            { prop: "step", type: "number", defaultValue: "1", description: "Step increment." },
-            { prop: "defaultValue", type: "number | number[]", defaultValue: "50", description: "Initial value." },
-            { prop: "value", type: "number | number[]", defaultValue: "—", description: "Controlled value." },
-            { prop: "onChange", type: "(value: number) => void", defaultValue: "—", description: "Called with the normalized number value." },
-            { prop: "onValueChange", type: "(value: number[]) => void", defaultValue: "—", description: "Called with a 1-length array value." },
-            { prop: "label", type: "string", defaultValue: "—", description: "Optional label used for aria-label and UI." },
-            { prop: "showValue", type: "boolean", defaultValue: "false", description: "Shows the current value in the header." },
-            { prop: "unit", type: "string", defaultValue: "—", description: "Optional unit shown next to the value." },
-            { prop: "className", type: "string", defaultValue: "—", description: "Wrapper className." },
-            { prop: "disabled", type: "boolean", defaultValue: "false", description: "Disables interaction." },
-          ]
+            {
+              prop: "min",
+              type: "number",
+              defaultValue: "0",
+              description: "Minimum value.",
+            },
+            {
+              prop: "max",
+              type: "number",
+              defaultValue: "100",
+              description: "Maximum value.",
+            },
+            {
+              prop: "step",
+              type: "number",
+              defaultValue: "1",
+              description: "Step increment.",
+            },
+            {
+              prop: "defaultValue",
+              type: "number | number[]",
+              defaultValue: "50",
+              description: "Initial value.",
+            },
+            {
+              prop: "value",
+              type: "number | number[]",
+              defaultValue: "—",
+              description: "Controlled value.",
+            },
+            {
+              prop: "onChange",
+              type: "(value: number) => void",
+              defaultValue: "—",
+              description: "Called with the normalized number value.",
+            },
+            {
+              prop: "onValueChange",
+              type: "(value: number[]) => void",
+              defaultValue: "—",
+              description: "Called with a 1-length array value.",
+            },
+            {
+              prop: "label",
+              type: "string",
+              defaultValue: "—",
+              description: "Optional label used for aria-label and UI.",
+            },
+            {
+              prop: "showValue",
+              type: "boolean",
+              defaultValue: "false",
+              description: "Shows the current value in the header.",
+            },
+            {
+              prop: "unit",
+              type: "string",
+              defaultValue: "—",
+              description: "Optional unit shown next to the value.",
+            },
+            {
+              prop: "className",
+              type: "string",
+              defaultValue: "—",
+              description: "Wrapper className.",
+            },
+            {
+              prop: "disabled",
+              type: "boolean",
+              defaultValue: "false",
+              description: "Disables interaction.",
+            },
+          ];
 
-          return (
-            <PropsTable title="Slider" rows={rows} />
-          )
+          return <PropsTable title="Slider" rows={rows} />;
         },
       },
       {
         id: "tabs",
         name: "Tabs",
-        description: "Tab navigation with moving background highlight and smooth content transitions.",
+        description:
+          "Tab navigation with moving background highlight and smooth content transitions.",
         code: `'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -1225,7 +1360,7 @@ export function Example() {
                     </TabsContent>
                   </Tabs>
                 </div>
-              )
+              );
             },
           },
           {
@@ -1297,7 +1432,7 @@ export function Example() {
                     </TabsContent>
                   </Tabs>
                 </div>
-              )
+              );
             },
           },
         ],
@@ -1353,7 +1488,7 @@ export function Example() {
                 </TabsContent>
               </Tabs>
             </div>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const triggerRows: PropRow[] = [
@@ -1361,13 +1496,15 @@ export function Example() {
               prop: "onTabChange",
               type: "(value: string) => void",
               defaultValue: "—",
-              description: "Internal prop used by `TabsList` to animate the highlight.",
+              description:
+                "Internal prop used by `TabsList` to animate the highlight.",
             },
             {
               prop: "registerRef",
               type: "(value: string, ref: HTMLButtonElement | null) => void",
               defaultValue: "—",
-              description: "Internal prop used by `TabsList` to measure triggers.",
+              description:
+                "Internal prop used by `TabsList` to measure triggers.",
             },
             {
               prop: "...props",
@@ -1375,22 +1512,24 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix trigger props (forwardRef).",
             },
-          ]
+          ];
 
           return (
             <div className="space-y-6">
               <div className="text-sm text-muted-foreground">
-                `Tabs` itself is a re-export of Radix `TabsPrimitive.Root`; wrappers add highlight behavior in `TabsList` + `TabsTrigger`.
+                `Tabs` itself is a re-export of Radix `TabsPrimitive.Root`;
+                wrappers add highlight behavior in `TabsList` + `TabsTrigger`.
               </div>
               <PropsTable title="TabsTrigger" rows={triggerRows} />
             </div>
-          )
+          );
         },
       },
       {
         id: "accordion",
         name: "Accordion",
-        description: "Expandable sections with smooth animations, collapsible content, and support for single or multiple open items.",
+        description:
+          "Expandable sections with smooth animations, collapsible content, and support for single or multiple open items.",
         code: `'use client'
 
 import {
@@ -1440,28 +1579,36 @@ export function Example() {
             Preview: function Preview() {
               return (
                 <div className="w-full max-w-md">
-                  <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+                  <Accordion
+                    type="single"
+                    collapsible
+                    defaultValue="item-1"
+                    className="w-full"
+                  >
                     <AccordionItem value="item-1">
                       <AccordionTrigger>Getting Started</AccordionTrigger>
                       <AccordionContent>
-                        Begin by installing the required dependencies and setting up your project structure.
+                        Begin by installing the required dependencies and
+                        setting up your project structure.
                       </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-2">
                       <AccordionTrigger>Configuration</AccordionTrigger>
                       <AccordionContent>
-                        Configure your environment variables and customize the settings to match your needs.
+                        Configure your environment variables and customize the
+                        settings to match your needs.
                       </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-3">
                       <AccordionTrigger>Deployment</AccordionTrigger>
                       <AccordionContent>
-                        Deploy your application to production using your preferred hosting platform.
+                        Deploy your application to production using your
+                        preferred hosting platform.
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
                 </div>
-              )
+              );
             },
           },
           {
@@ -1495,52 +1642,63 @@ export function Example() {
                     <AccordionItem value="item-1">
                       <AccordionTrigger>Features</AccordionTrigger>
                       <AccordionContent>
-                        Smooth animations, keyboard navigation, and full accessibility support.
+                        Smooth animations, keyboard navigation, and full
+                        accessibility support.
                       </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-2">
                       <AccordionTrigger>Customization</AccordionTrigger>
                       <AccordionContent>
-                        Easily customize colors, spacing, and animations to match your design system.
+                        Easily customize colors, spacing, and animations to
+                        match your design system.
                       </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-3">
                       <AccordionTrigger>Performance</AccordionTrigger>
                       <AccordionContent>
-                        Built with React and optimized for performance with minimal re-renders.
+                        Built with React and optimized for performance with
+                        minimal re-renders.
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
                 </div>
-              )
+              );
             },
           },
         ],
         Preview: function Preview() {
           return (
             <div className="w-full max-w-md">
-              <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+              <Accordion
+                type="single"
+                collapsible
+                defaultValue="item-1"
+                className="w-full"
+              >
                 <AccordionItem value="item-1">
                   <AccordionTrigger>Getting Started</AccordionTrigger>
                   <AccordionContent>
-                    Begin by installing the required dependencies and setting up your project structure.
+                    Begin by installing the required dependencies and setting up
+                    your project structure.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-2">
                   <AccordionTrigger>Configuration</AccordionTrigger>
                   <AccordionContent>
-                    Configure your environment variables and customize the settings to match your needs.
+                    Configure your environment variables and customize the
+                    settings to match your needs.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-3">
                   <AccordionTrigger>Deployment</AccordionTrigger>
                   <AccordionContent>
-                    Deploy your application to production using your preferred hosting platform.
+                    Deploy your application to production using your preferred
+                    hosting platform.
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
             </div>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const rootRows: PropRow[] = [
@@ -1554,7 +1712,7 @@ export function Example() {
               prop: "collapsible",
               type: "boolean",
               defaultValue: "false",
-              description: "When type=\"single\", allows closing the open item.",
+              description: 'When type="single", allows closing the open item.',
             },
             {
               prop: "defaultValue",
@@ -1574,7 +1732,7 @@ export function Example() {
               defaultValue: "—",
               description: "Called when open items change.",
             },
-          ]
+          ];
 
           const triggerRows: PropRow[] = [
             {
@@ -1583,7 +1741,7 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix trigger props (forwardRef).",
             },
-          ]
+          ];
 
           const contentRows: PropRow[] = [
             {
@@ -1592,24 +1750,26 @@ export function Example() {
               defaultValue: "—",
               description: "All Radix content props (forwardRef).",
             },
-          ]
+          ];
 
           return (
             <div className="space-y-6">
               <div className="text-sm text-muted-foreground">
-                This component is built on top of `@radix-ui/react-accordion` primitives.
+                This component is built on top of `@radix-ui/react-accordion`
+                primitives.
               </div>
               <PropsTable title="Accordion" rows={rootRows} />
               <PropsTable title="AccordionTrigger" rows={triggerRows} />
               <PropsTable title="AccordionContent" rows={contentRows} />
             </div>
-          )
+          );
         },
       },
       {
         id: "sheet",
         name: "Sheet",
-        description: "A slide-out panel (drawer) that slides in from the side of the screen. Perfect for mobile navigation menus or side panels.",
+        description:
+          "A slide-out panel (drawer) that slides in from the side of the screen. Perfect for mobile navigation menus or side panels.",
         code: `'use client'
 
 import { useState } from "react"
@@ -1703,20 +1863,29 @@ export function Example() {
                     </SheetHeader>
                     <div className="py-4">
                       <nav className="flex flex-col gap-2">
-                        <a href="#" className="px-2 py-1 text-sm hover:bg-secondary rounded-md">
+                        <a
+                          href="#"
+                          className="px-2 py-1 text-sm hover:bg-secondary rounded-md"
+                        >
                           Home
                         </a>
-                        <a href="#" className="px-2 py-1 text-sm hover:bg-secondary rounded-md">
+                        <a
+                          href="#"
+                          className="px-2 py-1 text-sm hover:bg-secondary rounded-md"
+                        >
                           About
                         </a>
-                        <a href="#" className="px-2 py-1 text-sm hover:bg-secondary rounded-md">
+                        <a
+                          href="#"
+                          className="px-2 py-1 text-sm hover:bg-secondary rounded-md"
+                        >
                           Services
                         </a>
                       </nav>
                     </div>
                   </SheetContent>
                 </Sheet>
-              )
+              );
             },
           },
           {
@@ -1765,12 +1934,13 @@ export function Example() {
                     </SheetHeader>
                     <div className="py-4">
                       <p className="text-sm text-muted-foreground">
-                        This is a right-side drawer. Perfect for settings panels or detailed views.
+                        This is a right-side drawer. Perfect for settings panels
+                        or detailed views.
                       </p>
                     </div>
                   </SheetContent>
                 </Sheet>
-              )
+              );
             },
           },
         ],
@@ -1786,29 +1956,42 @@ export function Example() {
                 </SheetHeader>
                 <div className="py-4">
                   <nav className="flex flex-col gap-2">
-                    <a href="#" className="px-2 py-1 text-sm hover:bg-secondary rounded-md">
+                    <a
+                      href="#"
+                      className="px-2 py-1 text-sm hover:bg-secondary rounded-md"
+                    >
                       Home
                     </a>
-                    <a href="#" className="px-2 py-1 text-sm hover:bg-secondary rounded-md">
+                    <a
+                      href="#"
+                      className="px-2 py-1 text-sm hover:bg-secondary rounded-md"
+                    >
                       About
                     </a>
-                    <a href="#" className="px-2 py-1 text-sm hover:bg-secondary rounded-md">
+                    <a
+                      href="#"
+                      className="px-2 py-1 text-sm hover:bg-secondary rounded-md"
+                    >
                       Services
                     </a>
-                    <a href="#" className="px-2 py-1 text-sm hover:bg-secondary rounded-md">
+                    <a
+                      href="#"
+                      className="px-2 py-1 text-sm hover:bg-secondary rounded-md"
+                    >
                       Contact
                     </a>
                   </nav>
                 </div>
               </SheetContent>
             </Sheet>
-          )
+          );
         },
       },
       {
         id: "color-picker",
         name: "Color Picker",
-        description: "Figma-style color picker with 2D saturation/value selector, hue and alpha sliders, multiple format outputs (HEX/RGB/HSL), eyedropper tool, and recent colors.",
+        description:
+          "Figma-style color picker with 2D saturation/value selector, hue and alpha sliders, multiple format outputs (HEX/RGB/HSL), eyedropper tool, and recent colors.",
         code: `'use client'
 
 import { useState } from "react"
@@ -1870,8 +2053,8 @@ export function Example() {
   )
 }`,
             Preview: function Preview() {
-              const [color, setColor] = useState("#3b82f6")
-              const [isOpen, setIsOpen] = useState(false)
+              const [color, setColor] = useState("#3b82f6");
+              const [isOpen, setIsOpen] = useState(false);
 
               return (
                 <div className="flex items-center gap-4">
@@ -1883,7 +2066,9 @@ export function Example() {
                       className="w-8 h-8 rounded border border-input"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="text-sm text-muted-foreground font-mono">{color}</span>
+                    <span className="text-sm text-muted-foreground font-mono">
+                      {color}
+                    </span>
                   </div>
                   <ColorPicker
                     value={color}
@@ -1893,13 +2078,14 @@ export function Example() {
                     title="Pick a Color"
                   />
                 </div>
-              )
+              );
             },
           },
           {
             id: "with-swatch",
             name: "With Swatch Button",
-            description: "Color picker triggered by clicking the color swatch itself.",
+            description:
+              "Color picker triggered by clicking the color swatch itself.",
             code: `import { useState } from "react"
 import { ColorPicker } from "@/components/ui/color-picker"
 
@@ -1946,15 +2132,17 @@ export function Example() {
   )
 }`,
             Preview: function Preview() {
-              const [strokeColor, setStrokeColor] = useState("#ef4444")
-              const [fillColor, setFillColor] = useState("#10b981")
-              const [showStrokePicker, setShowStrokePicker] = useState(false)
-              const [showFillPicker, setShowFillPicker] = useState(false)
+              const [strokeColor, setStrokeColor] = useState("#ef4444");
+              const [fillColor, setFillColor] = useState("#10b981");
+              const [showStrokePicker, setShowStrokePicker] = useState(false);
+              const [showFillPicker, setShowFillPicker] = useState(false);
 
               return (
                 <div className="flex items-center gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">Stroke</label>
+                    <label className="text-xs text-muted-foreground">
+                      Stroke
+                    </label>
                     <button
                       onClick={() => setShowStrokePicker(true)}
                       className="w-10 h-10 rounded-md border border-input hover:scale-105 transition-transform"
@@ -1962,7 +2150,9 @@ export function Example() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">Fill</label>
+                    <label className="text-xs text-muted-foreground">
+                      Fill
+                    </label>
                     <button
                       onClick={() => setShowFillPicker(true)}
                       className="w-10 h-10 rounded-md border border-input hover:scale-105 transition-transform"
@@ -1985,13 +2175,13 @@ export function Example() {
                     title="Fill Color"
                   />
                 </div>
-              )
+              );
             },
           },
         ],
         Preview: function Preview() {
-          const [color, setColor] = useState("#3b82f6")
-          const [isOpen, setIsOpen] = useState(false)
+          const [color, setColor] = useState("#3b82f6");
+          const [isOpen, setIsOpen] = useState(false);
 
           return (
             <div className="flex items-center gap-4">
@@ -2003,7 +2193,9 @@ export function Example() {
                   className="w-8 h-8 rounded border border-input"
                   style={{ backgroundColor: color }}
                 />
-                <span className="text-sm text-muted-foreground font-mono">{color}</span>
+                <span className="text-sm text-muted-foreground font-mono">
+                  {color}
+                </span>
               </div>
               <ColorPicker
                 value={color}
@@ -2013,7 +2205,7 @@ export function Example() {
                 title="Pick a Color"
               />
             </div>
-          )
+          );
         },
         ApiReference: function ApiReference() {
           const rows: PropRow[] = [
@@ -2021,13 +2213,15 @@ export function Example() {
               prop: "value",
               type: "string",
               defaultValue: "—",
-              description: "Current color value. Accepts HEX (#RRGGBB, #RRGGBBAA), RGB, HSL, or 'transparent'.",
+              description:
+                "Current color value. Accepts HEX (#RRGGBB, #RRGGBBAA), RGB, HSL, or 'transparent'.",
             },
             {
               prop: "onChange",
               type: "(color: string) => void",
               defaultValue: "—",
-              description: "Callback when color changes. Returns color in HEX format.",
+              description:
+                "Callback when color changes. Returns color in HEX format.",
             },
             {
               prop: "isOpen",
@@ -2039,7 +2233,8 @@ export function Example() {
               prop: "onClose",
               type: "() => void",
               defaultValue: "—",
-              description: "Callback when the color picker should close (clicking overlay or Escape key).",
+              description:
+                "Callback when the color picker should close (clicking overlay or Escape key).",
             },
             {
               prop: "title",
@@ -2051,7 +2246,8 @@ export function Example() {
               prop: "position",
               type: `{ left: number; top: number } | "auto"`,
               defaultValue: `"auto"`,
-              description: "Modal position. 'auto' positions it to the left of the sidebar (right: 20rem).",
+              description:
+                "Modal position. 'auto' positions it to the left of the sidebar (right: 20rem).",
             },
             {
               prop: "showAlpha",
@@ -2063,87 +2259,92 @@ export function Example() {
               prop: "showEyedropper",
               type: "boolean",
               defaultValue: "true",
-              description: "Shows the eyedropper button (only in supported browsers: Chrome, Edge).",
+              description:
+                "Shows the eyedropper button (only in supported browsers: Chrome, Edge).",
             },
             {
               prop: "showSwatches",
               type: "boolean",
               defaultValue: "true",
-              description: "Shows recently used colors (persisted in localStorage).",
+              description:
+                "Shows recently used colors (persisted in localStorage).",
             },
-          ]
+          ];
 
-          return <PropsTable title="ColorPicker" rows={rows} />
+          return <PropsTable title="ColorPicker" rows={rows} />;
         },
       },
-    ]
+    ];
 
     // Automatically sort components alphabetically by name
-    return entries.sort((a, b) => a.name.localeCompare(b.name))
-  },
-    []
-  )
+    return entries.sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
 }
 
 interface ComponentsDocsProps {
-  mobileMenuOpen?: boolean
-  onMobileMenuChange?: (open: boolean) => void
+  mobileMenuOpen?: boolean;
+  onMobileMenuChange?: (open: boolean) => void;
 }
 
-export function ComponentsDocs({ mobileMenuOpen = false, onMobileMenuChange }: ComponentsDocsProps = {}) {
-  const registry = useComponentRegistry()
-  const [activeId, setActiveId] = useState("introduction")
-  const [activePreviewVariantId, setActivePreviewVariantId] = useState<string>("")
-  const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({})
-  const navRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
-  const navContainerRef = useRef<HTMLDivElement>(null)
+export function ComponentsDocs({
+  mobileMenuOpen = false,
+  onMobileMenuChange,
+}: ComponentsDocsProps = {}) {
+  const registry = useComponentRegistry();
+  const [activeId, setActiveId] = useState("introduction");
+  const [activePreviewVariantId, setActivePreviewVariantId] =
+    useState<string>("");
+  const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({});
+  const navRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const navContainerRef = useRef<HTMLDivElement>(null);
 
-  const currentIndex = registry.findIndex((entry) => entry.id === activeId)
-  const prevComponent = currentIndex > 0 ? registry[currentIndex - 1] : null
-  const nextComponent = currentIndex < registry.length - 1 ? registry[currentIndex + 1] : null
+  const currentIndex = registry.findIndex((entry) => entry.id === activeId);
+  const prevComponent = currentIndex > 0 ? registry[currentIndex - 1] : null;
+  const nextComponent =
+    currentIndex < registry.length - 1 ? registry[currentIndex + 1] : null;
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleNavigate = (id: string) => {
-    setActiveId(id)
-    scrollToTop()
-    onMobileMenuChange?.(false)
-  }
+    setActiveId(id);
+    scrollToTop();
+    onMobileMenuChange?.(false);
+  };
 
-  const activeEntry = registry.find((entry) => entry.id === activeId)
+  const activeEntry = registry.find((entry) => entry.id === activeId);
 
   useEffect(() => {
     if (!activeEntry?.previewVariants?.length) {
-      setActivePreviewVariantId("")
-      return
+      setActivePreviewVariantId("");
+      return;
     }
-    setActivePreviewVariantId(activeEntry.previewVariants[0].id)
-  }, [activeId, activeEntry?.previewVariants])
+    setActivePreviewVariantId(activeEntry.previewVariants[0].id);
+  }, [activeId, activeEntry?.previewVariants]);
 
   useEffect(() => {
     const updateHighlight = () => {
-      const activeButton = navRefs.current.get(activeId)
+      const activeButton = navRefs.current.get(activeId);
       if (activeButton && navContainerRef.current) {
-        const containerRect = navContainerRef.current.getBoundingClientRect()
-        const buttonRect = activeButton.getBoundingClientRect()
+        const containerRect = navContainerRef.current.getBoundingClientRect();
+        const buttonRect = activeButton.getBoundingClientRect();
 
         setHighlightStyle({
           width: buttonRect.width,
           height: buttonRect.height,
           transform: `translateY(${buttonRect.top - containerRect.top}px)`,
-        })
+        });
       }
-    }
+    };
 
     if (activeId) {
-      updateHighlight()
+      updateHighlight();
     }
 
-    window.addEventListener('resize', updateHighlight)
-    return () => window.removeEventListener('resize', updateHighlight)
-  }, [activeId])
+    window.addEventListener("resize", updateHighlight);
+    return () => window.removeEventListener("resize", updateHighlight);
+  }, [activeId]);
 
   // Shared navigation content
   const NavigationContent = () => (
@@ -2155,17 +2356,21 @@ export function ComponentsDocs({ mobileMenuOpen = false, onMobileMenuChange }: C
         />
       )}
       <div>
-        <div className="relative z-10 text-sm font-medium text-foreground mb-2 pl-2">Sections</div>
+        <div className="relative z-10 text-sm font-medium text-foreground mb-2 pl-2">
+          Sections
+        </div>
         <nav className="grid gap-1 pl-2">
           <button
             ref={(el) => {
-              if (el) navRefs.current.set("introduction", el)
-              else navRefs.current.delete("introduction")
+              if (el) navRefs.current.set("introduction", el);
+              else navRefs.current.delete("introduction");
             }}
             type="button"
             className={cn(
               "relative z-10 rounded-md px-2 py-1 text-sm transition-colors hover:bg-secondary/60 text-left",
-              activeId === "introduction" ? "text-foreground" : "text-muted-foreground"
+              activeId === "introduction"
+                ? "text-foreground"
+                : "text-muted-foreground",
             )}
             onClick={() => handleNavigate("introduction")}
           >
@@ -2174,19 +2379,23 @@ export function ComponentsDocs({ mobileMenuOpen = false, onMobileMenuChange }: C
         </nav>
       </div>
       <div>
-        <div className="relative z-10 text-sm font-medium text-foreground mb-2 pl-2">Components</div>
+        <div className="relative z-10 text-sm font-medium text-foreground mb-2 pl-2">
+          Components
+        </div>
         <nav className="grid gap-1 pl-2">
           {registry.map((entry) => (
             <button
               key={entry.id}
               ref={(el) => {
-                if (el) navRefs.current.set(entry.id, el)
-                else navRefs.current.delete(entry.id)
+                if (el) navRefs.current.set(entry.id, el);
+                else navRefs.current.delete(entry.id);
               }}
               type="button"
               className={cn(
                 "relative z-10 rounded-md px-2 py-1 text-sm transition-colors hover:bg-secondary/60 text-left",
-                activeId === entry.id ? "text-foreground" : "text-muted-foreground"
+                activeId === entry.id
+                  ? "text-foreground"
+                  : "text-muted-foreground",
               )}
               onClick={() => handleNavigate(entry.id)}
             >
@@ -2196,7 +2405,7 @@ export function ComponentsDocs({ mobileMenuOpen = false, onMobileMenuChange }: C
         </nav>
       </div>
     </div>
-  )
+  );
 
   return (
     <>
@@ -2218,145 +2427,175 @@ export function ComponentsDocs({ mobileMenuOpen = false, onMobileMenuChange }: C
           <NavigationContent />
         </aside>
 
-      <div className="space-y-8">
-        {activeId === "introduction" ? (
-          <section className="scroll-mt-24">
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold tracking-tight">Introduction</h2>
-              <p className="text-muted-foreground">
-                A living documentation page for Shadeworks UI components you can reuse across tools.
-              </p>
-              <p className="text-muted-foreground">
-                Each component is designed with smooth animations, consistent styling, and a muted color palette. Browse the components in the sidebar to see interactive previews and copy the code snippets.
-              </p>
-              <p className="text-muted-foreground">
-                Some entries mirror the Animate UI primitives that power parts of Shadeworks (for example, the Cursor component).
-              </p>
-            </div>
-          </section>
-        ) : activeEntry ? (
-          <section
-            key={activeEntry.id}
-            id={activeEntry.id}
-            className="scroll-mt-24"
-          >
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold tracking-tight">{activeEntry.name}</h2>
-                <p className="text-muted-foreground">{activeEntry.description}</p>
+        <div className="space-y-8">
+          {activeId === "introduction" ? (
+            <section className="scroll-mt-24">
+              <div className="space-y-4">
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  Introduction
+                </h2>
+                <p className="text-muted-foreground">
+                  A living documentation page for kladde UI components you can
+                  reuse across tools.
+                </p>
+                <p className="text-muted-foreground">
+                  Each component is designed with smooth animations, consistent
+                  styling, and a muted color palette. Browse the components in
+                  the sidebar to see interactive previews and copy the code
+                  snippets.
+                </p>
+                <p className="text-muted-foreground">
+                  Some entries mirror the Animate UI primitives that power parts
+                  of kladde (for example, the Cursor component).
+                </p>
               </div>
+            </section>
+          ) : activeEntry ? (
+            <section
+              key={activeEntry.id}
+              id={activeEntry.id}
+              className="scroll-mt-24"
+            >
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-semibold tracking-tight">
+                    {activeEntry.name}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {activeEntry.description}
+                  </p>
+                </div>
 
-              <div className="space-y-3">
-                <h3 className="text-xl font-semibold tracking-tight">Preview</h3>
-                {(() => {
-                  const previewVariants: PreviewVariant[] =
-                    activeEntry.previewVariants?.length
+                <div className="space-y-3">
+                  <h3 className="text-xl font-semibold tracking-tight">
+                    Preview
+                  </h3>
+                  {(() => {
+                    const previewVariants: PreviewVariant[] = activeEntry
+                      .previewVariants?.length
                       ? activeEntry.previewVariants
                       : [
-                        {
-                          id: "default",
-                          name: "Default",
-                          code: activeEntry.code,
-                          Preview: activeEntry.Preview,
-                        },
-                      ]
+                          {
+                            id: "default",
+                            name: "Default",
+                            code: activeEntry.code,
+                            Preview: activeEntry.Preview,
+                          },
+                        ];
 
-                  const selectedVariant =
-                    previewVariants.find((variant) => variant.id === activePreviewVariantId) ??
-                    previewVariants[0]
+                    const selectedVariant =
+                      previewVariants.find(
+                        (variant) => variant.id === activePreviewVariantId,
+                      ) ?? previewVariants[0];
 
-                  return (
-                    <div className="space-y-4">
-                      {previewVariants.length > 1 ? (
-                        <Tabs value={selectedVariant.id} onValueChange={setActivePreviewVariantId}>
+                    return (
+                      <div className="space-y-4">
+                        {previewVariants.length > 1 ? (
+                          <Tabs
+                            value={selectedVariant.id}
+                            onValueChange={setActivePreviewVariantId}
+                          >
+                            <TabsList>
+                              {previewVariants.map((variant) => (
+                                <TabsTrigger
+                                  key={variant.id}
+                                  value={variant.id}
+                                >
+                                  {variant.name}
+                                </TabsTrigger>
+                              ))}
+                            </TabsList>
+                          </Tabs>
+                        ) : null}
+
+                        {selectedVariant.description ? (
+                          <p className="text-sm text-muted-foreground">
+                            {selectedVariant.description}
+                          </p>
+                        ) : null}
+
+                        <Tabs defaultValue="preview">
                           <TabsList>
-                            {previewVariants.map((variant) => (
-                              <TabsTrigger key={variant.id} value={variant.id}>
-                                {variant.name}
-                              </TabsTrigger>
-                            ))}
+                            <TabsTrigger value="preview">Preview</TabsTrigger>
+                            <TabsTrigger value="code">Code</TabsTrigger>
                           </TabsList>
+                          <TabsContent value="preview">
+                            <div className="rounded-lg border bg-background p-12 flex items-center justify-center min-h-[500px]">
+                              <selectedVariant.Preview />
+                            </div>
+                          </TabsContent>
+                          <TabsContent value="code">
+                            <div className="w-full">
+                              <StyledCodeBlock
+                                code={selectedVariant.code}
+                                language="tsx"
+                                filename={`${activeEntry.id}.${selectedVariant.id}.tsx`}
+                              />
+                            </div>
+                          </TabsContent>
                         </Tabs>
-                      ) : null}
-
-                      {selectedVariant.description ? (
-                        <p className="text-sm text-muted-foreground">{selectedVariant.description}</p>
-                      ) : null}
-
-                      <Tabs defaultValue="preview">
-                        <TabsList>
-                          <TabsTrigger value="preview">Preview</TabsTrigger>
-                          <TabsTrigger value="code">Code</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="preview">
-                          <div className="rounded-lg border bg-background p-12 flex items-center justify-center min-h-[500px]">
-                            <selectedVariant.Preview />
-                          </div>
-                        </TabsContent>
-                        <TabsContent value="code">
-                          <div className="w-full">
-                            <StyledCodeBlock
-                              code={selectedVariant.code}
-                              language="tsx"
-                              filename={`${activeEntry.id}.${selectedVariant.id}.tsx`}
-                            />
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-xl font-semibold tracking-tight">Usage</h3>
-                <div className="w-full">
-                  <StyledCodeBlock code={activeEntry.code} language="tsx" filename={`${activeEntry.id}.tsx`} />
+                      </div>
+                    );
+                  })()}
                 </div>
-              </div>
 
-              {activeEntry.ApiReference ? (
                 <div className="space-y-3">
-                  <h3 className="text-xl font-semibold tracking-tight">API Reference</h3>
-                  <activeEntry.ApiReference />
+                  <h3 className="text-xl font-semibold tracking-tight">
+                    Usage
+                  </h3>
+                  <div className="w-full">
+                    <StyledCodeBlock
+                      code={activeEntry.code}
+                      language="tsx"
+                      filename={`${activeEntry.id}.tsx`}
+                    />
+                  </div>
                 </div>
-              ) : null}
-            </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex items-center justify-between gap-4 mt-8">
-              {prevComponent ? (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleNavigate(prevComponent.id)}
-                  aria-label={`Previous: ${prevComponent.name}`}
-                  title={`Previous: ${prevComponent.name}`}
-                >
-                  <ArrowLeft className="size-4" />
-                </Button>
-              ) : (
-                <div />
-              )}
+                {activeEntry.ApiReference ? (
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-semibold tracking-tight">
+                      API Reference
+                    </h3>
+                    <activeEntry.ApiReference />
+                  </div>
+                ) : null}
+              </div>
 
-              {nextComponent ? (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleNavigate(nextComponent.id)}
-                  aria-label={`Next: ${nextComponent.name}`}
-                  title={`Next: ${nextComponent.name}`}
-                >
-                  <ArrowRight className="size-4" />
-                </Button>
-              ) : (
-                <div />
-              )}
-            </div>
-          </section>
-        ) : null}
-      </div>
+              {/* Navigation Buttons */}
+              <div className="flex items-center justify-between gap-4 mt-8">
+                {prevComponent ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleNavigate(prevComponent.id)}
+                    aria-label={`Previous: ${prevComponent.name}`}
+                    title={`Previous: ${prevComponent.name}`}
+                  >
+                    <ArrowLeft className="size-4" />
+                  </Button>
+                ) : (
+                  <div />
+                )}
+
+                {nextComponent ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleNavigate(nextComponent.id)}
+                    aria-label={`Next: ${nextComponent.name}`}
+                    title={`Next: ${nextComponent.name}`}
+                  >
+                    <ArrowRight className="size-4" />
+                  </Button>
+                ) : (
+                  <div />
+                )}
+              </div>
+            </section>
+          ) : null}
+        </div>
       </div>
     </>
-  )
+  );
 }

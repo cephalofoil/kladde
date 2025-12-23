@@ -309,7 +309,7 @@ export function BurgerMenu({
         {/* Links */}
         <DropdownMenuItem asChild>
           <a
-            href="https://github.com/MosesCommitsFraud/Shadeworks"
+            href="https://github.com/cephalofoil/kladde"
             target="_blank"
             rel="noopener noreferrer"
           >

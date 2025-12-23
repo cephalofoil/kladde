@@ -1,4 +1,6 @@
 {
-  "name": "kladde",
-  "main": "party/index.ts"
+    "$schema": "https://www.partykit.io/schema.json",
+    "name": "kladde-partykit",
+    "main": "party/index.ts",
+    "compatibilityDate": "2024-01-01"
 }

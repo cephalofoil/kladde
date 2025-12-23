@@ -1,54 +1,35 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { v4 as uuid } from "uuid";
-import {
-    generateEncryptionKey,
-    exportKeyToString,
-    isEncryptionSupported,
-} from "@/lib/encryption";
+import { useBoardStore } from "@/store/board-store";
 
 export default function BoardPage() {
-    const router = useRouter();
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+  const createBoard = useBoardStore((s) => s.createBoard);
+  const currentWorkstreamId = useBoardStore((s) => s.ui.currentWorkstreamId);
 
-    useEffect(() => {
-        const createRoom = async () => {
-            // Generate a new room ID
-            const roomId = uuid().substring(0, 10);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-            // Generate encryption key if supported
-            if (isEncryptionSupported()) {
-                try {
-                    const key = await generateEncryptionKey();
-                    const keyString = await exportKeyToString(key);
-                    // Navigate with the encryption key in the URL hash
-                    router.replace(`/board/${roomId}#${keyString}`);
-                } catch (error) {
-                    console.error("Failed to generate encryption key:", error);
-                    // Fallback to unencrypted room
-                    router.replace(`/board/${roomId}`);
-                }
-            } else {
-                // Web Crypto not available, create unencrypted room
-                console.warn(
-                    "Web Crypto API not available, room will not be encrypted",
-                );
-                router.replace(`/board/${roomId}`);
-            }
-        };
+  useEffect(() => {
+    if (isClient) {
+      // Create a new board in the store
+      const boardId = createBoard("Untitled Board", currentWorkstreamId);
 
-        createRoom();
-    }, [router]);
+      // Navigate to the new board
+      router.replace(`/board/${boardId}`);
+    }
+  }, [isClient, createBoard, currentWorkstreamId, router]);
 
-    return (
-        <div className="flex items-center justify-center w-screen h-screen bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-                <p className="text-muted-foreground">
-                    Creating your secure board...
-                </p>
-            </div>
-        </div>
-    );
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+        <p className="text-muted-foreground">Creating your board...</p>
+      </div>
+    </div>
+  );
 }
