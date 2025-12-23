@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { v4 as uuid } from "uuid";
+import { PanelRight } from "lucide-react";
 import { Canvas } from "./canvas";
 import { Toolbar } from "./toolbar";
 import { ToolSidebar } from "./tool-sidebar";
@@ -12,6 +13,7 @@ import { ExportImageModal } from "./export-image-modal";
 import { FindCanvas } from "./find-canvas";
 import { HotkeysDialog } from "./hotkeys-dialog";
 import { InviteDialog } from "./invite-dialog";
+import { CollaborationBar } from "./collaboration-bar";
 import {
   CollaborationManager,
   type ConnectionStatus,
@@ -85,7 +87,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
   // Elements state - integrated with Zustand store and optional collaboration
   const { elements, setElements } = useBoardElements(boardId, collaboration);
-  const [connectedUsers, setConnectedUsers] = useState(1);
   const [peerCount, setPeerCount] = useState(0);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting");
@@ -236,8 +237,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       // Subscribe to awareness changes for user count and collaborator info
       unsubAwareness = collab.onAwarenessChange((states) => {
         if (!mounted || !collab) return;
-        setConnectedUsers(states.size);
-
         // Extract collaborator user info (excluding current user)
         const users: Array<{
           id: string;
@@ -1259,17 +1258,32 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         )}
       </div>
 
-      {/* Hotkeys - Top Right */}
+      {/* Collaboration + Hotkeys - Top Right */}
       {!isReadOnly && (
-        <div className="absolute top-4 right-4 z-50">
+        <div className="absolute top-4 right-4 z-50 flex items-stretch gap-2">
+          <CollaborationBar
+            peerCount={peerCount}
+            connectionStatus={connectionStatus}
+            myName={myName || "Connecting..."}
+            collaboratorUsers={collaboratorUsers}
+            onFollowUser={handleFollowUser}
+            followedUserId={followedUserId}
+            spectatedUserIds={spectatedUserIds}
+            isBeingSpectated={myUserId ? spectatedUserIds.has(myUserId) : false}
+            onInvite={() => setShowInviteDialog(true)}
+          />
           <button
             onClick={() => setShowHotkeysDialog(true)}
-            className="p-2.5 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl"
+            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
             aria-label="Keyboard shortcuts"
           >
-            <span className="w-5 h-5 flex items-center justify-center font-semibold">
-              ?
-            </span>
+            <span className="text-base font-semibold leading-none">?</span>
+          </button>
+          <button
+            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+            aria-label="Sidebar (placeholder)"
+          >
+            <PanelRight className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -1337,18 +1351,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           strokeWidth={strokeWidth}
           onStrokeWidthChange={setStrokeWidth}
           onClear={handleClear}
-          connectedUsers={connectedUsers}
-          peerCount={peerCount}
-          connectionStatus={connectionStatus}
-          myName={myName || "Connecting..."}
-          collaboratorUsers={collaboratorUsers}
-          onFollowUser={handleFollowUser}
-          followedUserId={followedUserId}
-          spectatedUserIds={spectatedUserIds}
-          isBeingSpectated={myUserId ? spectatedUserIds.has(myUserId) : false}
           isToolLocked={isToolLocked}
           onToggleToolLock={() => setIsToolLocked(!isToolLocked)}
-          onInvite={() => setShowInviteDialog(true)}
         />
       )}
 
