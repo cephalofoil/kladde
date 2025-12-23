@@ -2,87 +2,182 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useBoardStore } from "@/store/board-store";
-import { BoardCard } from "@/components/board-card";
-import { BoardFilters } from "@/components/board-filters";
-import { WorkstreamSidebar } from "@/components/workstream-sidebar";
-import { Plus, Grid3x3, List, FileText } from "lucide-react";
 import Image from "next/image";
+import { MoreHorizontal, Pin, Plus, Search, X } from "lucide-react";
+import { useBoardStore } from "@/store/board-store";
+import type { Board } from "@/lib/store-types";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const PINNED_STORAGE_KEY = "kladde-dashboard-pins";
 
 export default function BoardsPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  const [pinnedByWorkstream, setPinnedByWorkstream] = useState<
+    Record<string, string[]>
+  >({});
 
   const boards = useBoardStore((s) => s.boards);
-  const { searchQuery, selectedTags, currentWorkstreamId, dashboardView } =
-    useBoardStore((s) => s.ui);
-  const setDashboardView = useBoardStore((s) => s.setDashboardView);
+  const workstreamsMap = useBoardStore((s) => s.workstreams);
+  const createWorkstream = useBoardStore((s) => s.createWorkstream);
+  const workstreams = useMemo(
+    () => Array.from(workstreamsMap.values()),
+    [workstreamsMap],
+  );
+  const { searchQuery, selectedTags, currentWorkstreamId } = useBoardStore(
+    (s) => s.ui,
+  );
   const createBoard = useBoardStore((s) => s.createBoard);
 
-  const filteredBoards = useMemo(() => {
-    let boardsArray = Array.from(boards.values());
-
-    // Filter by workstream
-    if (currentWorkstreamId) {
-      boardsArray = boardsArray.filter(
-        (board) => board.workstreamId === currentWorkstreamId,
-      );
+  const matchesFilters = (board: Board) => {
+    if (currentWorkstreamId && board.workstreamId !== currentWorkstreamId) {
+      return false;
     }
 
-    // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      boardsArray = boardsArray.filter(
-        (board) =>
-          board.name.toLowerCase().includes(query) ||
-          board.description?.toLowerCase().includes(query),
-      );
+      const description = board.description?.toLowerCase() || "";
+      if (
+        !board.name.toLowerCase().includes(query) &&
+        !description.includes(query)
+      ) {
+        return false;
+      }
     }
 
-    // Filter by tags
     if (selectedTags.length > 0) {
-      boardsArray = boardsArray.filter((board) =>
-        selectedTags.every((tag) => board.tags.includes(tag)),
-      );
+      return selectedTags.every((tag) => board.tags.includes(tag));
     }
 
-    // Sort by last accessed (most recent first)
+    return true;
+  };
+
+  const filteredBoards = useMemo(() => {
+    const boardsArray = Array.from(boards.values()).filter(matchesFilters);
+
     return boardsArray.sort(
       (a, b) =>
         new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime(),
     );
   }, [boards, currentWorkstreamId, searchQuery, selectedTags]);
 
+  const currentWorkstream =
+    workstreams.find((ws) => ws.id === currentWorkstreamId) || workstreams[0];
+
+  const pinnedIds = pinnedByWorkstream[currentWorkstreamId] || [];
+  const pinnedSet = new Set(pinnedIds);
+  const matchesPinnedFilters = (board: Board) => {
+    if (currentWorkstreamId && board.workstreamId !== currentWorkstreamId) {
+      return false;
+    }
+
+    if (selectedTags.length > 0) {
+      return selectedTags.every((tag) => board.tags.includes(tag));
+    }
+
+    return true;
+  };
+
+  const pinnedBoards = pinnedIds
+    .map((id) => boards.get(id))
+    .filter((board): board is NonNullable<typeof board> => Boolean(board))
+    .filter(matchesPinnedFilters);
+  const unpinnedBoards = filteredBoards.filter(
+    (board) => !pinnedSet.has(board.id),
+  );
+
   useEffect(() => {
     setIsClient(true);
+    try {
+      const saved = localStorage.getItem(PINNED_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          setPinnedByWorkstream(parsed);
+        }
+      }
+    } catch {
+      setPinnedByWorkstream({});
+    }
   }, []);
 
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem(
+      PINNED_STORAGE_KEY,
+      JSON.stringify(pinnedByWorkstream),
+    );
+  }, [isClient, pinnedByWorkstream]);
+
+  const switchWorkstream = (id: string) => {
+    useBoardStore.setState((state) => ({
+      ui: { ...state.ui, currentWorkstreamId: id },
+    }));
+  };
+
   const handleCreateBoard = () => {
-    const boardId = createBoard("Untitled Board", currentWorkstreamId);
-    router.push(`/board/${boardId}`);
+    createBoard("Untitled Board", currentWorkstreamId);
+  };
+
+  const handleCreateWorkstream = () => {
+    const palette = [
+      "#2563eb",
+      "#16a34a",
+      "#f97316",
+      "#0ea5e9",
+      "#7c3aed",
+      "#db2777",
+    ];
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const id = createWorkstream("New Workspace", color);
+    switchWorkstream(id);
+  };
+  const togglePin = (boardId: string) => {
+    setPinnedByWorkstream((prev) => {
+      const current = prev[currentWorkstreamId] || [];
+      const next = current.includes(boardId)
+        ? current.filter((id) => id !== boardId)
+        : [boardId, ...current];
+      return { ...prev, [currentWorkstreamId]: next };
+    });
+  };
+
+  const formatDate = (date: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(date).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return new Date(date).toLocaleDateString();
   };
 
   if (!isClient) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading boards...</div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-lg text-muted-foreground">Loading boards...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-background">
-      {/* Workstream Sidebar */}
-      <WorkstreamSidebar />
-
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <header className="border-b bg-white dark:bg-card border-border px-6 py-4">
-          {/* Top Row */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card/70 backdrop-blur supports-backdrop-filter:bg-card/80">
+        <div className="mx-auto max-w-7xl px-8 py-5 lg:px-10">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
               <Image
                 src="/kladde-logo.svg"
                 alt="Kladde"
@@ -97,99 +192,277 @@ export default function BoardsPage() {
                 height={32}
                 className="h-8 w-auto hidden dark:block"
               />
-              <div className="h-6 w-px bg-border" />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Dashboard
-                </h1>
-                <p className="text-muted-foreground">
-                  {filteredBoards.length}{" "}
-                  {filteredBoards.length === 1 ? "board" : "boards"}
-                </p>
-              </div>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Theme Toggle */}
               <ThemeToggle />
-
-              {/* View Toggle */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setDashboardView("grid")}
-                  className={`p-2 rounded ${
-                    dashboardView === "grid"
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-foreground"
-                  }`}
-                  title="Grid view"
-                >
-                  <Grid3x3 className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setDashboardView("list")}
-                  className={`p-2 rounded ${
-                    dashboardView === "list"
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-foreground"
-                  }`}
-                  title="List view"
-                >
-                  <List className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Create Board Button */}
-              <button
-                onClick={handleCreateBoard}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:opacity-90 transition-opacity"
-              >
-                <Plus className="h-4 w-4" />
-                New Board
-              </button>
             </div>
           </div>
 
-          {/* Filters */}
-          <BoardFilters />
-        </header>
+          <div className="mt-4 flex items-end gap-1 overflow-x-auto pb-1">
+            {workstreams.map((workstream) => {
+              const isActive = currentWorkstreamId === workstream.id;
+              return (
+                <button
+                  key={workstream.id}
+                  onClick={() => switchWorkstream(workstream.id)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`relative flex shrink-0 items-center gap-2.5 px-6 py-3 text-sm font-medium transition-all ${
+                    isActive
+                      ? "z-10 bg-[var(--workspace-color)] text-white"
+                      : "text-muted-foreground hover:bg-[var(--workspace-color-soft)] hover:text-foreground"
+                  }`}
+                  style={{
+                    borderTopLeftRadius: "12px",
+                    borderTopRightRadius: "12px",
+                    ["--workspace-color" as string]: workstream.color,
+                    ["--workspace-color-soft" as string]:
+                      "color-mix(in oklch, var(--workspace-color) 55%, transparent)",
+                    borderTop: "3px solid var(--workspace-color)",
+                    borderLeft: "3px solid var(--workspace-color)",
+                    borderRight: "3px solid var(--workspace-color)",
+                    borderBottom: "none",
+                    marginBottom: isActive ? "-1px" : "0",
+                  }}
+                >
+                  {workstream.name}
+                </button>
+              );
+            })}
+            <button
+              className="px-3 py-3 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="Add workspace"
+              onClick={handleCreateWorkstream}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </header>
 
-        {/* Boards Grid/List */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {filteredBoards.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-              <FileText className="h-16 w-16 text-muted mb-6" />
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                No boards found
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                {searchQuery || selectedTags.length > 0
-                  ? "Try adjusting your search or filter criteria"
-                  : "Get started by creating your first board"}
-              </p>
-              <button
-                onClick={handleCreateBoard}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:opacity-90 transition-opacity"
-              >
-                <Plus className="h-4 w-4" />
-                Create New Board
-              </button>
+      <main className="mx-auto max-w-7xl px-8 py-10 lg:px-10">
+        <div className="space-y-8">
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span
+                  className="h-5 w-5 rounded-full"
+                  style={{ backgroundColor: currentWorkstream?.color }}
+                />
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                  {currentWorkstream?.name || "Personal"}
+                </h1>
+              </div>
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search boards..."
+                  value={searchQuery}
+                  onChange={(event) =>
+                    useBoardStore.getState().setSearchQuery(event.target.value)
+                  }
+                  className="h-10 rounded-full border-transparent bg-muted/50 pl-10 shadow-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+                />
+              </div>
             </div>
-          ) : dashboardView === "grid" ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredBoards.map((board) => (
-                <BoardCard key={board.id} board={board} />
+
+            <div className="flex min-h-[46px] flex-wrap items-center gap-2 overflow-x-auto">
+              {pinnedBoards.map((board) => (
+                <button
+                  key={board.id}
+                  onClick={() => router.push(`/board/${board.id}`)}
+                  className="group relative flex shrink-0 items-center gap-2 rounded-lg border-2 border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:ring-2 hover:ring-[var(--workspace-color)]"
+                  style={{
+                    ["--workspace-color" as string]:
+                      currentWorkstream?.color || "transparent",
+                    boxShadow: `0 0 0 3px hsl(var(--background)), 0 0 0 4px ${
+                      currentWorkstream?.color || "transparent"
+                    }`,
+                  }}
+                >
+                  <span className="max-w-[140px] truncate">{board.name}</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        onClick={(event) => event.stopPropagation()}
+                        className="ml-1 rounded-md p-1 text-muted-foreground/70 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                        aria-label="Pinned board options"
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          togglePin(board.id);
+                        }}
+                      >
+                        Unpin
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(`/board/${board.id}`);
+                        }}
+                      >
+                        Open
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </button>
               ))}
             </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredBoards.map((board) => (
-                <BoardCard key={board.id} board={board} viewMode="list" />
-              ))}
+          </div>
+
+          <div>
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                All Boards
+              </h2>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {unpinnedBoards.length}{" "}
+                  {unpinnedBoards.length === 1 ? "board" : "boards"}
+                </span>
+                <Button
+                  onClick={handleCreateBoard}
+                  size="icon"
+                  variant="ghost"
+                  className="h-11 w-11 rounded-full bg-transparent text-foreground/80 hover:bg-transparent hover:text-foreground"
+                  aria-label="New board"
+                >
+                  <Plus className="h-6 w-6 stroke-[2.5]" />
+                </Button>
+              </div>
             </div>
-          )}
-        </main>
-      </div>
+
+            {unpinnedBoards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
+                  <Search className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <p className="mb-1 text-sm font-medium text-foreground">
+                  No boards found
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Try adjusting your search
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {unpinnedBoards.map((board) => (
+                  <div
+                    key={board.id}
+                    onClick={() => router.push(`/board/${board.id}`)}
+                    className="group relative flex cursor-pointer flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-accent-foreground/30 hover:shadow-lg"
+                  >
+                    <div className="mb-4 flex items-start justify-between">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-lg"
+                        style={{
+                          backgroundColor: currentWorkstream?.color,
+                        }}
+                      >
+                        <div className="h-6 w-6 rounded bg-card/20" />
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            togglePin(board.id);
+                          }}
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        >
+                          <Pin className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                router.push(`/board/${board.id}`);
+                              }}
+                            >
+                              Open
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                togglePin(board.id);
+                              }}
+                            >
+                              {pinnedSet.has(board.id)
+                                ? "Unpin Board"
+                                : "Pin Board"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
+                            >
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
+                            >
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                useBoardStore.getState().deleteBoard(board.id);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="mb-2 line-clamp-2 text-base font-semibold leading-snug text-foreground">
+                        {board.name}
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {new Date(board.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
+                        </span>
+                        <span>-</span>
+                        <span className="rounded bg-muted px-2 py-0.5 capitalize text-muted-foreground">
+                          temporary
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

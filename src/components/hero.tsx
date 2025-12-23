@@ -14,14 +14,12 @@ export function Hero() {
 
           {/* Main heading */}
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-balance font-mono">
-            Design tools that i don't want to spend{" "}
-            <span className="text-accent">money</span> on.
+            For <span className="text-accent"> ideas </span>
+            that don’t fit documents yet
           </h1>
-
           {/* Description */}
           <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto text-pretty">
-            A collection of powerful graphic design features crafted for
-            personal projects.
+            A visual canvas for turning information into structured knowledge.
           </p>
 
           {/* CTA Buttons */}
