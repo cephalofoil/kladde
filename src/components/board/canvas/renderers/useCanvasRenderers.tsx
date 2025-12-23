@@ -719,26 +719,6 @@ export function useCanvasRenderers({
                         );
                     };
 
-                    const arrowOutline = () => {
-                        const [pA, pB] = getArrowHeadPoints(
-                            offsetTip,
-                            from,
-                            markerSize,
-                        );
-                        return (
-                            <polyline
-                                pointerEvents="none"
-                                points={`${pA.x},${pA.y} ${offsetTip.x},${offsetTip.y} ${pB.x},${pB.y}`}
-                                fill="none"
-                                stroke={stroke}
-                                strokeWidth={strokeWidth}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                opacity={markerOpacity}
-                            />
-                        );
-                    };
-
                     const triangle = () => {
                         const [pA, pB] = getArrowHeadPoints(
                             offsetTip,
@@ -842,7 +822,6 @@ export function useCanvasRenderers({
                         return <g pointerEvents="none">{bar()}</g>;
 
                     if (marker === "arrow") return arrow();
-                    if (marker === "arrow-outline") return arrowOutline();
                     if (marker === "triangle") return triangle();
                     if (marker === "triangle-outline") return triangleOutline();
                     if (marker === "diamond" || marker === "diamond-outline")

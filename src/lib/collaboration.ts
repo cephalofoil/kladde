@@ -205,6 +205,41 @@ export class CollaborationManager {
     }
 
     /**
+     * Replace all elements at once (encrypts if encryption is enabled)
+     */
+    async setElements(nextElements: BoardElement[]): Promise<void> {
+        if (this.isReadOnly) return;
+
+        this.decryptedElementsCache.clear();
+
+        let storedElements: StoredElement[] = [];
+        const key = this.encryptionKey;
+        if (key) {
+            storedElements = await Promise.all(
+                nextElements.map(async (element) => {
+                    const { ciphertext, iv } = await encrypt(key, element);
+                    this.decryptedElementsCache.set(element.id, element);
+                    return {
+                        id: element.id,
+                        encrypted: true,
+                        ciphertext,
+                        iv,
+                    } satisfies EncryptedElement;
+                }),
+            );
+        } else {
+            storedElements = nextElements;
+        }
+
+        this.doc.transact(() => {
+            this.elements.delete(0, this.elements.length);
+            if (storedElements.length > 0) {
+                this.elements.insert(0, storedElements);
+            }
+        });
+    }
+
+    /**
      * Add a new element (encrypts if encryption is enabled)
      */
     async addElement(element: BoardElement): Promise<void> {

@@ -430,10 +430,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             if (collaboration) {
                 collaboration.addElement(element);
             } else {
-                setElements((prev) => [...prev, element]);
+                setElements([...elements, element]);
             }
         },
-        [collaboration, saveToUndoStack, isReadOnly],
+        [collaboration, elements, saveToUndoStack, isReadOnly],
     );
 
     const handleUpdateElement = useCallback(
@@ -442,14 +442,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             if (collaboration) {
                 collaboration.updateElement(id, updates);
             } else {
-                setElements((prev) =>
-                    prev.map((el) =>
+                setElements(
+                    elements.map((el) =>
                         el.id === id ? { ...el, ...updates } : el,
                     ),
                 );
             }
         },
-        [collaboration, isReadOnly],
+        [collaboration, elements, isReadOnly],
     );
 
     const handleStartTransform = useCallback(() => {
@@ -464,10 +464,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             if (collaboration) {
                 collaboration.deleteElement(id);
             } else {
-                setElements((prev) => prev.filter((el) => el.id !== id));
+                setElements(elements.filter((el) => el.id !== id));
             }
         },
-        [collaboration, saveToUndoStack, isReadOnly],
+        [collaboration, elements, saveToUndoStack, isReadOnly],
     );
 
     const handleClear = useCallback(() => {
@@ -1072,9 +1072,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         if (collaboration) {
             copies.forEach((el) => collaboration.addElement(el));
         } else {
-            setElements((prev) => [...prev, ...copies]);
+            setElements([...elements, ...copies]);
         }
-    }, [selectedElements, saveToUndoStack, collaboration]);
+    }, [selectedElements, saveToUndoStack, collaboration, elements]);
 
     const handleDeleteSelected = useCallback(() => {
         if (selectedElements.length === 0) return;
@@ -1086,9 +1086,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 collaboration.deleteElement(el.id),
             );
         } else {
-            setElements((prev) => prev.filter((el) => !ids.has(el.id)));
+            setElements(elements.filter((el) => !ids.has(el.id)));
         }
-    }, [selectedElements, saveToUndoStack, collaboration]);
+    }, [selectedElements, saveToUndoStack, collaboration, elements]);
 
     const canEditArrow =
         selectedElements.length === 1 &&
