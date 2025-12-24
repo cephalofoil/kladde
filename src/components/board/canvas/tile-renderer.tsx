@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RichTextRenderer } from "./content-renderers/rich-text-renderer";
+import { MarkdownEditor } from "./content-renderers/markdown-editor";
 import { CodeRenderer } from "./content-renderers/code-renderer";
 import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
@@ -187,15 +188,16 @@ export function TileRenderer({
     switch (element.tileType) {
       case "tile-text":
         return (
-          <div className="absolute inset-0 top-10 p-4 overflow-hidden pointer-events-auto">
-            <RichTextRenderer
+          <div className="absolute inset-0 top-10 p-2 overflow-hidden pointer-events-auto">
+            <MarkdownEditor
               content={content?.richText || ""}
               onChange={(text) =>
                 onUpdate?.({
                   tileContent: { ...content, richText: text },
                 })
               }
-              readOnly={false}
+              onFinish={() => setIsEditing(false)}
+              readOnly={!isEditing}
               autoFocus={isEditing}
             />
           </div>
