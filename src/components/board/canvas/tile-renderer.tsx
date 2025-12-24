@@ -16,8 +16,6 @@ import { CodeRenderer } from "./content-renderers/code-renderer";
 import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
-import { BookmarkRenderer } from "./content-renderers/bookmark-renderer";
-import { BookmarkInputRenderer } from "./content-renderers/bookmark-input-renderer";
 
 interface TileRendererProps {
   element: BoardElement;
@@ -77,12 +75,8 @@ export function TileRenderer({
         return "bg-slate-800 dark:bg-slate-950";
       case "tile-mermaid":
         return "bg-sky-50 dark:bg-sky-900/20";
-      case "tile-bookmark":
-        return "bg-white dark:bg-slate-900";
       case "tile-image":
         return "bg-gray-100 dark:bg-gray-800";
-      case "tile-shape":
-        return "bg-blue-500 dark:bg-blue-600";
       default:
         return "bg-white dark:bg-slate-900";
     }
@@ -96,8 +90,6 @@ export function TileRenderer({
         return "text-amber-900 dark:text-amber-100";
       case "tile-mermaid":
         return "text-sky-900 dark:text-sky-100";
-      case "tile-shape":
-        return "text-white";
       default:
         return "text-gray-900 dark:text-gray-100";
     }
@@ -110,8 +102,7 @@ export function TileRenderer({
       element.tileType === "tile-text" ||
       element.tileType === "tile-note" ||
       element.tileType === "tile-code" ||
-      element.tileType === "tile-mermaid" ||
-      element.tileType === "tile-bookmark"
+      element.tileType === "tile-mermaid"
     ) {
       setIsEditing(true);
     }
@@ -157,27 +148,6 @@ export function TileRenderer({
           mermaidOffsetY: newOffsetY,
         },
       });
-    },
-    [element.tileContent, onUpdate],
-  );
-
-  const handleBookmarkSave = useCallback(
-    (bookmarkData: {
-      url: string;
-      title?: string;
-      description?: string;
-      favicon?: string;
-      siteName?: string;
-      imageUrl?: string;
-      displayName?: string;
-    }) => {
-      onUpdate?.({
-        tileContent: {
-          ...element.tileContent,
-          ...bookmarkData,
-        },
-      });
-      setIsEditing(false);
     },
     [element.tileContent, onUpdate],
   );
@@ -306,38 +276,6 @@ export function TileRenderer({
           </div>
         );
 
-      case "tile-bookmark":
-        return content?.url ? (
-          <div className="absolute inset-2 top-2 pointer-events-auto">
-            <BookmarkRenderer
-              url={content.url}
-              title={content.bookmarkTitle}
-              description={content.bookmarkDescription}
-              favicon={content.favicon}
-              siteName={content.siteName}
-              imageUrl={content.imageUrl}
-              displayName={content.bookmarkTitle}
-              isSelected={isSelected}
-              onEdit={() => setIsEditing(true)}
-            />
-          </div>
-        ) : isEditing ? (
-          <div className="absolute inset-2 top-2 pointer-events-auto">
-            <BookmarkInputRenderer
-              onSave={handleBookmarkSave}
-              onCancel={() => setIsEditing(false)}
-              width={width - 16}
-              height={height - 16}
-            />
-          </div>
-        ) : (
-          <div className="absolute inset-0 top-10 p-4 overflow-hidden pointer-events-none">
-            <div className={cn("text-sm", getTileTextColor())}>
-              Double-click to add bookmark...
-            </div>
-          </div>
-        );
-
       case "tile-image":
         return (
           <div className="absolute inset-0 top-10 flex items-center justify-center overflow-hidden pointer-events-none">
@@ -352,15 +290,6 @@ export function TileRenderer({
                 📷 Click to add image...
               </div>
             )}
-          </div>
-        );
-
-      case "tile-shape":
-        return (
-          <div className="absolute inset-0 top-10 flex items-center justify-center overflow-hidden pointer-events-none">
-            <div className={cn("text-lg font-bold", getTileTextColor())}>
-              {content?.shape || "SHAPE"}
-            </div>
           </div>
         );
 
