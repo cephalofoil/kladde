@@ -322,7 +322,7 @@ export function TileRenderer({
       >
         <div
           className={cn(
-            "relative w-full h-full rounded-lg shadow-lg border-2 transition-all",
+            "relative w-full h-full rounded-lg shadow-lg border-2 transition-all select-none",
             getTileBackground(),
             "border-gray-200 dark:border-gray-700",
           )}
