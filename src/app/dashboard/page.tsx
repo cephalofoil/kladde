@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { MoreHorizontal, Pin, Plus, Search, X } from "lucide-react";
-import { useBoardStore } from "@/store/board-store";
+import { MoreHorizontal, Pin, Plus, Search, X, Zap, Trash2 } from "lucide-react";
+import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,25 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const PINNED_STORAGE_KEY = "kladde-dashboard-pins";
 
@@ -25,10 +44,12 @@ export default function BoardsPage() {
   const [pinnedByWorkstream, setPinnedByWorkstream] = useState<
     Record<string, string[]>
   >({});
+  const [boardToMove, setBoardToMove] = useState<Board | null>(null);
 
   const boards = useBoardStore((s) => s.boards);
   const workstreamsMap = useBoardStore((s) => s.workstreams);
   const createWorkstream = useBoardStore((s) => s.createWorkstream);
+  const moveBoard = useBoardStore((s) => s.moveBoard);
   const workstreams = useMemo(
     () => Array.from(workstreamsMap.values()),
     [workstreamsMap],
@@ -62,7 +83,9 @@ export default function BoardsPage() {
   };
 
   const filteredBoards = useMemo(() => {
-    const boardsArray = Array.from(boards.values()).filter(matchesFilters);
+    const boardsArray = Array.from(boards.values())
+      .filter(matchesFilters)
+      .filter((board) => board.workstreamId !== QUICK_BOARDS_WORKSPACE_ID);
 
     return boardsArray.sort(
       (a, b) =>
@@ -72,6 +95,14 @@ export default function BoardsPage() {
 
   const currentWorkstream =
     workstreams.find((ws) => ws.id === currentWorkstreamId) || workstreams[0];
+
+  const quickBoards = useMemo(() => {
+    return Array.from(boards.values())
+      .filter((board) => board.workstreamId === QUICK_BOARDS_WORKSPACE_ID)
+      .sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+  }, [boards]);
 
   const pinnedIds = pinnedByWorkstream[currentWorkstreamId] || [];
   const pinnedSet = new Set(pinnedIds);
@@ -204,7 +235,9 @@ export default function BoardsPage() {
           </div>
 
           <div className="mt-4 flex items-end gap-1 overflow-x-auto pb-1">
-            {workstreams.map((workstream) => {
+            {workstreams
+              .filter((ws) => ws.id !== QUICK_BOARDS_WORKSPACE_ID)
+              .map((workstream) => {
               const isActive = currentWorkstreamId === workstream.id;
               return (
                 <button
@@ -327,6 +360,138 @@ export default function BoardsPage() {
               ))}
             </div>
           </div>
+
+          {/* Quick Boards Section */}
+          {quickBoards.length > 0 && (
+            <div className="mb-8 rounded-2xl border-2 border-dashed border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/20 p-6">
+              <div className="mb-4 flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Quick Boards
+                    </h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground max-w-2xl">
+                    Boards created from the home page. Move them to a workspace to keep them organized.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {quickBoards.length} {quickBoards.length === 1 ? "board" : "boards"}
+                  </span>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete All
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete all Quick Boards?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete all {quickBoards.length} Quick Board{quickBoards.length === 1 ? "" : "s"}. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            quickBoards.forEach((board) => {
+                              useBoardStore.getState().deleteBoard(board.id);
+                            });
+                          }}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {quickBoards.map((board) => (
+                  <div
+                    key={board.id}
+                    onClick={() => router.push(`/board/${board.id}`)}
+                    className="group relative flex cursor-pointer flex-col rounded-xl border-2 border-purple-200 dark:border-purple-800 bg-card p-5 transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-lg hover:shadow-purple-500/10"
+                  >
+                    <div className="mb-4 flex items-start justify-between">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500">
+                        <Zap className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/board/${board.id}`);
+                              }}
+                            >
+                              Open
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBoardToMove(board);
+                              }}
+                            >
+                              Move to Workspace...
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                useBoardStore.getState().deleteBoard(board.id);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="mb-2 line-clamp-2 text-base font-semibold leading-snug text-foreground">
+                        {board.name}
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {new Date(board.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                        <span>•</span>
+                        <span className="rounded bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 text-purple-700 dark:text-purple-300">
+                          Quick
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <div className="mb-5 flex items-center justify-between">
@@ -475,6 +640,60 @@ export default function BoardsPage() {
           </div>
         </div>
       </main>
+
+      {/* Move to Workspace Dialog */}
+      <Dialog open={!!boardToMove} onOpenChange={(open) => !open && setBoardToMove(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move to Workspace</DialogTitle>
+            <DialogDescription>
+              Choose a workspace to move "{boardToMove?.name}" to.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-2 py-4">
+            {workstreams
+              .filter((ws) => ws.id !== QUICK_BOARDS_WORKSPACE_ID)
+              .map((workspace) => (
+                <Button
+                  key={workspace.id}
+                  variant="outline"
+                  className="justify-start h-auto py-3"
+                  onClick={() => {
+                    if (boardToMove) {
+                      moveBoard(boardToMove.id, workspace.id);
+                      setBoardToMove(null);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <div
+                      className="h-4 w-4 rounded-full"
+                      style={{ backgroundColor: workspace.color }}
+                    />
+                    <div className="flex-1 text-left">
+                      <div className="font-medium">{workspace.name}</div>
+                      {workspace.description && (
+                        <div className="text-xs text-muted-foreground">
+                          {workspace.description}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {workspace.metadata.boardCount} boards
+                    </div>
+                  </div>
+                </Button>
+              ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBoardToMove(null)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

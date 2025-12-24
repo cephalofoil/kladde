@@ -126,6 +126,7 @@ export interface BoardStoreActions {
   updateWorkstream: (id: string, updates: Partial<Workstream>) => void;
   deleteWorkstream: (id: string) => void;
   getWorkstreamBoards: (workstreamId: string) => Board[];
+  moveBoard: (boardId: string, targetWorkstreamId: string) => void;
 
   // Dashboard features
   getAllTags: () => string[];
