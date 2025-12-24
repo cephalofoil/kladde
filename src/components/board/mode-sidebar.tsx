@@ -191,7 +191,7 @@ export function ModeSidebar({
             <button
                 onClick={onToggleToolLock}
                 className={cn(
-                    "w-[72px] h-10 rounded-md transition-all duration-200 flex items-center justify-center shadow-2xl",
+                    "w-[72px] h-14 rounded-md transition-all duration-200 flex items-center justify-center shadow-2xl",
                     toolLock
                         ? "bg-blue-500 hover:bg-blue-600 text-white"
                         : "bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground",
@@ -199,9 +199,9 @@ export function ModeSidebar({
                 title={toolLock ? "Tool locked" : "Tool unlocked"}
             >
                 {toolLock ? (
-                    <Lock className="w-4 h-4" />
+                    <Lock className="w-5 h-5" />
                 ) : (
-                    <Unlock className="w-4 h-4" />
+                    <Unlock className="w-5 h-5" />
                 )}
             </button>
 
@@ -270,17 +270,17 @@ export function ModeSidebar({
                                     key={drawTool.tool}
                                     onClick={() => onToolChange(drawTool.tool)}
                                     className={cn(
-                                        "flex items-center gap-2 px-2 py-1.5 rounded-md transition-all group relative",
+                                        "flex items-center gap-2 px-2 py-2.5 rounded-md transition-all group relative",
                                         currentTool === drawTool.tool
                                             ? "bg-accent text-accent-foreground shadow-sm"
                                             : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
                                     )}
                                     title={`${drawTool.label} (${drawTool.hotkey})`}
                                 >
-                                    <div className="flex items-center justify-center w-4">
+                                    <div className="flex items-center justify-center w-5">
                                         {drawTool.icon}
                                     </div>
-                                    <span className="text-[9px] font-mono opacity-60 absolute right-1">
+                                    <span className="text-[10px] font-mono opacity-60 absolute right-1.5">
                                         {drawTool.hotkey}
                                     </span>
                                 </button>
@@ -293,13 +293,13 @@ export function ModeSidebar({
             {/* Switch Button - styled like lock button */}
             <button
                 onClick={handleModeToggle}
-                className="w-[72px] h-10 bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl hover:bg-muted/60 transition-all flex items-center justify-center gap-1.5 group"
+                className="w-[72px] h-14 bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl hover:bg-muted/60 transition-all flex items-center justify-center gap-1.5 group"
                 title={`Switch to ${mode === "tiles" ? "Draw" : "Tiles"} mode`}
             >
                 {mode === "tiles" ? (
-                    <Pencil className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                    <Pencil className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
                 ) : (
-                    <SquareStack className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                    <SquareStack className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
                 )}
             </button>
         </div>
