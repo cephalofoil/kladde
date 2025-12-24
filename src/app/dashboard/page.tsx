@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { MoreHorizontal, Pin, Plus, Search, X } from "lucide-react";
 import { useBoardStore } from "@/store/board-store";
@@ -177,7 +178,11 @@ export default function BoardsPage() {
       <header className="border-b border-border bg-card/70 backdrop-blur supports-backdrop-filter:bg-card/80">
         <div className="mx-auto max-w-7xl px-8 py-5 lg:px-10">
           <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              aria-label="Go to homepage"
+              className="flex items-center gap-4 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:opacity-90"
+            >
               <Image
                 src="/kladde-logo.svg"
                 alt="Kladde"
@@ -192,7 +197,7 @@ export default function BoardsPage() {
                 height={32}
                 className="h-8 w-auto hidden dark:block"
               />
-            </div>
+            </Link>
 
             <div className="flex items-center gap-3">
               <ThemeToggle />
