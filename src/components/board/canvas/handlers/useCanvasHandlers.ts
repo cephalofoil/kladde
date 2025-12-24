@@ -2150,6 +2150,16 @@ export function useCanvasHandlers({
                 setSelectedIds(
                     getGroupSelectionIds(selectableClickedElement, elements),
                 );
+
+                // If in tile mode and clicked on a tile, switch to select tool
+                if (
+                    tool === "tile" &&
+                    selectableClickedElement.type === "tile" &&
+                    onToolChange
+                ) {
+                    onToolChange("select");
+                }
+
                 return;
             }
 

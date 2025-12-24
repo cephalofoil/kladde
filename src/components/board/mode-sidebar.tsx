@@ -239,16 +239,16 @@ export function ModeSidebar({
                             <button
                                 onClick={() => onToolChange("select")}
                                 className={cn(
-                                    "flex items-center justify-center gap-2 px-2 py-2 rounded-md transition-all relative",
+                                    "flex flex-col items-center gap-1 p-2.5 rounded-md border-2 transition-all focus:outline-none",
                                     currentTool === "select"
-                                        ? "bg-accent text-accent-foreground shadow-sm ring-2 ring-blue-500"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                                        ? "border-blue-500 shadow-sm bg-blue-50 dark:bg-blue-900/20"
+                                        : "border-transparent bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700",
                                 )}
                                 title={`${TILE_SELECT_TOOL.label} (${TILE_SELECT_TOOL.hotkey})`}
                             >
                                 {TILE_SELECT_TOOL.icon}
-                                <span className="text-[10px] font-mono opacity-60">
-                                    {TILE_SELECT_TOOL.hotkey}
+                                <span className="text-[9px] font-medium text-center leading-tight">
+                                    Select
                                 </span>
                             </button>
 
@@ -260,7 +260,7 @@ export function ModeSidebar({
                                         handleTileTypeClick(tileType.type)
                                     }
                                     className={cn(
-                                        "flex flex-col items-center gap-1 p-2.5 rounded-md border-2 transition-all",
+                                        "flex flex-col items-center gap-1 p-2.5 rounded-md border-2 transition-all focus:outline-none",
                                         selectedTileType === tileType.type &&
                                             currentTool === "tile"
                                             ? "border-blue-500 shadow-sm"

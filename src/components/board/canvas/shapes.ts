@@ -1,6 +1,10 @@
 import type { BoardElement } from "@/lib/board-types";
 import type { BoundingBox } from "./types";
-import { getQuadraticBezierBounds, getCatmullRomBounds, getElbowPolylineForVertices } from "./curves";
+import {
+    getQuadraticBezierBounds,
+    getCatmullRomBounds,
+    getElbowPolylineForVertices,
+} from "./curves";
 import { isBoundsFullyInsideBox } from "./geometry";
 
 // Get bounding box for any element
@@ -103,7 +107,8 @@ export function getBoundingBox(element: BoardElement): BoundingBox | null {
         element.type === "diamond" ||
         element.type === "ellipse" ||
         element.type === "frame" ||
-        element.type === "web-embed"
+        element.type === "web-embed" ||
+        element.type === "tile"
     ) {
         return {
             x: element.x ?? 0,
