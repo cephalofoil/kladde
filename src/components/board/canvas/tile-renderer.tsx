@@ -98,6 +98,13 @@ export function TileRenderer({
   // Double-click to edit
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // Don't enter edit mode if double-clicking on the header
+    const target = e.target as HTMLElement;
+    const isHeaderClick = target.closest('[data-tile-header="true"]');
+    if (isHeaderClick) {
+      return;
+    }
+
     if (
       element.tileType === "tile-text" ||
       element.tileType === "tile-note" ||
@@ -327,6 +334,8 @@ export function TileRenderer({
         >
           {/* Title Bar */}
           <div
+            data-tile-header="true"
+            data-element-id={element.id}
             className={cn(
               "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors",
               isEditingTitle

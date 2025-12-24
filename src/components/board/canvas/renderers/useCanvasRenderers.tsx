@@ -1576,6 +1576,7 @@ export function useCanvasRenderers({
           <g key={effectiveElement.id}>
             {/* Transparent rect to capture pointer events */}
             <rect
+              data-element-id={effectiveElement.id}
               x={x}
               y={y}
               width={width}
