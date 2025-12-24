@@ -26,6 +26,7 @@ import type {
     BoardElement,
     ShadeworksFile,
     TileType,
+    ToolbarMode,
 } from "@/lib/board-types";
 import { isClosedShape } from "@/lib/board-types";
 import {
@@ -57,6 +58,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [selectedTileType, setSelectedTileType] = useState<TileType | null>(
         null,
     );
+    const [toolbarMode, setToolbarMode] = useState<ToolbarMode>("tiles");
 
     // Default color based on theme: black in light mode, white in dark mode
     const getDefaultStrokeColor = () => {
@@ -1455,6 +1457,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onTileTypeSelect={setSelectedTileType}
                         selectedTileType={selectedTileType}
                         toolLock={isToolLocked}
+                        mode={toolbarMode}
+                        onModeChange={setToolbarMode}
                     />
                 )}
 
@@ -1473,7 +1477,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     />
                 )}
 
-                {!isReadOnly && (
+                {!isReadOnly && toolbarMode === "draw" && (
                     <ToolSidebar
                         selectedTool={tool}
                         strokeColor={strokeColor}
