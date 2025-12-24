@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useBoardStore } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
-import { MoreHorizontal, Pin } from "lucide-react";
-import { useState } from "react";
+import { MoreHorizontal, Pin, Pencil } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +29,9 @@ export function BoardCard({
   const router = useRouter();
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(board.name);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateBoard = useBoardStore((s) => s.updateBoard);
   const deleteBoard = useBoardStore((s) => s.deleteBoard);
@@ -37,14 +40,26 @@ export function BoardCard({
     router.push(`/board/${board.id}`);
   };
 
+  useEffect(() => {
+    if (isRenaming && inputRef.current) {
+      inputRef.current.focus();
+      const len = inputRef.current.value.length;
+      inputRef.current.setSelectionRange(len, len);
+    }
+  }, [isRenaming]);
+
   const handleRename = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setDropdownOpen(false);
+    setNewName(board.name);
     setIsRenaming(true);
   };
 
-  const handleRenameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleRenameSubmit = () => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
     if (newName.trim() && newName.trim() !== board.name) {
       updateBoard(board.id, { name: newName.trim() });
     }
@@ -52,8 +67,10 @@ export function BoardCard({
   };
 
   const handleRenameBlur = () => {
-    setNewName(board.name); // Reset to original name
-    setIsRenaming(false);
+    // Delay blur to allow for immediate actions like Enter key
+    blurTimeoutRef.current = setTimeout(() => {
+      handleRenameSubmit();
+    }, 150);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -85,6 +102,14 @@ export function BoardCard({
           <div className="h-6 w-6 rounded bg-card/20" />
         </div>
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRename}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
           {onTogglePin && (
             <Button
               variant="ghost"
@@ -98,7 +123,7 @@ export function BoardCard({
               <Pin className="h-4 w-4" />
             </Button>
           )}
-          <DropdownMenu>
+          <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
@@ -128,9 +153,6 @@ export function BoardCard({
                   {isPinned ? "Unpin Board" : "Pin Board"}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={handleRename}>
-                Rename
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDuplicate}>
                 Duplicate
               </DropdownMenuItem>
@@ -145,20 +167,25 @@ export function BoardCard({
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1" onClick={(e) => isRenaming && e.stopPropagation()}>
         {isRenaming ? (
-          <form onSubmit={handleRenameSubmit} onClick={(e) => e.stopPropagation()}>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onBlur={handleRenameBlur}
-              autoFocus
-              className="w-full rounded border border-primary bg-background px-2 py-1 mb-2 text-base font-semibold leading-snug text-foreground outline-none"
-            />
-          </form>
+          <input
+            ref={inputRef}
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onBlur={handleRenameBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleRenameSubmit();
+              } else if (e.key === "Escape") {
+                setIsRenaming(false);
+              }
+            }}
+            className="mb-2 w-full bg-transparent border-b-2 border-ring outline-none text-base font-semibold leading-snug text-foreground px-1 -ml-1"
+          />
         ) : (
-          <h3 className="mb-2 line-clamp-2 text-base font-semibold leading-snug text-foreground">
+          <h3 className="mb-2 line-clamp-2 text-base font-semibold leading-snug text-foreground cursor-text hover:text-foreground/80 transition-colors">
             {board.name}
           </h3>
         )}

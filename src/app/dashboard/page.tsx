@@ -438,7 +438,7 @@ export default function BoardsPage() {
                       }
                     }}
                     autoFocus
-                    className="text-3xl font-bold tracking-tight text-foreground bg-transparent border-b-2 border-primary outline-none px-1 -ml-1"
+                    className="text-3xl font-bold tracking-tight text-foreground bg-transparent border-b-2 border-ring outline-none px-1 -ml-1"
                     onFocus={(e) => {
                       // Position cursor at the end
                       const len = e.target.value.length;
