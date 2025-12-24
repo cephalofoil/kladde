@@ -1263,7 +1263,7 @@ export function Canvas({
             )}
 
             {/* Zoom and Undo/Redo Controls */}
-            <div className="absolute bottom-4 left-4 flex items-center gap-2 select-none">
+            <div className="absolute bottom-4 right-4 flex items-center gap-2 select-none">
                 <div className="flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border rounded-md p-1.5 shadow-xl">
                     <button
                         onClick={() => {
@@ -1367,15 +1367,6 @@ export function Canvas({
                     </div>
                 )}
             </div>
-
-            {/* Tooltip */}
-            {!isReadOnly && (
-                <div className="absolute bottom-4 right-4 text-xs text-muted-foreground bg-card/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-border">
-                    {inputHint === "trackpad"
-                        ? "Pinch to zoom  Two-finger to pan"
-                        : "Ctrl+Scroll to zoom  Middle-click to pan"}
-                </div>
-            )}
         </div>
     );
 }
