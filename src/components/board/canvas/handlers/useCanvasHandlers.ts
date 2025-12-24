@@ -28,7 +28,7 @@ import {
   getBoxSelectedIds,
   getGroupSelectionIds,
 } from "../shapes";
-import { getMinTileSize } from "@/lib/tile-utils";
+import { getMinTileSize, getDefaultTileSize } from "@/lib/tile-utils";
 import {
   getMinSingleCharWidth,
   measureWrappedTextHeightPx,
@@ -2036,8 +2036,9 @@ export function useCanvasHandlers({
 
       if (tool === "tile") {
         // Place a tile at the click position
-        const tileWidth = 300;
-        const tileHeight = 200;
+        const tileType = selectedTileType || "tile-text";
+        const { width: tileWidth, height: tileHeight } =
+          getDefaultTileSize(tileType);
 
         const newTile: BoardElement = {
           id: uuid(),
@@ -2049,7 +2050,7 @@ export function useCanvasHandlers({
           y: point.y - tileHeight / 2,
           width: tileWidth,
           height: tileHeight,
-          tileType: selectedTileType || "tile-text",
+          tileType: tileType,
           tileTitle: "Untitled",
           tileContent: {},
           opacity: 100,
