@@ -28,6 +28,7 @@ import {
   getBoxSelectedIds,
   getGroupSelectionIds,
 } from "../shapes";
+import { getMinTileSize } from "@/lib/tile-utils";
 import {
   getMinSingleCharWidth,
   measureWrappedTextHeightPx,
@@ -1228,37 +1229,37 @@ export function useCanvasHandlers({
               : null;
 
           // Calculate minimum width based on the widest character in the actual text
-          const minAbsWidth =
-            originalElement.type === "text"
-              ? getMinSingleCharWidth(
-                  originalElement.text || "",
-                  fontSizeForMin!,
-                  fontFamilyForMin!,
-                  originalElement.letterSpacing ?? 0,
-                )
-              : originalElement.type === "rectangle" ||
-                  originalElement.type === "diamond" ||
-                  originalElement.type === "ellipse" ||
-                  originalElement.type === "frame" ||
-                  originalElement.type === "web-embed" ||
-                  originalElement.type === "tile"
-                ? 2
-                : 0;
+          let minAbsWidth = 0;
+          let minAbsHeight = 0;
 
-          const minAbsHeight =
-            originalElement.type === "text"
-              ? Math.max(
-                  2,
-                  fontSizeForMin! * (originalElement.lineHeight ?? 1.4),
-                )
-              : originalElement.type === "rectangle" ||
-                  originalElement.type === "diamond" ||
-                  originalElement.type === "ellipse" ||
-                  originalElement.type === "frame" ||
-                  originalElement.type === "web-embed" ||
-                  originalElement.type === "tile"
-                ? 2
-                : 0;
+          if (originalElement.type === "text") {
+            minAbsWidth = getMinSingleCharWidth(
+              originalElement.text || "",
+              fontSizeForMin!,
+              fontFamilyForMin!,
+              originalElement.letterSpacing ?? 0,
+            );
+            minAbsHeight = Math.max(
+              2,
+              fontSizeForMin! * (originalElement.lineHeight ?? 1.4),
+            );
+          } else if (
+            originalElement.type === "tile" &&
+            originalElement.tileType
+          ) {
+            const minTileSize = getMinTileSize(originalElement.tileType);
+            minAbsWidth = minTileSize.width;
+            minAbsHeight = minTileSize.height;
+          } else if (
+            originalElement.type === "rectangle" ||
+            originalElement.type === "diamond" ||
+            originalElement.type === "ellipse" ||
+            originalElement.type === "frame" ||
+            originalElement.type === "web-embed"
+          ) {
+            minAbsWidth = 2;
+            minAbsHeight = 2;
+          }
 
           // Avoid snapping/flipping when elements get very small (especially lines/pen),
           // while still keeping box-like elements at a small minimum size.
