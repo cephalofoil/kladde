@@ -19,7 +19,10 @@ import {
     Circle,
     Eraser,
     Pointer,
-    RefreshCw,
+    SquareStack,
+    Pencil,
+    Lock,
+    Unlock,
 } from "lucide-react";
 import type { Tool, TileType, ToolbarMode } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
@@ -30,6 +33,7 @@ interface ModeSidebarProps {
     onTileTypeSelect: (tileType: TileType) => void;
     selectedTileType?: TileType | null;
     toolLock: boolean;
+    onToggleToolLock: () => void;
     mode: ToolbarMode;
     onModeChange: (mode: ToolbarMode) => void;
 }
@@ -168,17 +172,12 @@ export function ModeSidebar({
     onTileTypeSelect,
     selectedTileType,
     toolLock,
+    onToggleToolLock,
     mode,
     onModeChange,
 }: ModeSidebarProps) {
-    const [isFlipping, setIsFlipping] = useState(false);
-
     const handleModeToggle = () => {
-        setIsFlipping(true);
-        setTimeout(() => {
-            onModeChange(mode === "tiles" ? "draw" : "tiles");
-            setTimeout(() => setIsFlipping(false), 300);
-        }, 150);
+        onModeChange(mode === "tiles" ? "draw" : "tiles");
     };
 
     const handleTileTypeClick = (tileType: TileType) => {
@@ -187,42 +186,43 @@ export function ModeSidebar({
     };
 
     return (
-        <div className="fixed left-4 top-20 z-20 flex flex-col gap-2">
-            {/* Sidebar with flip animation */}
-            <div
-                className="relative w-[72px]"
-                style={{
-                    perspective: "1000px",
-                    height: mode === "tiles" ? "360px" : "440px",
-                }}
+        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
+            {/* Lock Button */}
+            <button
+                onClick={onToggleToolLock}
+                className={cn(
+                    "w-[72px] h-10 rounded-md transition-all duration-200 flex items-center justify-center shadow-2xl",
+                    toolLock
+                        ? "bg-blue-500 hover:bg-blue-600 text-white"
+                        : "bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground",
+                )}
+                title={toolLock ? "Tool locked" : "Tool unlocked"}
             >
+                {toolLock ? (
+                    <Lock className="w-4 h-4" />
+                ) : (
+                    <Unlock className="w-4 h-4" />
+                )}
+            </button>
+
+            {/* Main Sidebar - Fixed height */}
+            <div className="relative w-[72px] h-[440px]">
                 {/* Hint of the back panel */}
                 <div
-                    className="absolute inset-0 bg-card/60 backdrop-blur-sm border border-border rounded-lg shadow-md -rotate-2 scale-95 opacity-30"
+                    className="absolute inset-0 bg-card/60 backdrop-blur-sm border border-border rounded-lg shadow-md translate-x-0.5 translate-y-0.5 opacity-20"
                     style={{ zIndex: -1 }}
                 />
 
-                {/* Main rotating panel */}
-                <div
-                    className={cn(
-                        "relative w-full h-full transition-transform duration-300 ease-in-out",
-                        isFlipping && "animate-flip",
-                    )}
-                    style={{
-                        transformStyle: "preserve-3d",
-                        transform:
-                            mode === "draw"
-                                ? "rotateY(180deg)"
-                                : "rotateY(0deg)",
-                    }}
-                >
-                    {/* Front: Tiles Mode */}
+                {/* Main panel */}
+                <div className="relative w-full h-full bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg p-2 overflow-hidden">
+                    {/* Tiles Mode */}
                     <div
-                        className="absolute inset-0 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg p-2"
-                        style={{
-                            backfaceVisibility: "hidden",
-                            WebkitBackfaceVisibility: "hidden",
-                        }}
+                        className={cn(
+                            "absolute inset-2 transition-all duration-300",
+                            mode === "tiles"
+                                ? "opacity-100 translate-x-0 pointer-events-auto"
+                                : "opacity-0 -translate-x-4 pointer-events-none",
+                        )}
                     >
                         <div className="text-[10px] font-medium text-muted-foreground mb-2 px-1 text-center">
                             TILES
@@ -252,19 +252,19 @@ export function ModeSidebar({
                         </div>
                     </div>
 
-                    {/* Back: Draw Mode */}
+                    {/* Draw Mode */}
                     <div
-                        className="absolute inset-0 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg p-2"
-                        style={{
-                            backfaceVisibility: "hidden",
-                            WebkitBackfaceVisibility: "hidden",
-                            transform: "rotateY(180deg)",
-                        }}
+                        className={cn(
+                            "absolute inset-2 transition-all duration-300",
+                            mode === "draw"
+                                ? "opacity-100 translate-x-0 pointer-events-auto"
+                                : "opacity-0 translate-x-4 pointer-events-none",
+                        )}
                     >
                         <div className="text-[10px] font-medium text-muted-foreground mb-2 px-1 text-center">
                             DRAW
                         </div>
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 overflow-y-auto max-h-[400px]">
                             {DRAW_TOOLS.map((drawTool) => (
                                 <button
                                     key={drawTool.tool}
@@ -290,16 +290,17 @@ export function ModeSidebar({
                 </div>
             </div>
 
-            {/* Switch Button */}
+            {/* Switch Button - styled like lock button */}
             <button
                 onClick={handleModeToggle}
-                className="w-[72px] h-8 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg hover:bg-accent/50 transition-all flex items-center justify-center gap-1.5 group"
+                className="w-[72px] h-10 bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl hover:bg-muted/60 transition-all flex items-center justify-center gap-1.5 group"
                 title={`Switch to ${mode === "tiles" ? "Draw" : "Tiles"} mode`}
             >
-                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform group-hover:rotate-180 duration-300" />
-                <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground">
-                    {mode === "tiles" ? "Draw" : "Tiles"}
-                </span>
+                {mode === "tiles" ? (
+                    <Pencil className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                ) : (
+                    <SquareStack className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                )}
             </button>
         </div>
     );

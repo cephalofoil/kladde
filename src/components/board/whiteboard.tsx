@@ -1457,6 +1457,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onTileTypeSelect={setSelectedTileType}
                         selectedTileType={selectedTileType}
                         toolLock={isToolLocked}
+                        onToggleToolLock={() => setIsToolLocked(!isToolLocked)}
                         mode={toolbarMode}
                         onModeChange={setToolbarMode}
                     />
