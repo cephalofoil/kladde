@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { MoreHorizontal, Plus, Search, Zap, Trash2 } from "lucide-react";
+import { MoreHorizontal, MoreVertical, Plus, Search, Zap, Trash2 } from "lucide-react";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -46,6 +46,8 @@ export default function BoardsPage() {
     Record<string, string[]>
   >({});
   const [boardToMove, setBoardToMove] = useState<Board | null>(null);
+  const [isRenamingWorkspace, setIsRenamingWorkspace] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
 
   const boards = useBoardStore((s) => s.boards);
   const workstreamsMap = useBoardStore((s) => s.workstreams);
@@ -59,6 +61,7 @@ export default function BoardsPage() {
     (s) => s.ui,
   );
   const createBoard = useBoardStore((s) => s.createBoard);
+  const updateWorkstream = useBoardStore((s) => s.updateWorkstream);
 
   const matchesFilters = (board: Board) => {
     if (currentWorkstreamId && board.workstreamId !== currentWorkstreamId) {
@@ -181,6 +184,22 @@ export default function BoardsPage() {
         : [boardId, ...current];
       return { ...prev, [currentWorkstreamId]: next };
     });
+  };
+
+  const handleRenameWorkspace = () => {
+    setWorkspaceName(currentWorkstream?.name || "");
+    setIsRenamingWorkspace(true);
+  };
+
+  const handleWorkspaceNameSubmit = () => {
+    if (workspaceName.trim() && currentWorkstream && workspaceName.trim() !== currentWorkstream.name) {
+      updateWorkstream(currentWorkstream.id, { name: workspaceName.trim() });
+    }
+    setIsRenamingWorkspace(false);
+  };
+
+  const handleWorkspaceNameBlur = () => {
+    handleWorkspaceNameSubmit();
   };
 
   const formatDate = (date: Date) => {
@@ -400,14 +419,53 @@ export default function BoardsPage() {
 
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+              <div className="group flex items-center gap-3">
                 <span
                   className="h-5 w-5 rounded-full"
                   style={{ backgroundColor: currentWorkstream?.color }}
                 />
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                  {currentWorkstream?.name || "Personal"}
-                </h1>
+                {isRenamingWorkspace ? (
+                  <input
+                    type="text"
+                    value={workspaceName}
+                    onChange={(e) => setWorkspaceName(e.target.value)}
+                    onBlur={handleWorkspaceNameBlur}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleWorkspaceNameSubmit();
+                      } else if (e.key === "Escape") {
+                        setIsRenamingWorkspace(false);
+                      }
+                    }}
+                    autoFocus
+                    className="text-3xl font-bold tracking-tight text-foreground bg-transparent border-b-2 border-primary outline-none px-1 -ml-1"
+                    onFocus={(e) => {
+                      // Position cursor at the end
+                      const len = e.target.value.length;
+                      e.target.setSelectionRange(len, len);
+                    }}
+                  />
+                ) : (
+                  <h1 className="text-3xl font-bold tracking-tight text-foreground cursor-text hover:text-foreground/80 transition-colors">
+                    {currentWorkstream?.name || "Personal"}
+                  </h1>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={handleRenameWorkspace}>
+                      Rename Workspace
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
