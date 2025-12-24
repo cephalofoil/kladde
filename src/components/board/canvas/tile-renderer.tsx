@@ -188,7 +188,15 @@ export function TileRenderer({
     switch (element.tileType) {
       case "tile-text":
         return (
-          <div className="absolute inset-0 top-10 p-2 overflow-hidden pointer-events-auto">
+          <div
+            className="absolute inset-0 top-10 p-2 overflow-hidden pointer-events-auto"
+            onDoubleClick={(e) => {
+              if (!isEditing) {
+                e.stopPropagation();
+                setIsEditing(true);
+              }
+            }}
+          >
             <MarkdownEditor
               content={content?.richText || ""}
               onChange={(text) =>
