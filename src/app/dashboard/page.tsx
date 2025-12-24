@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { MoreHorizontal, Pin, Plus, Search, X, Zap, Trash2 } from "lucide-react";
+import { MoreHorizontal, Plus, Search, Zap, Trash2 } from "lucide-react";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BoardCard } from "@/components/board-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -516,110 +517,13 @@ export default function BoardsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {unpinnedBoards.map((board) => (
-                  <div
+                  <BoardCard
                     key={board.id}
-                    onClick={() => router.push(`/board/${board.id}`)}
-                    className="group relative flex cursor-pointer flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-accent-foreground/30 hover:shadow-lg"
-                  >
-                    <div className="mb-4 flex items-start justify-between">
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-lg"
-                        style={{
-                          backgroundColor: currentWorkstream?.color,
-                        }}
-                      >
-                        <div className="h-6 w-6 rounded bg-card/20" />
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            togglePin(board.id);
-                          }}
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        >
-                          <Pin className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                router.push(`/board/${board.id}`);
-                              }}
-                            >
-                              Open
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                togglePin(board.id);
-                              }}
-                            >
-                              {pinnedSet.has(board.id)
-                                ? "Unpin Board"
-                                : "Pin Board"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(event) => {
-                                event.stopPropagation();
-                              }}
-                            >
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(event) => {
-                                event.stopPropagation();
-                              }}
-                            >
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                useBoardStore.getState().deleteBoard(board.id);
-                              }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    <div className="flex-1">
-                      <h3 className="mb-2 line-clamp-2 text-base font-semibold leading-snug text-foreground">
-                        {board.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {new Date(board.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
-                        </span>
-                        <span>-</span>
-                        <span className="rounded bg-muted px-2 py-0.5 capitalize text-muted-foreground">
-                          temporary
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    board={board}
+                    isPinned={pinnedSet.has(board.id)}
+                    onTogglePin={togglePin}
+                    workstreamColor={currentWorkstream?.color}
+                  />
                 ))}
               </div>
             )}
