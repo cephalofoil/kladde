@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Type,
   StickyNote,
@@ -177,13 +177,48 @@ export function ModeSidebar({
   onModeChange,
 }: ModeSidebarProps) {
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const tilesRef = useRef<HTMLDivElement>(null);
+  const drawRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Update container height when mode changes (after transition completes)
+  useEffect(() => {
+    if (!containerRef.current || isFadingOut) return;
+
+    const activeRef = mode === "tiles" ? tilesRef : drawRef;
+    if (activeRef.current && containerRef.current) {
+      // Add padding (p-2 = 0.5rem = 8px on each side = 16px total) + buffer
+      const padding = 17;
+      containerRef.current.style.height = `${activeRef.current.scrollHeight + padding}px`;
+    }
+  }, [mode, isFadingOut]);
 
   const handleModeToggle = () => {
+    if (!tilesRef.current || !drawRef.current || !containerRef.current) return;
+
+    const padding = 17;
+
+    // Get current height
+    const currentHeight = containerRef.current.offsetHeight;
+
+    // Get target height (the other mode's content)
+    const targetRef = mode === "tiles" ? drawRef : tilesRef;
+    const targetHeight = targetRef.current.scrollHeight + padding;
+
+    // Set current height explicitly before starting transition
+    containerRef.current.style.height = `${currentHeight}px`;
+
     setIsFadingOut(true);
-    // Wait for fade out, then change mode and start resize/fade in
+
+    // Wait for fade out, then change mode and animate to new height
     setTimeout(() => {
       onModeChange(mode === "tiles" ? "draw" : "tiles");
       setIsFadingOut(false);
+
+      // Animate to target height
+      if (containerRef.current) {
+        containerRef.current.style.height = `${targetHeight}px`;
+      }
     }, 200);
   };
 
@@ -221,16 +256,23 @@ export function ModeSidebar({
         />
 
         {/* Main panel */}
-        <div className="relative w-full bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg p-2 transition-all duration-300">
+        <div
+          ref={containerRef}
+          className="relative w-full bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg p-2 overflow-hidden"
+          style={{
+            transition: "height 0.3s ease-in-out",
+          }}
+        >
           {/* Tiles Mode */}
           <div
+            ref={tilesRef}
             className={cn(
               "transition-opacity duration-200",
               mode === "tiles"
                 ? isFadingOut
                   ? "opacity-0"
                   : "opacity-100"
-                : "hidden",
+                : "opacity-0 absolute inset-0 pointer-events-none",
             )}
           >
             <div className="text-[9px] font-medium text-muted-foreground mb-2 px-1 text-center">
@@ -279,13 +321,14 @@ export function ModeSidebar({
 
           {/* Draw Mode */}
           <div
+            ref={drawRef}
             className={cn(
               "transition-opacity duration-200",
               mode === "draw"
                 ? isFadingOut
                   ? "opacity-0"
                   : "opacity-100"
-                : "hidden",
+                : "opacity-0 absolute inset-0 pointer-events-none",
             )}
           >
             <div className="text-[9px] font-medium text-muted-foreground mb-2 px-1 text-center">
