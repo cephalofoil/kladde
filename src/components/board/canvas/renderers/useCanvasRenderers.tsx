@@ -35,6 +35,7 @@ import {
 } from "../curves";
 import { getBoundingBox } from "../shapes";
 import { getMinSingleCharWidth, measureTextWidthPx } from "../text-utils";
+import { TileRenderer } from "../tile-renderer";
 
 interface UseCanvasRenderersProps {
     elements: BoardElement[];
@@ -1708,60 +1709,19 @@ export function useCanvasRenderers({
                 );
             }
             case "tile": {
-                // Import TileRenderer dynamically to avoid circular dependencies
-                // For now, render a simple placeholder that will be replaced
-                const x = effectiveElement.x || 0;
-                const y = effectiveElement.y || 0;
-                const width = effectiveElement.width || 300;
-                const height = effectiveElement.height || 200;
-                const elOpacity = (effectiveElement.opacity ?? 100) / 100;
                 const isSelected = selectedIds.includes(effectiveElement.id);
 
+                const handleUpdate = (updates: Partial<BoardElement>) => {
+                    onUpdateElement(effectiveElement.id, updates);
+                };
+
                 return (
-                    <g key={effectiveElement.id} transform={rotationTransform}>
-                        <foreignObject
-                            x={x}
-                            y={y}
-                            width={width}
-                            height={height}
-                            data-element-id={effectiveElement.id}
-                        >
-                            <div
-                                className="relative w-full h-full rounded-lg shadow-lg border-2 transition-all bg-white dark:bg-slate-900"
-                                style={{
-                                    opacity: isMarkedForDeletion
-                                        ? elOpacity * 0.3
-                                        : elOpacity,
-                                    borderColor: isSelected
-                                        ? "#3b82f6"
-                                        : "#e5e7eb",
-                                }}
-                            >
-                                <div className="absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                                    <div className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                        {effectiveElement.tileTitle ||
-                                            "Untitled"}
-                                    </div>
-                                </div>
-                                <div className="absolute inset-0 top-10 p-4 overflow-hidden text-sm text-gray-900 dark:text-gray-100">
-                                    {effectiveElement.tileType?.replace(
-                                        "tile-",
-                                        "",
-                                    ) || "tile"}
-                                </div>
-                            </div>
-                        </foreignObject>
-                        {isMarkedForDeletion && (
-                            <rect
-                                x={x}
-                                y={y}
-                                width={width}
-                                height={height}
-                                fill="rgba(0, 0, 0, 0.6)"
-                                pointerEvents="none"
-                            />
-                        )}
-                    </g>
+                    <TileRenderer
+                        key={effectiveElement.id}
+                        element={effectiveElement}
+                        isSelected={isSelected}
+                        onUpdate={handleUpdate}
+                    />
                 );
             }
 
