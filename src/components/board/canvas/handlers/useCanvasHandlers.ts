@@ -2261,6 +2261,11 @@ export function useCanvasHandlers({
                 onAddElement(newTile);
                 setSelectedIds([newTile.id]);
 
+                // Switch to select tool after placing tile (unless tool is locked)
+                if (!isToolLocked && onToolChange) {
+                    onToolChange("select");
+                }
+
                 // Don't set isDrawing - tiles are placed with a single click
                 return;
             }

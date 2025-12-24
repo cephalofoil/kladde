@@ -52,6 +52,13 @@ interface DrawToolInfo {
     hotkey: string;
 }
 
+const TILE_SELECT_TOOL: DrawToolInfo = {
+    tool: "select",
+    icon: <MousePointer2 className="h-4 w-4" />,
+    label: "Select",
+    hotkey: "V",
+};
+
 const TILE_TYPES: TileTypeInfo[] = [
     {
         type: "tile-text",
@@ -228,6 +235,24 @@ export function ModeSidebar({
                             TILES
                         </div>
                         <div className="flex flex-col gap-1.5">
+                            {/* Select Tool */}
+                            <button
+                                onClick={() => onToolChange("select")}
+                                className={cn(
+                                    "flex items-center justify-center gap-2 px-2 py-2 rounded-md transition-all relative",
+                                    currentTool === "select"
+                                        ? "bg-accent text-accent-foreground shadow-sm ring-2 ring-blue-500"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                                )}
+                                title={`${TILE_SELECT_TOOL.label} (${TILE_SELECT_TOOL.hotkey})`}
+                            >
+                                {TILE_SELECT_TOOL.icon}
+                                <span className="text-[10px] font-mono opacity-60">
+                                    {TILE_SELECT_TOOL.hotkey}
+                                </span>
+                            </button>
+
+                            {/* Tile Types */}
                             {TILE_TYPES.map((tileType) => (
                                 <button
                                     key={tileType.type}
@@ -236,7 +261,8 @@ export function ModeSidebar({
                                     }
                                     className={cn(
                                         "flex flex-col items-center gap-1 p-2.5 rounded-md border-2 transition-all",
-                                        selectedTileType === tileType.type
+                                        selectedTileType === tileType.type &&
+                                            currentTool === "tile"
                                             ? "border-blue-500 shadow-sm"
                                             : "border-transparent",
                                         tileType.color,
