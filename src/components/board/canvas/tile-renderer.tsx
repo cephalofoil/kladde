@@ -16,6 +16,10 @@ import { CodeRenderer } from "./content-renderers/code-renderer";
 import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
+import {
+  HeaderColorPicker,
+  getContrastTextColor,
+} from "./content-renderers/header-color-picker";
 
 interface TileRendererProps {
   element: BoardElement;
@@ -32,6 +36,7 @@ export function TileRenderer({
 }: TileRendererProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   // Mermaid-specific state
   const [mermaidScale, setMermaidScale] = useState(
@@ -338,11 +343,21 @@ export function TileRenderer({
             data-element-id={element.id}
             className={cn(
               "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors",
-              isEditingTitle
-                ? "bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-800 pointer-events-auto"
-                : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750 pointer-events-auto",
+              !element.tileContent?.headerBgColor &&
+                (isEditingTitle
+                  ? "bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-800 pointer-events-auto"
+                  : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750 pointer-events-auto"),
+              element.tileContent?.headerBgColor && "pointer-events-auto",
               isSelected ? "cursor-move" : "cursor-pointer",
             )}
+            style={{
+              backgroundColor: element.tileContent?.headerBgColor || undefined,
+              borderBottomColor:
+                element.tileContent?.headerBgColor || undefined,
+              color: element.tileContent?.headerBgColor
+                ? getContrastTextColor(element.tileContent.headerBgColor)
+                : undefined,
+            }}
             onDoubleClick={(e) => {
               e.stopPropagation();
               setIsEditingTitle(true);
@@ -374,7 +389,29 @@ export function TileRenderer({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   onClick={(e) => e.stopPropagation()}
-                  className="hover:bg-gray-200 dark:hover:bg-gray-700 p-1 rounded"
+                  className={cn(
+                    "p-1 rounded",
+                    !element.tileContent?.headerBgColor &&
+                      "hover:bg-gray-200 dark:hover:bg-gray-700",
+                  )}
+                  style={{
+                    color: element.tileContent?.headerBgColor
+                      ? getContrastTextColor(element.tileContent.headerBgColor)
+                      : undefined,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (element.tileContent?.headerBgColor) {
+                      e.currentTarget.style.backgroundColor =
+                        element.tileContent.headerBgColor;
+                      e.currentTarget.style.filter = "brightness(0.9)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (element.tileContent?.headerBgColor) {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.filter = "none";
+                    }
+                  }}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </DropdownMenuTrigger>
@@ -384,6 +421,14 @@ export function TileRenderer({
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setIsEditing(true)}>
                     Edit Content
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowColorPicker(true);
+                    }}
+                  >
+                    Header Color
                   </DropdownMenuItem>
                   {onDelete && (
                     <DropdownMenuItem
@@ -402,6 +447,39 @@ export function TileRenderer({
           {renderTileContent()}
         </div>
       </foreignObject>
+
+      {/* Color Picker Popup */}
+      {showColorPicker && (
+        <>
+          {/* Invisible overlay to capture clicks outside */}
+          <rect
+            x={-10000}
+            y={-10000}
+            width={20000}
+            height={20000}
+            fill="transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowColorPicker(false);
+            }}
+            style={{ cursor: "default" }}
+          />
+          <foreignObject x={x + width + 10} y={y} width={280} height={350}>
+            <HeaderColorPicker
+              value={element.tileContent?.headerBgColor || "#f9fafb"}
+              onChange={(color) => {
+                onUpdate?.({
+                  tileContent: {
+                    ...element.tileContent,
+                    headerBgColor: color,
+                  },
+                });
+              }}
+              onClose={() => setShowColorPicker(false)}
+            />
+          </foreignObject>
+        </>
+      )}
     </g>
   );
 }

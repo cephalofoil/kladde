@@ -53,6 +53,9 @@ export interface TileContent {
   // Shape tile
   shape?: "rectangle" | "circle" | "triangle";
   shapeFill?: string;
+  // Tile header customization
+  headerBgColor?: string;
+  headerTextColor?: string;
 }
 
 export interface BoardElement {
