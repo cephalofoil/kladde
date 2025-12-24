@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import type { Tool, BoardElement } from "@/lib/board-types";
+import type { Tool, BoardElement, TileType } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
 import { EraserTrail } from "@/lib/eraser-trail";
@@ -35,6 +35,7 @@ interface CanvasProps {
     letterSpacing?: number;
     lineHeight?: number;
     fillPattern?: "none" | "solid" | "criss-cross";
+    selectedTileType?: TileType | null;
     collaboration: CollaborationManager | null;
     elements: BoardElement[];
     onAddElement: (element: BoardElement) => void;
@@ -79,6 +80,7 @@ export function Canvas({
     letterSpacing = 0,
     lineHeight = 1.5,
     fillPattern = "none",
+    selectedTileType = null,
     collaboration,
     elements,
     onAddElement,
@@ -555,6 +557,7 @@ export function Canvas({
         letterSpacing,
         lineHeight,
         fillPattern,
+        selectedTileType,
         collaboration,
         elements,
         selectedBounds,
