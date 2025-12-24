@@ -176,8 +176,15 @@ export function ModeSidebar({
   mode,
   onModeChange,
 }: ModeSidebarProps) {
+  const [isFadingOut, setIsFadingOut] = useState(false);
+
   const handleModeToggle = () => {
-    onModeChange(mode === "tiles" ? "draw" : "tiles");
+    setIsFadingOut(true);
+    // Wait for fade out, then change mode and start resize/fade in
+    setTimeout(() => {
+      onModeChange(mode === "tiles" ? "draw" : "tiles");
+      setIsFadingOut(false);
+    }, 200);
   };
 
   const handleTileTypeClick = (tileType: TileType) => {
@@ -205,8 +212,8 @@ export function ModeSidebar({
         )}
       </button>
 
-      {/* Main Sidebar - Fixed height */}
-      <div className="relative w-16 h-[564px]">
+      {/* Main Sidebar - Dynamic height */}
+      <div className="relative w-16">
         {/* Hint of the back panel */}
         <div
           className="absolute inset-0 bg-card/60 backdrop-blur-sm border border-border rounded-lg shadow-md translate-x-0.5 translate-y-0.5 opacity-20"
@@ -214,14 +221,16 @@ export function ModeSidebar({
         />
 
         {/* Main panel */}
-        <div className="relative w-full h-full bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg p-2 overflow-hidden">
+        <div className="relative w-full bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-lg p-2 transition-all duration-300">
           {/* Tiles Mode */}
           <div
             className={cn(
-              "absolute inset-2 transition-all duration-300",
+              "transition-opacity duration-200",
               mode === "tiles"
-                ? "opacity-100 translate-x-0 pointer-events-auto"
-                : "opacity-0 -translate-x-4 pointer-events-none",
+                ? isFadingOut
+                  ? "opacity-0"
+                  : "opacity-100"
+                : "hidden",
             )}
           >
             <div className="text-[9px] font-medium text-muted-foreground mb-2 px-1 text-center">
@@ -271,10 +280,12 @@ export function ModeSidebar({
           {/* Draw Mode */}
           <div
             className={cn(
-              "absolute inset-2 transition-all duration-300",
+              "transition-opacity duration-200",
               mode === "draw"
-                ? "opacity-100 translate-x-0 pointer-events-auto"
-                : "opacity-0 translate-x-4 pointer-events-none",
+                ? isFadingOut
+                  ? "opacity-0"
+                  : "opacity-100"
+                : "hidden",
             )}
           >
             <div className="text-[9px] font-medium text-muted-foreground mb-2 px-1 text-center">
