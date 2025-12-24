@@ -203,6 +203,7 @@ export function ModeSidebar({
 
     // Get target height (the other mode's content)
     const targetRef = mode === "tiles" ? drawRef : tilesRef;
+    if (!targetRef.current) return;
     const targetHeight = targetRef.current.scrollHeight + padding;
 
     // Set current height explicitly before starting transition
