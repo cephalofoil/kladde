@@ -279,6 +279,124 @@ export default function BoardsPage() {
 
       <main className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
         <div className="space-y-8">
+          {/* Quick Boards Section - Moved to top */}
+          {quickBoards.length > 0 && (
+            <div className="rounded-xl border border-purple-500/30 bg-purple-50/30 dark:bg-purple-950/10 px-3 py-2.5">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Quick Boards
+                  </h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    {quickBoards.length}
+                  </span>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1.5" />
+                        Delete All
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete all Quick Boards?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete all {quickBoards.length} Quick Board{quickBoards.length === 1 ? "" : "s"}. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            quickBoards.forEach((board) => {
+                              useBoardStore.getState().deleteBoard(board.id);
+                            });
+                          }}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {quickBoards.map((board) => (
+                  <div
+                    key={board.id}
+                    onClick={() => router.push(`/board/${board.id}`)}
+                    className="group relative flex shrink-0 cursor-pointer items-start gap-3 rounded-lg border-2 border-dashed border-purple-200 dark:border-purple-800 bg-card p-3 transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-md w-[240px]"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-purple-500 shrink-0">
+                      <Zap className="h-4 w-4 text-white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="mb-0.5 text-[10px] text-muted-foreground">
+                        {new Date(board.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </div>
+                      <h3 className="line-clamp-2 text-xs font-medium leading-tight text-foreground">
+                        {board.name}
+                      </h3>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/board/${board.id}`);
+                          }}
+                        >
+                          Open
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBoardToMove(board);
+                          }}
+                        >
+                          Move to Workspace...
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            useBoardStore.getState().deleteBoard(board.id);
+                          }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -360,138 +478,6 @@ export default function BoardsPage() {
               ))}
             </div>
           </div>
-
-          {/* Quick Boards Section */}
-          {quickBoards.length > 0 && (
-            <div className="mb-8 rounded-2xl border-2 border-dashed border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/20 p-6">
-              <div className="mb-4 flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Quick Boards
-                    </h2>
-                  </div>
-                  <p className="text-sm text-muted-foreground max-w-2xl">
-                    Boards created from the home page. Move them to a workspace to keep them organized.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">
-                    {quickBoards.length} {quickBoards.length === 1 ? "board" : "boards"}
-                  </span>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete All
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete all Quick Boards?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete all {quickBoards.length} Quick Board{quickBoards.length === 1 ? "" : "s"}. This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => {
-                            quickBoards.forEach((board) => {
-                              useBoardStore.getState().deleteBoard(board.id);
-                            });
-                          }}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Delete All
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {quickBoards.map((board) => (
-                  <div
-                    key={board.id}
-                    onClick={() => router.push(`/board/${board.id}`)}
-                    className="group relative flex cursor-pointer flex-col rounded-xl border-2 border-purple-200 dark:border-purple-800 bg-card p-5 transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-lg hover:shadow-purple-500/10"
-                  >
-                    <div className="mb-4 flex items-start justify-between">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500">
-                        <Zap className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/board/${board.id}`);
-                              }}
-                            >
-                              Open
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setBoardToMove(board);
-                              }}
-                            >
-                              Move to Workspace...
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                useBoardStore.getState().deleteBoard(board.id);
-                              }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    <div className="flex-1">
-                      <h3 className="mb-2 line-clamp-2 text-base font-semibold leading-snug text-foreground">
-                        {board.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {new Date(board.createdAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                        <span>•</span>
-                        <span className="rounded bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 text-purple-700 dark:text-purple-300">
-                          Quick
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div>
             <div className="mb-5 flex items-center justify-between">
