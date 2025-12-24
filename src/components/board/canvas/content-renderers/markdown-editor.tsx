@@ -79,8 +79,12 @@ export function MarkdownEditor({
       else if (html.match(/^\d+\. /)) {
         html = html.replace(/^(\d+)\. (.+)$/, '<li class="ml-4">$1. $2</li>');
       }
+      // Empty line - preserve as line break
+      else if (!html.trim()) {
+        html = "<br />";
+      }
       // Regular paragraph
-      else if (html.trim()) {
+      else {
         html = `<p>${html}</p>`;
       }
 
@@ -111,7 +115,7 @@ export function MarkdownEditor({
       return html;
     });
 
-    return parsed.join("\n");
+    return parsed.join("");
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
