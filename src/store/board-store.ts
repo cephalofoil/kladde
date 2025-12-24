@@ -11,6 +11,7 @@ import type {
 import type { BoardElement } from "@/lib/board-types";
 
 const DEFAULT_WORKSTREAM_ID = "personal";
+const QUICK_BOARDS_WORKSPACE_ID = "quick-boards";
 
 const mapReplacer = (_key: string, value: unknown) => {
     if (value instanceof Map) {
@@ -113,6 +114,27 @@ function createDefaultWorkstream(): Workstream {
 }
 
 /**
+ * Helper to create Quick Boards workstream
+ */
+function createQuickBoardsWorkstream(): Workstream {
+    const now = new Date();
+    return {
+        id: QUICK_BOARDS_WORKSPACE_ID,
+        name: "Quick Boards",
+        description: "Boards created from the home page. Move them to a workspace to organize.",
+        color: "#9333ea",
+        icon: "zap",
+        createdAt: now,
+        updatedAt: now,
+        boardIds: [],
+        metadata: {
+            boardCount: 0,
+            lastAccessed: now,
+        },
+    };
+}
+
+/**
  * Main board store with local-first persistence
  */
 export const useBoardStore = create<BoardStore>()(
@@ -123,6 +145,7 @@ export const useBoardStore = create<BoardStore>()(
             boardData: new Map(),
             workstreams: new Map([
                 [DEFAULT_WORKSTREAM_ID, createDefaultWorkstream()],
+                [QUICK_BOARDS_WORKSPACE_ID, createQuickBoardsWorkstream()],
             ]),
             ui: {
                 currentBoardId: null,
@@ -452,7 +475,8 @@ export const useBoardStore = create<BoardStore>()(
             },
 
             deleteWorkstream: (id: string) => {
-                if (id === DEFAULT_WORKSTREAM_ID) return; // Can't delete default
+                // Can't delete system workspaces
+                if (id === DEFAULT_WORKSTREAM_ID || id === QUICK_BOARDS_WORKSPACE_ID) return;
 
                 set((state) => {
                     const workstream = state.workstreams.get(id);
@@ -498,6 +522,51 @@ export const useBoardStore = create<BoardStore>()(
                 return Array.from(state.boards.values()).filter(
                     (board) => board.workstreamId === workstreamId,
                 );
+            },
+
+            moveBoard: (boardId: string, targetWorkstreamId: string) => {
+                set((state) => {
+                    const board = state.boards.get(boardId);
+                    if (!board || board.workstreamId === targetWorkstreamId) return state;
+
+                    const boards = new Map(state.boards);
+                    const workstreams = new Map(state.workstreams);
+
+                    // Remove from old workstream
+                    const oldWorkstream = workstreams.get(board.workstreamId);
+                    if (oldWorkstream) {
+                        workstreams.set(board.workstreamId, {
+                            ...oldWorkstream,
+                            boardIds: oldWorkstream.boardIds.filter((id) => id !== boardId),
+                            metadata: {
+                                ...oldWorkstream.metadata,
+                                boardCount: oldWorkstream.boardIds.length - 1,
+                            },
+                        });
+                    }
+
+                    // Add to new workstream
+                    const newWorkstream = workstreams.get(targetWorkstreamId);
+                    if (newWorkstream) {
+                        workstreams.set(targetWorkstreamId, {
+                            ...newWorkstream,
+                            boardIds: [...newWorkstream.boardIds, boardId],
+                            metadata: {
+                                ...newWorkstream.metadata,
+                                boardCount: newWorkstream.boardIds.length + 1,
+                            },
+                        });
+                    }
+
+                    // Update board
+                    boards.set(boardId, {
+                        ...board,
+                        workstreamId: targetWorkstreamId,
+                        updatedAt: new Date(),
+                    });
+
+                    return { boards, workstreams };
+                });
             },
 
             // Dashboard features
@@ -601,6 +670,14 @@ export const useBoardStore = create<BoardStore>()(
                     );
                 }
 
+                // Ensure Quick Boards workstream exists
+                if (!state.workstreams.has(QUICK_BOARDS_WORKSPACE_ID)) {
+                    state.workstreams.set(
+                        QUICK_BOARDS_WORKSPACE_ID,
+                        createQuickBoardsWorkstream(),
+                    );
+                }
+
                 // Rebuild workstream board links and fix orphaned boards after hydration
                 const boards = new Map(state.boards);
                 const rebuiltWorkstreams = new Map<string, Workstream>(
@@ -649,3 +726,6 @@ export const useBoardStore = create<BoardStore>()(
         },
     ),
 );
+
+// Export constants for use in other files
+export { QUICK_BOARDS_WORKSPACE_ID };
