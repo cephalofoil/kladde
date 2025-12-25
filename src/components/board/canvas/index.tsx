@@ -705,6 +705,7 @@ export function Canvas({
         nameTagWidthCacheRef,
         onStartTransform,
         onUpdateElement,
+        onDeleteElement,
         setOriginalElements,
         setDraggingConnectorPoint,
         getMousePosition,
