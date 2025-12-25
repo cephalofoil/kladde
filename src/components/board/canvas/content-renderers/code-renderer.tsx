@@ -161,7 +161,12 @@ export function CodeRenderer({
 
     if (isEditing || !readOnly) {
         return (
-            <div className={cn("w-full h-full flex flex-col", className)}>
+            <div
+                className={cn(
+                    "w-full h-full flex flex-col rounded-b-lg overflow-hidden",
+                    className,
+                )}
+            >
                 {/* Minimalist Header - Edit Mode */}
                 <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-900/50">
                     <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider select-none">
@@ -182,7 +187,7 @@ export function CodeRenderer({
                     onWheel={handleWheel}
                     className={cn(
                         "flex-1 bg-slate-800 text-slate-200 font-mono text-xs",
-                        "border-none outline-none resize-none p-3",
+                        "border-none outline-none resize-none p-3 rounded-b-lg",
                         "placeholder:text-slate-500",
                     )}
                     placeholder="// Type your code here..."
@@ -196,7 +201,7 @@ export function CodeRenderer({
     return (
         <div
             className={cn(
-                "w-full h-full flex flex-col overflow-hidden",
+                "w-full h-full flex flex-col overflow-hidden rounded-b-lg",
                 className,
             )}
         >
@@ -225,7 +230,7 @@ export function CodeRenderer({
             {/* Code Display with Syntax Highlighting */}
             <div
                 ref={scrollContainerRef}
-                className="flex-1 overflow-auto code-line-numbers-dark"
+                className="flex-1 overflow-auto code-line-numbers-dark rounded-b-lg"
                 onWheel={handleWheel}
                 style={{
                     ["--line-number-color" as string]: "#2d3748",
@@ -247,7 +252,7 @@ export function CodeRenderer({
                         fontSize: "12px",
                         height: "100%",
                         background: "#1e293b",
-                        borderRadius: 0,
+                        borderRadius: "0 0 0.5rem 0.5rem",
                     }}
                     lineNumberStyle={{
                         minWidth: "2.5em",

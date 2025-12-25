@@ -171,7 +171,7 @@ export function TileRenderer({
             case "tile-text":
                 return (
                     <div
-                        className="absolute inset-0 top-10 p-2 overflow-hidden pointer-events-auto"
+                        className="absolute left-0 right-0 bottom-0 top-10 p-2 overflow-hidden pointer-events-auto rounded-b-lg"
                         onDoubleClick={(e) => {
                             if (!isEditing) {
                                 e.stopPropagation();
@@ -195,7 +195,7 @@ export function TileRenderer({
 
             case "tile-note":
                 return (
-                    <div className="absolute inset-0 top-10 p-4 overflow-hidden pointer-events-auto">
+                    <div className="absolute left-0 right-0 bottom-0 top-10 p-4 overflow-hidden pointer-events-auto rounded-b-lg">
                         <RichTextRenderer
                             content={content?.noteText || ""}
                             onChange={(text) =>
@@ -213,7 +213,7 @@ export function TileRenderer({
 
             case "tile-code":
                 return (
-                    <div className="absolute inset-0 top-10 pointer-events-auto">
+                    <div className="absolute left-0 right-0 bottom-0 top-10 pointer-events-auto rounded-b-lg overflow-hidden">
                         <CodeRenderer
                             code={content?.code || ""}
                             language={content?.language || "javascript"}
@@ -237,7 +237,7 @@ export function TileRenderer({
             case "tile-mermaid":
                 if (isEditing) {
                     return (
-                        <div className="absolute inset-1 top-10 pointer-events-auto">
+                        <div className="absolute left-1 right-1 bottom-1 top-10 pointer-events-auto rounded-b-lg overflow-hidden">
                             <MermaidCodeEditor
                                 initialCode={content?.chart || ""}
                                 onSave={(code) => {
@@ -257,7 +257,7 @@ export function TileRenderer({
                     );
                 }
                 return content?.chart ? (
-                    <div className="absolute inset-2 top-10 pointer-events-auto">
+                    <div className="absolute left-2 right-2 bottom-2 top-10 pointer-events-auto rounded-b-lg overflow-hidden">
                         {isSelected && (
                             <div className="absolute top-0 right-0 z-10">
                                 <MermaidTileControls
@@ -281,7 +281,7 @@ export function TileRenderer({
                         />
                     </div>
                 ) : (
-                    <div className="absolute inset-0 top-10 flex items-center justify-center pointer-events-none">
+                    <div className="absolute left-0 right-0 bottom-0 top-10 flex items-center justify-center pointer-events-none rounded-b-lg">
                         <div
                             className={cn(
                                 "text-sm text-center",
@@ -295,7 +295,7 @@ export function TileRenderer({
 
             case "tile-image":
                 return (
-                    <div className="absolute inset-0 top-10 flex items-center justify-center overflow-hidden pointer-events-none">
+                    <div className="absolute left-0 right-0 bottom-0 top-10 flex items-center justify-center overflow-hidden pointer-events-none rounded-b-lg">
                         {content?.imageSrc ? (
                             <img
                                 src={content.imageSrc}
@@ -333,7 +333,6 @@ export function TileRenderer({
                 <div
                     className={cn(
                         "relative w-full h-full rounded-lg shadow-lg border-2 transition-all select-none",
-                        getTileBackground(),
                         "border-gray-200 dark:border-gray-700",
                     )}
                     style={{
@@ -342,12 +341,20 @@ export function TileRenderer({
                     }}
                     onDoubleClick={handleDoubleClick}
                 >
+                    {/* Background - sits behind everything */}
+                    <div
+                        className={cn(
+                            "absolute inset-0 -z-10 rounded-lg",
+                            getTileBackground(),
+                        )}
+                    />
+
                     {/* Title Bar */}
                     <div
                         data-tile-header="true"
                         data-element-id={element.id}
                         className={cn(
-                            "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors",
+                            "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors z-10",
                             !element.tileContent?.headerBgColor &&
                                 (isEditingTitle
                                     ? "bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-800 pointer-events-auto"
