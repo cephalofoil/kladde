@@ -42,6 +42,7 @@ interface UseCanvasRenderersProps {
     selectedIds: string[];
     selectedBounds: BoundingBox | null;
     highlightedElementIds: string[];
+    currentHighlightId: string | null;
     remoteSelections: RemoteSelection[];
     remotelyEditingTextIds: Set<string>;
     editingTextElementId: string | null;
@@ -86,6 +87,7 @@ export function useCanvasRenderers({
     selectedIds,
     selectedBounds,
     highlightedElementIds,
+    currentHighlightId,
     remoteSelections,
     remotelyEditingTextIds,
     editingTextElementId,
@@ -3011,8 +3013,9 @@ export function useCanvasRenderers({
                     const bounds = getBoundingBox(element);
                     if (!bounds) return null;
 
-                    // Add padding around the element
-                    const padding = 8;
+                    const isCurrent = id === currentHighlightId;
+                    const padding = isCurrent ? 6 : 8;
+
                     return (
                         <rect
                             key={`highlight-${id}`}
@@ -3020,12 +3023,13 @@ export function useCanvasRenderers({
                             y={bounds.y - padding}
                             width={bounds.width + padding * 2}
                             height={bounds.height + padding * 2}
-                            fill="none"
-                            stroke="hsl(var(--chart-2))"
-                            strokeWidth={2}
-                            strokeDasharray="4,4"
+                            fill={isCurrent ? "var(--accent)" : "none"}
+                            fillOpacity={isCurrent ? 0.1 : 0}
+                            stroke="var(--accent)"
+                            strokeWidth={isCurrent ? 3 : 2}
+                            strokeDasharray={isCurrent ? "none" : "4,4"}
                             pointerEvents="none"
-                            opacity={0.8}
+                            opacity={isCurrent ? 1 : 0.6}
                             rx={4}
                         />
                     );

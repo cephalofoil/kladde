@@ -9,7 +9,10 @@ interface FindCanvasProps {
     onClose: () => void;
     elements: BoardElement[];
     onFocusElement: (element: BoardElement) => void;
-    onHighlightElements?: (elementIds: string[]) => void;
+    onHighlightElements?: (
+        elementIds: string[],
+        currentId?: string | null,
+    ) => void;
     currentHighlightId?: string | null;
 }
 
@@ -156,9 +159,12 @@ export function FindCanvas({
         setResults(matchingElements);
         setCurrentIndex(0);
 
-        // Highlight all results
+        // Highlight all results with the first one as current
         if (onHighlightElements) {
-            onHighlightElements(matchingElements.map((el) => el.id));
+            onHighlightElements(
+                matchingElements.map((el) => el.id),
+                matchingElements.length > 0 ? matchingElements[0].id : null,
+            );
         }
 
         // Focus first result
@@ -172,6 +178,14 @@ export function FindCanvas({
         const nextIndex = (currentIndex + 1) % results.length;
         setCurrentIndex(nextIndex);
         onFocusElement(results[nextIndex]);
+
+        // Update current highlight
+        if (onHighlightElements) {
+            onHighlightElements(
+                results.map((el) => el.id),
+                results[nextIndex].id,
+            );
+        }
     };
 
     const handlePrevious = () => {
@@ -180,6 +194,14 @@ export function FindCanvas({
             currentIndex === 0 ? results.length - 1 : currentIndex - 1;
         setCurrentIndex(prevIndex);
         onFocusElement(results[prevIndex]);
+
+        // Update current highlight
+        if (onHighlightElements) {
+            onHighlightElements(
+                results.map((el) => el.id),
+                results[prevIndex].id,
+            );
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {

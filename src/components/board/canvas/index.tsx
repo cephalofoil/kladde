@@ -54,6 +54,7 @@ interface CanvasProps {
     onFillColorChange?: (color: string) => void;
     canvasBackground?: "none" | "dots" | "lines" | "grid";
     highlightedElementIds?: string[];
+    currentHighlightId?: string | null;
     isToolLocked?: boolean;
     isEditArrowMode?: boolean;
     remoteSelections?: RemoteSelection[];
@@ -97,6 +98,7 @@ export function Canvas({
     onFillColorChange,
     canvasBackground = "none",
     highlightedElementIds = [],
+    currentHighlightId = null,
     isToolLocked = false,
     isEditArrowMode = false,
     remoteSelections = [],
@@ -690,6 +692,7 @@ export function Canvas({
         selectedIds,
         selectedBounds,
         highlightedElementIds,
+        currentHighlightId,
         remoteSelections,
         remotelyEditingTextIds,
         editingTextElementId,
