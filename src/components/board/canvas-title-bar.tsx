@@ -115,7 +115,8 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
             e.stopPropagation();
           }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-transparent border-b border-ring outline-none text-sm font-semibold text-foreground px-1 -ml-1 min-w-[100px] max-w-[300px]"
+          style={{ width: `${Math.max(newName.length * 8 + 20, 80)}px` }}
+          className="bg-transparent border-b border-ring outline-none text-sm font-semibold text-foreground px-1 -ml-1"
         />
       ) : (
         <button
