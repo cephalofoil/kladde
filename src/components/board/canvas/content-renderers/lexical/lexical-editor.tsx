@@ -28,7 +28,7 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode, CodeHighlightNode } from "@lexical/code";
 import { LinkNode } from "@lexical/link";
-import type { LexicalEditor, EditorState } from "lexical";
+import type { LexicalEditor as LexicalEditorInstance, EditorState } from "lexical";
 
 import { SlashMenuPlugin } from "./slash-menu-plugin";
 import { FloatingToolbarPlugin } from "./floating-toolbar-plugin";
@@ -268,7 +268,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
     },
     ref,
   ) => {
-    const editorRef = useRef<LexicalEditor | null>(null);
+    const editorRef = useRef<LexicalEditorInstance | null>(null);
     const lastMarkdownRef = useRef<string | undefined>(undefined);
     const [markdownContent, setMarkdownContent] = useState(content || "");
 
@@ -411,7 +411,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
 function EditorRefPlugin({
   editorRef,
 }: {
-  editorRef: React.MutableRefObject<LexicalEditor | null>;
+  editorRef: React.MutableRefObject<LexicalEditorInstance | null>;
 }) {
   const [editor] = useLexicalComposerContext();
 
