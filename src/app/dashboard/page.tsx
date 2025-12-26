@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { MoreHorizontal, MoreVertical, Plus, Search, Zap, Trash2 } from "lucide-react";
+import {
+  MoreHorizontal,
+  MoreVertical,
+  Plus,
+  Search,
+  Zap,
+  Trash2,
+} from "lucide-react";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -103,8 +110,9 @@ export default function BoardsPage() {
   const quickBoards = useMemo(() => {
     return Array.from(boards.values())
       .filter((board) => board.workstreamId === QUICK_BOARDS_WORKSPACE_ID)
-      .sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
   }, [boards]);
 
@@ -192,7 +200,11 @@ export default function BoardsPage() {
   };
 
   const handleWorkspaceNameSubmit = () => {
-    if (workspaceName.trim() && currentWorkstream && workspaceName.trim() !== currentWorkstream.name) {
+    if (
+      workspaceName.trim() &&
+      currentWorkstream &&
+      workspaceName.trim() !== currentWorkstream.name
+    ) {
       updateWorkstream(currentWorkstream.id, { name: workspaceName.trim() });
     }
     setIsRenamingWorkspace(false);
@@ -258,34 +270,34 @@ export default function BoardsPage() {
             {workstreams
               .filter((ws) => ws.id !== QUICK_BOARDS_WORKSPACE_ID)
               .map((workstream) => {
-              const isActive = currentWorkstreamId === workstream.id;
-              return (
-                <button
-                  key={workstream.id}
-                  onClick={() => switchWorkstream(workstream.id)}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`relative flex shrink-0 items-center gap-2.5 px-6 py-3 text-sm font-medium transition-all ${
-                    isActive
-                      ? "z-10 bg-[var(--workspace-color)] text-white"
-                      : "text-muted-foreground hover:bg-[var(--workspace-color-soft)] hover:text-foreground"
-                  }`}
-                  style={{
-                    borderTopLeftRadius: "12px",
-                    borderTopRightRadius: "12px",
-                    ["--workspace-color" as string]: workstream.color,
-                    ["--workspace-color-soft" as string]:
-                      "color-mix(in oklch, var(--workspace-color) 55%, transparent)",
-                    borderTop: "3px solid var(--workspace-color)",
-                    borderLeft: "3px solid var(--workspace-color)",
-                    borderRight: "3px solid var(--workspace-color)",
-                    borderBottom: "none",
-                    marginBottom: isActive ? "-1px" : "0",
-                  }}
-                >
-                  {workstream.name}
-                </button>
-              );
-            })}
+                const isActive = currentWorkstreamId === workstream.id;
+                return (
+                  <button
+                    key={workstream.id}
+                    onClick={() => switchWorkstream(workstream.id)}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`relative flex shrink-0 items-center gap-2.5 px-6 py-3 text-sm font-medium transition-all ${
+                      isActive
+                        ? "z-10 bg-[var(--workspace-color)] text-white"
+                        : "text-muted-foreground hover:bg-[var(--workspace-color-soft)] hover:text-foreground"
+                    }`}
+                    style={{
+                      borderTopLeftRadius: "12px",
+                      borderTopRightRadius: "12px",
+                      ["--workspace-color" as string]: workstream.color,
+                      ["--workspace-color-soft" as string]:
+                        "color-mix(in oklch, var(--workspace-color) 55%, transparent)",
+                      borderTop: "3px solid var(--workspace-color)",
+                      borderLeft: "3px solid var(--workspace-color)",
+                      borderRight: "3px solid var(--workspace-color)",
+                      borderBottom: "none",
+                      marginBottom: isActive ? "-1px" : "0",
+                    }}
+                  >
+                    {workstream.name}
+                  </button>
+                );
+              })}
             <button
               className="px-3 py-3 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="Add workspace"
@@ -326,9 +338,13 @@ export default function BoardsPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Delete all Quick Boards?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                          Delete all Quick Boards?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will permanently delete all {quickBoards.length} Quick Board{quickBoards.length === 1 ? "" : "s"}. This action cannot be undone.
+                          This will permanently delete all {quickBoards.length}{" "}
+                          Quick Board{quickBoards.length === 1 ? "" : "s"}. This
+                          action cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -552,10 +568,18 @@ export default function BoardsPage() {
                   onClick={handleCreateBoard}
                   size="icon"
                   variant="ghost"
-                  className="h-11 w-11 rounded-full bg-transparent text-foreground/80 hover:bg-transparent hover:text-foreground"
+                  className="h-11 w-11 rounded-full bg-transparent text-foreground hover:bg-transparent hover:text-foreground scale-125"
                   aria-label="New board"
                 >
-                  <Plus className="h-6 w-6 stroke-[2.5]" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    className="fill-current"
+                  >
+                    <path d="M24 10h-10v-10h-4v10h-10v4h10v10h4v-10h10z" />
+                  </svg>
                 </Button>
               </div>
             </div>
@@ -590,7 +614,10 @@ export default function BoardsPage() {
       </main>
 
       {/* Move to Workspace Dialog */}
-      <Dialog open={!!boardToMove} onOpenChange={(open) => !open && setBoardToMove(null)}>
+      <Dialog
+        open={!!boardToMove}
+        onOpenChange={(open) => !open && setBoardToMove(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Move to Workspace</DialogTitle>
