@@ -1,7 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+import type { EditorRef } from "./lexical/lexical-editor";
+
+// Dynamic import to avoid SSR issues with Lexical
+const LexicalEditor = dynamic(
+  () =>
+    import("./lexical/lexical-editor").then((mod) => ({
+      default: mod.LexicalEditor,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full min-h-[200px] flex items-center justify-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900">
+        <div className="text-gray-500 dark:text-gray-400">
+          Loading editor...
+        </div>
+      </div>
+    ),
+  },
+);
 
 interface RichTextRendererProps {
   content: string;
@@ -9,6 +27,7 @@ interface RichTextRendererProps {
   onFinish?: () => void;
   readOnly?: boolean;
   autoFocus?: boolean;
+  showFloatingToolbar?: boolean;
   className?: string;
 }
 
@@ -18,49 +37,21 @@ export function RichTextRenderer({
   onFinish,
   readOnly = false,
   autoFocus = false,
+  showFloatingToolbar = false,
   className,
 }: RichTextRendererProps) {
-  const [localContent, setLocalContent] = useState(content);
-
-  useEffect(() => {
-    setLocalContent(content);
-  }, [content]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    setLocalContent(newValue);
-    onChange?.(newValue);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onFinish?.();
-    }
-  };
-
-  if (readOnly) {
-    return (
-      <div className={cn("w-full h-full overflow-auto whitespace-pre-wrap", className)}>
-        {content || "No content"}
-      </div>
-    );
-  }
-
   return (
-    <textarea
-      value={localContent}
-      onChange={handleChange}
-      onKeyDown={handleKeyDown}
-      onBlur={onFinish}
-      className={cn(
-        "w-full h-full bg-transparent border-none outline-none resize-none p-2",
-        "text-sm text-gray-900 dark:text-gray-100",
-        "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-        className
-      )}
-      placeholder="Type your text here..."
-      autoFocus={autoFocus}
-    />
+    <div className="w-full h-full">
+      <LexicalEditor
+        content={content}
+        onChange={onChange}
+        onFinish={onFinish}
+        readOnly={readOnly}
+        autoFocus={autoFocus && !readOnly}
+        showBorder={false}
+        showFloatingToolbar={showFloatingToolbar}
+        className={className}
+      />
+    </div>
   );
 }
