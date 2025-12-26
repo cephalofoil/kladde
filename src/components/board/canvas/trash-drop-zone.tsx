@@ -67,7 +67,7 @@ export function TrashDropZone({
             height: "200px",
             background: isHovered
               ? "linear-gradient(135deg, rgb(239, 68, 68) 0%, rgb(220, 38, 38) 100%)"
-              : "linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(var(--muted)) 100%)",
+              : "linear-gradient(135deg, rgb(209, 213, 219) 0%, rgb(229, 231, 235) 100%)",
             transform: `scale(${scale})`,
             transformOrigin: "bottom left",
           }}
@@ -83,20 +83,8 @@ export function TrashDropZone({
             transformOrigin: "bottom left",
           }}
         >
-          {/* Trash icon with lid animation */}
+          {/* Trash icon */}
           <div className="relative">
-            {/* Lid */}
-            <div
-              className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full transition-all duration-300"
-              style={{
-                backgroundColor: isHovered ? "white" : "hsl(var(--foreground))",
-                transform: isHovered
-                  ? "rotate(-20deg) translateX(-4px) translateY(-6px)"
-                  : "rotate(0deg) translateX(0) translateY(0)",
-                transformOrigin: "right center",
-              }}
-            />
-
             {/* Main trash icon */}
             <Trash2
               size={36}
