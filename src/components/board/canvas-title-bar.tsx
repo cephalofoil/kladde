@@ -36,7 +36,9 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
   useEffect(() => {
     if (isRenaming && inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.select();
+      // Place cursor at the end instead of selecting all
+      const len = inputRef.current.value.length;
+      inputRef.current.setSelectionRange(len, len);
     }
   }, [isRenaming]);
 
@@ -74,7 +76,7 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 bg-card border border-border rounded-md px-3 h-10 shadow-2xl",
+        "inline-flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border rounded-md px-3 h-10 shadow-2xl min-w-[200px]",
         className,
       )}
     >
