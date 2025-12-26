@@ -1310,7 +1310,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       {/* Main Content Area */}
       <div className="relative flex-1 overflow-hidden">
         {/* Burger Menu and Title Bar - Top Left */}
-        <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
+        <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
           <BurgerMenu
             onClear={handleClear}
             onSave={handleSave}

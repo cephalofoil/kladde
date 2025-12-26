@@ -76,18 +76,18 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border rounded-md px-3 h-10 shadow-2xl min-w-[200px]",
+        "inline-flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 h-10 shadow-2xl min-w-[200px]",
         className,
       )}
     >
       {/* Workspace button with color dot */}
       <button
         onClick={handleWorkspaceClick}
-        className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+        className="inline-flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/60 transition-colors"
         title="Go to Workspace"
       >
         <span
-          className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+          className="inline-block h-3 w-3 rounded-full shrink-0"
           style={{ backgroundColor: workstreamColor }}
         />
         <span className="text-sm font-medium text-foreground">
@@ -96,7 +96,9 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
       </button>
 
       {/* Slash separator */}
-      <span className="text-muted-foreground/60 text-sm select-none">/</span>
+      <span className="text-muted-foreground/50 text-base select-none self-center">
+        /
+      </span>
 
       {/* Board name (clickable to rename) */}
       {isRenaming ? (
@@ -116,12 +118,12 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
           }}
           onClick={(e) => e.stopPropagation()}
           style={{ width: `${Math.max(newName.length * 8 + 20, 80)}px` }}
-          className="bg-transparent border-b border-ring outline-none text-sm font-semibold text-foreground px-1 -ml-1"
+          className="bg-transparent border-b border-ring outline-none text-sm font-semibold text-foreground px-2 py-1"
         />
       ) : (
         <button
           onClick={handleBoardNameClick}
-          className="text-sm font-semibold text-foreground hover:text-foreground/80 transition-colors cursor-text px-1"
+          className="text-sm font-semibold text-foreground px-2 py-1 rounded-md hover:bg-muted/60 transition-colors cursor-text"
           title="Click to rename"
         >
           {boardName}
