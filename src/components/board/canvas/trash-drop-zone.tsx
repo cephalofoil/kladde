@@ -18,15 +18,12 @@ export function TrashDropZone({
   zoom,
   pan,
 }: TrashDropZoneProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
     if (isHovered) {
-      setIsOpen(true);
-      setScale(1.2);
+      setScale(1.15);
     } else {
-      setIsOpen(false);
       setScale(1);
     }
   }, [isHovered]);
@@ -35,130 +32,119 @@ export function TrashDropZone({
 
   return (
     <div
-      className="fixed bottom-6 left-6 z-50 pointer-events-none select-none"
+      className="fixed bottom-0 left-0 pointer-events-none select-none z-40"
       style={{
-        transition: "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        transform: `scale(${isVisible ? 1 : 0})`,
+        transition: "opacity 0.3s ease",
+        opacity: isVisible ? 1 : 0,
       }}
     >
+      {/* Quarter circle background */}
       <div
-        className="relative pointer-events-auto"
+        className="relative"
         style={{
-          transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-          transform: `scale(${scale})`,
+          width: "200px",
+          height: "200px",
         }}
       >
-        {/* Outer glow ring when hovered */}
+        {/* Outer glow when hovered */}
         <div
-          className="absolute inset-0 rounded-full"
+          className="absolute bottom-0 left-0 rounded-tr-full transition-all duration-300"
           style={{
+            width: "200px",
+            height: "200px",
             background: isHovered
-              ? "radial-gradient(circle, rgba(239, 68, 68, 0.3) 0%, rgba(239, 68, 68, 0) 70%)"
+              ? "radial-gradient(circle at bottom left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.05) 60%, transparent 100%)"
               : "transparent",
-            filter: "blur(20px)",
-            transform: "scale(1.5)",
-            transition: "all 0.3s ease",
-            opacity: isHovered ? 1 : 0,
+            filter: isHovered ? "blur(15px)" : "none",
           }}
         />
 
-        {/* Main trash can circle */}
+        {/* Main quarter circle */}
         <div
-          className="relative w-20 h-20 rounded-full flex items-center justify-center shadow-2xl"
+          className="absolute bottom-0 left-0 rounded-tr-full transition-all duration-300 border-r border-t pointer-events-none"
           style={{
+            width: "200px",
+            height: "200px",
             background: isHovered
               ? "linear-gradient(135deg, rgb(239, 68, 68) 0%, rgb(220, 38, 38) 100%)"
-              : "linear-gradient(135deg, rgb(148, 163, 184) 0%, rgb(100, 116, 139) 100%)",
-            transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-            border: "3px solid rgba(255, 255, 255, 0.2)",
+              : "hsl(var(--secondary))",
+            borderColor: isHovered
+              ? "rgba(255, 255, 255, 0.2)"
+              : "hsl(var(--border))",
+            transform: `scale(${scale})`,
+            transformOrigin: "bottom left",
+          }}
+        />
+
+        {/* Icon container */}
+        <div
+          className="absolute flex items-center justify-center transition-all duration-300 pointer-events-none"
+          style={{
+            bottom: "40px",
+            left: "40px",
+            transform: `scale(${scale})`,
+            transformOrigin: "bottom left",
           }}
         >
           {/* Trash icon with lid animation */}
-          <div
-            className="relative"
-            style={{
-              transition: "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-              transform: isOpen ? "translateY(-2px)" : "translateY(0)",
-            }}
-          >
+          <div className="relative">
             {/* Lid */}
             <div
-              className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-white rounded-full"
+              className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full transition-all duration-300"
               style={{
-                transition: "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                transform: isOpen
-                  ? "rotate(-15deg) translateX(-3px) translateY(-4px)"
+                backgroundColor: isHovered ? "white" : "hsl(var(--foreground))",
+                transform: isHovered
+                  ? "rotate(-20deg) translateX(-4px) translateY(-6px)"
                   : "rotate(0deg) translateX(0) translateY(0)",
                 transformOrigin: "right center",
               }}
             />
 
-            {/* Main can body */}
+            {/* Main trash icon */}
             <Trash2
-              className="text-white"
-              size={32}
-              strokeWidth={2.5}
+              size={36}
+              strokeWidth={2}
+              className="transition-colors duration-300"
               style={{
-                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))",
+                color: isHovered ? "white" : "hsl(var(--foreground))",
+                filter: isHovered
+                  ? "drop-shadow(0 2px 8px rgba(0,0,0,0.3))"
+                  : "none",
               }}
             />
-          </div>
 
-          {/* Ripple effect on hover */}
-          {isHovered && (
-            <>
-              <div
-                className="absolute inset-0 rounded-full border-2 border-white"
-                style={{
-                  animation: "ripple 1.5s cubic-bezier(0, 0, 0.2, 1) infinite",
-                  opacity: 0,
-                }}
-              />
-              <div
-                className="absolute inset-0 rounded-full border-2 border-white"
-                style={{
-                  animation:
-                    "ripple 1.5s cubic-bezier(0, 0, 0.2, 1) infinite 0.5s",
-                  opacity: 0,
-                }}
-              />
-            </>
-          )}
+            {/* Ripple effect */}
+            {isHovered && (
+              <>
+                <div
+                  className="absolute inset-0 -m-3 rounded-full border-2 animate-ping"
+                  style={{
+                    borderColor: "rgba(255, 255, 255, 0.6)",
+                    animationDuration: "1.5s",
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
 
         {/* Helper text */}
         <div
-          className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium px-3 py-1 rounded-full"
+          className="absolute left-24 bottom-12 whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-md shadow-lg backdrop-blur-sm transition-all duration-300 pointer-events-none"
           style={{
             background: isHovered
-              ? "rgba(239, 68, 68, 0.9)"
-              : "rgba(100, 116, 139, 0.9)",
-            color: "white",
-            transition: "all 0.3s ease",
+              ? "rgba(239, 68, 68, 0.95)"
+              : "hsl(var(--secondary))",
+            color: isHovered ? "white" : "hsl(var(--foreground))",
+            borderColor: isHovered
+              ? "rgba(255, 255, 255, 0.2)"
+              : "hsl(var(--border))",
             opacity: isVisible ? 1 : 0,
-            backdropFilter: "blur(8px)",
           }}
         >
-          {isHovered ? "Release to delete" : "Drag here to delete"}
+          {isHovered ? "Release to delete" : "Drop to delete"}
         </div>
       </div>
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-                @keyframes ripple {
-                    0% {
-                        transform: scale(1);
-                        opacity: 0.6;
-                    }
-                    100% {
-                        transform: scale(1.8);
-                        opacity: 0;
-                    }
-                }
-            `,
-        }}
-      />
     </div>
   );
 }

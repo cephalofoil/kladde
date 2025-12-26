@@ -1911,15 +1911,24 @@ export function useCanvasHandlers({
               ]);
             }
           } else {
-            setSelectedIds(clickedIds);
-            onStartTransform?.();
-            setIsDragging(true);
-            setDragStart(point);
-            setOriginalElements(
-              elements
-                .filter((el) => clickedIds.includes(el.id))
-                .map((el) => ({ ...el })),
-            );
+            // If clicked element is already in selection, drag all selected elements
+            if (clickedAllSelected && selectedIds.length > 1) {
+              onStartTransform?.();
+              setIsDragging(true);
+              setDragStart(point);
+              setOriginalElements(selectedElements.map((el) => ({ ...el })));
+            } else {
+              // Otherwise, select only the clicked element and start dragging it
+              setSelectedIds(clickedIds);
+              onStartTransform?.();
+              setIsDragging(true);
+              setDragStart(point);
+              setOriginalElements(
+                elements
+                  .filter((el) => clickedIds.includes(el.id))
+                  .map((el) => ({ ...el })),
+              );
+            }
           }
         } else {
           // Start box selection
