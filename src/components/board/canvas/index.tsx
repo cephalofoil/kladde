@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { Tool, BoardElement, TileType } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
@@ -41,7 +41,11 @@ interface CanvasProps {
   elements: BoardElement[];
   onAddElement: (element: BoardElement) => void;
   onUpdateElement: (id: string, updates: Partial<BoardElement>) => void;
+  onBatchUpdateElements?: (
+    updates: Array<{ id: string; updates: Partial<BoardElement> }>,
+  ) => void;
   onDeleteElement: (id: string) => void;
+  onDeleteMultiple?: (ids: string[]) => void;
   onStartTransform?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -87,7 +91,9 @@ export function Canvas({
   elements,
   onAddElement,
   onUpdateElement,
+  onBatchUpdateElements,
   onDeleteElement,
+  onDeleteMultiple,
   onStartTransform,
   onUndo,
   onRedo,
@@ -118,6 +124,7 @@ export function Canvas({
     x: number;
     y: number;
   } | null>(null);
+  const wasDraggingRef = useRef(false);
 
   const state = useCanvasState({ elements, remoteSelections });
   const {
@@ -548,6 +555,7 @@ export function Canvas({
     selectedElements,
     onAddElement,
     onUpdateElement,
+    onBatchUpdateElements,
     onDeleteElement,
     onStartTransform,
     onToolChange,
@@ -566,18 +574,22 @@ export function Canvas({
     handleTextChange,
   } = handlers;
 
-  // Check if mouse is over trash zone (bottom-left area, 120px circle centered at 48px from edges)
+  // Check if mouse is over trash zone (bottom-left quarter circle, 250px radius)
   const checkIsOverTrash = useCallback((clientX: number, clientY: number) => {
-    const trashCenterX = 48; // 24px left margin + 40px radius (half of 80px circle)
-    const trashCenterY = window.innerHeight - 48; // 24px bottom margin + 40px radius
-    const trashRadius = 60; // Detection area slightly larger than visual (80px / 2 + margin)
+    const trashRadius = 250; // Large detection area for the quarter circle
 
-    const dx = clientX - trashCenterX;
-    const dy = clientY - trashCenterY;
+    // Check if within quarter circle from bottom-left origin
+    const dx = clientX;
+    const dy = window.innerHeight - clientY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     return distance <= trashRadius;
   }, []);
+
+  // Track drag state in ref for reliable access in mouseup
+  useEffect(() => {
+    wasDraggingRef.current = isDragging;
+  }, [isDragging]);
 
   // Wrapped mouse handlers with trash zone detection
   const handleMouseMove = useCallback(
@@ -586,18 +598,32 @@ export function Canvas({
 
       // Only check trash zone if dragging selected elements
       if (isDragging && selectedIds.length > 0) {
+        wasDraggingRef.current = true; // Track that we're actively dragging
         const overTrash = checkIsOverTrash(e.clientX, e.clientY);
-        setIsOverTrash(overTrash);
+        if (overTrash !== isOverTrash) {
+          setIsOverTrash(overTrash);
+        }
+      } else {
+        if (isOverTrash) {
+          setIsOverTrash(false);
+        }
       }
 
       originalHandleMouseMove(e);
     },
-    [isDragging, selectedIds.length, checkIsOverTrash, originalHandleMouseMove],
+    [
+      isDragging,
+      selectedIds.length,
+      checkIsOverTrash,
+      originalHandleMouseMove,
+      isOverTrash,
+    ],
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       setMouseClientPos({ x: e.clientX, y: e.clientY });
+      wasDraggingRef.current = false; // Reset on mouse down
       originalHandleMouseDown(e);
     },
     [originalHandleMouseDown],
@@ -607,24 +633,65 @@ export function Canvas({
     (e: React.MouseEvent<SVGSVGElement>) => {
       setMouseClientPos({ x: e.clientX, y: e.clientY });
 
-      // If releasing over trash zone while dragging, delete selected elements
-      if (isOverTrash && isDragging && selectedIds.length > 0) {
+      // Simple approach: if isOverTrash is true and we have selected items, delete them
+      // The isOverTrash state is only set when actively dragging, so this is safe
+      const shouldDelete = isOverTrash && selectedIds.length > 0;
+
+      // Store delete decision before calling original handler
+      const idsToDelete = shouldDelete ? [...selectedIds] : [];
+
+      setIsOverTrash(false);
+      wasDraggingRef.current = false;
+
+      // Call original handler first to clean up drag state
+      originalHandleMouseUp(e);
+
+      // Then delete elements if needed (after drag cleanup)
+      if (idsToDelete.length > 0) {
+        // Use the batch delete function if available, otherwise fall back to individual deletes
+        if (onDeleteMultiple) {
+          onDeleteMultiple(idsToDelete);
+        } else {
+          onStartTransform?.();
+          idsToDelete.forEach((id) => {
+            onDeleteElement(id);
+          });
+        }
+
+        setSelectedIds([]);
+      }
+    },
+    [
+      isOverTrash,
+      selectedIds,
+      onDeleteElement,
+      onDeleteMultiple,
+      onStartTransform,
+      setSelectedIds,
+      originalHandleMouseUp,
+    ],
+  );
+
+  // Global mouse up handler to catch releases outside the SVG (e.g., over trash zone)
+  useEffect(() => {
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      const wasDragging = wasDraggingRef.current;
+      if (!wasDragging) return;
+
+      const shouldDelete = isOverTrash && selectedIds.length > 0;
+
+      if (shouldDelete) {
         selectedIds.forEach((id) => onDeleteElement(id));
         setSelectedIds([]);
       }
 
       setIsOverTrash(false);
-      originalHandleMouseUp(e);
-    },
-    [
-      isOverTrash,
-      isDragging,
-      selectedIds,
-      onDeleteElement,
-      setSelectedIds,
-      originalHandleMouseUp,
-    ],
-  );
+      wasDraggingRef.current = false;
+    };
+
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
+  }, [isOverTrash, selectedIds, onDeleteElement, setSelectedIds]);
 
   // While editing an existing text element, allow style changes (letter spacing, font, etc)
   // to apply immediately and persist on submit.

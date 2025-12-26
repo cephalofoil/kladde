@@ -453,6 +453,29 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     [collaboration, elements, isReadOnly],
   );
 
+  const handleBatchUpdateElements = useCallback(
+    (updates: Array<{ id: string; updates: Partial<BoardElement> }>) => {
+      if (isReadOnly) return;
+      if (updates.length === 0) return;
+
+      if (collaboration) {
+        updates.forEach(({ id, updates: elementUpdates }) => {
+          collaboration.updateElement(id, elementUpdates);
+        });
+      } else {
+        const updatesMap = new Map(
+          updates.map(({ id, updates: u }) => [id, u]),
+        );
+        setElements(
+          elements.map((el) =>
+            updatesMap.has(el.id) ? { ...el, ...updatesMap.get(el.id) } : el,
+          ),
+        );
+      }
+    },
+    [collaboration, elements, isReadOnly],
+  );
+
   const handleStartTransform = useCallback(() => {
     saveToUndoStack();
   }, [saveToUndoStack]);
@@ -1088,6 +1111,22 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     }
   }, [selectedElements, saveToUndoStack, collaboration, elements]);
 
+  const handleDeleteMultiple = useCallback(
+    (idsToDelete: string[]) => {
+      if (isReadOnly) return;
+      if (idsToDelete.length === 0) return;
+      saveToUndoStack();
+
+      const ids = new Set(idsToDelete);
+      if (collaboration) {
+        idsToDelete.forEach((id) => collaboration.deleteElement(id));
+      } else {
+        setElements(elements.filter((el) => !ids.has(el.id)));
+      }
+    },
+    [collaboration, elements, saveToUndoStack, isReadOnly],
+  );
+
   const canEditArrow =
     selectedElements.length === 1 &&
     (selectedElements[0].type === "line" ||
@@ -1534,7 +1573,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           elements={elements}
           onAddElement={handleAddElement}
           onUpdateElement={handleUpdateElement}
+          onBatchUpdateElements={handleBatchUpdateElements}
           onDeleteElement={handleDeleteElement}
+          onDeleteMultiple={handleDeleteMultiple}
           onStartTransform={handleStartTransform}
           onUndo={handleUndo}
           onRedo={handleRedo}

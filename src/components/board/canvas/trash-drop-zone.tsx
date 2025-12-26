@@ -61,16 +61,13 @@ export function TrashDropZone({
 
         {/* Main quarter circle */}
         <div
-          className="absolute bottom-0 left-0 rounded-tr-full transition-all duration-300 border-r border-t pointer-events-none"
+          className="absolute bottom-0 left-0 rounded-tr-full transition-all duration-300 pointer-events-none"
           style={{
             width: "200px",
             height: "200px",
             background: isHovered
               ? "linear-gradient(135deg, rgb(239, 68, 68) 0%, rgb(220, 38, 38) 100%)"
-              : "hsl(var(--secondary))",
-            borderColor: isHovered
-              ? "rgba(255, 255, 255, 0.2)"
-              : "hsl(var(--border))",
+              : "linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(var(--muted)) 100%)",
             transform: `scale(${scale})`,
             transformOrigin: "bottom left",
           }}
@@ -130,15 +127,10 @@ export function TrashDropZone({
 
         {/* Helper text */}
         <div
-          className="absolute left-24 bottom-12 whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-md shadow-lg backdrop-blur-sm transition-all duration-300 pointer-events-none"
+          className="absolute left-0 bottom-2 text-center whitespace-nowrap text-xs font-medium transition-all duration-300 pointer-events-none"
           style={{
-            background: isHovered
-              ? "rgba(239, 68, 68, 0.95)"
-              : "hsl(var(--secondary))",
-            color: isHovered ? "white" : "hsl(var(--foreground))",
-            borderColor: isHovered
-              ? "rgba(255, 255, 255, 0.2)"
-              : "hsl(var(--border))",
+            width: "120px",
+            color: isHovered ? "white" : "hsl(var(--muted-foreground))",
             opacity: isVisible ? 1 : 0,
           }}
         >

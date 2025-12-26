@@ -60,6 +60,9 @@ interface UseCanvasHandlersProps {
   selectedElements: BoardElement[];
   onAddElement: (element: BoardElement) => void;
   onUpdateElement: (id: string, updates: Partial<BoardElement>) => void;
+  onBatchUpdateElements?: (
+    updates: Array<{ id: string; updates: Partial<BoardElement> }>,
+  ) => void;
   onDeleteElement: (id: string) => void;
   onStartTransform?: () => void;
   onToolChange?: (tool: Tool) => void;
@@ -94,6 +97,7 @@ export function useCanvasHandlers({
   selectedElements,
   onAddElement,
   onUpdateElement,
+  onBatchUpdateElements,
   onDeleteElement,
   onStartTransform,
   onToolChange,
@@ -843,24 +847,49 @@ export function useCanvasHandlers({
         const dx = point.x - dragStart.x;
         const dy = point.y - dragStart.y;
 
-        originalElements.forEach((origEl) => {
-          if (
-            origEl.type === "pen" ||
-            origEl.type === "line" ||
-            origEl.type === "arrow"
-          ) {
-            const newPoints = origEl.points.map((p) => ({
-              x: p.x + dx,
-              y: p.y + dy,
-            }));
-            onUpdateElement(origEl.id, { points: newPoints });
-          } else {
-            onUpdateElement(origEl.id, {
-              x: (origEl.x ?? 0) + dx,
-              y: (origEl.y ?? 0) + dy,
-            });
-          }
-        });
+        // Use batch update if available for better performance with multiple elements
+        if (onBatchUpdateElements && originalElements.length > 1) {
+          const batchUpdates = originalElements.map((origEl) => {
+            if (
+              origEl.type === "pen" ||
+              origEl.type === "line" ||
+              origEl.type === "arrow"
+            ) {
+              const newPoints = origEl.points.map((p) => ({
+                x: p.x + dx,
+                y: p.y + dy,
+              }));
+              return { id: origEl.id, updates: { points: newPoints } };
+            } else {
+              const newX = (origEl.x ?? 0) + dx;
+              const newY = (origEl.y ?? 0) + dy;
+              return { id: origEl.id, updates: { x: newX, y: newY } };
+            }
+          });
+          onBatchUpdateElements(batchUpdates);
+        } else {
+          // Fallback to individual updates
+          originalElements.forEach((origEl) => {
+            if (
+              origEl.type === "pen" ||
+              origEl.type === "line" ||
+              origEl.type === "arrow"
+            ) {
+              const newPoints = origEl.points.map((p) => ({
+                x: p.x + dx,
+                y: p.y + dy,
+              }));
+              onUpdateElement(origEl.id, { points: newPoints });
+            } else {
+              const newX = (origEl.x ?? 0) + dx;
+              const newY = (origEl.y ?? 0) + dy;
+              onUpdateElement(origEl.id, {
+                x: newX,
+                y: newY,
+              });
+            }
+          });
+        }
         return;
       }
 
@@ -1912,7 +1941,7 @@ export function useCanvasHandlers({
             }
           } else {
             // If clicked element is already in selection, drag all selected elements
-            if (clickedAllSelected && selectedIds.length > 1) {
+            if (clickedAllSelected) {
               onStartTransform?.();
               setIsDragging(true);
               setDragStart(point);
