@@ -334,6 +334,13 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
               <RichTextPlugin
                 contentEditable={
                   <div
+                    data-canvas-interactive="true"
+                    onMouseDownCapture={(e) => e.stopPropagation()}
+                    onMouseMoveCapture={(e) => e.stopPropagation()}
+                    onMouseUpCapture={(e) => e.stopPropagation()}
+                    onPointerDownCapture={(e) => e.stopPropagation()}
+                    onPointerMoveCapture={(e) => e.stopPropagation()}
+                    onPointerUpCapture={(e) => e.stopPropagation()}
                     onWheel={(e) => e.stopPropagation()}
                     className="h-full w-full"
                   >

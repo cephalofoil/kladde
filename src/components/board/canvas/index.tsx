@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Tool, BoardElement, TileType } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
@@ -12,6 +12,7 @@ import { getCombinedBounds } from "./shapes";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasHandlers } from "./handlers/useCanvasHandlers";
 import { useCanvasRenderers } from "./renderers/useCanvasRenderers";
+import { HtmlTileRenderer } from "./html-tile-renderer";
 import {
     getCanvasBackgroundStyle,
     getCanvasCursorStyle,
@@ -183,6 +184,8 @@ export function Canvas({
         },
     } = state;
 
+    const [editingTileId, setEditingTileId] = useState<string | null>(null);
+
     // Track shift key and other shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -195,6 +198,7 @@ export function Canvas({
             if (e.key === "Escape") {
                 setSelectedIds([]);
                 setTextInput(null);
+                setEditingTileId(null);
             }
         };
 
@@ -786,6 +790,19 @@ export function Canvas({
         <div
             ref={containerRef}
             className="relative w-full h-full overflow-hidden bg-background"
+            style={{ cursor: cursorStyle }}
+            onMouseDownCapture={(e) => {
+                if (!editingTileId) return;
+                const target = e.target as Element | null;
+                const insideActiveTile = target?.closest?.(
+                    `[data-tile-id="${editingTileId}"]`,
+                );
+                if (!insideActiveTile) setEditingTileId(null);
+            }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
         >
             {/* Canvas Background */}
             {canvasBackground !== "none" && (
@@ -799,11 +816,6 @@ export function Canvas({
             <svg
                 ref={svgRef}
                 className="w-full h-full"
-                style={{ cursor: cursorStyle }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
             >
                 <defs>
                     <filter
@@ -973,7 +985,48 @@ export function Canvas({
                     {[...elements]
                         .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
                         .map((el) => renderElement(el))}
+                </g>
+            </svg>
 
+            {/* Tile Layer (DOM, supports rich editors) */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                        transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                        transformOrigin: "0 0",
+                    }}
+                >
+                    {[...elements]
+                        .filter((el) => el.type === "tile")
+                        .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
+                        .map((el) => (
+                            <div
+                                key={el.id}
+                                className="pointer-events-auto"
+                                style={{ zIndex: el.zIndex || 0 }}
+                            >
+                                <HtmlTileRenderer
+                                    element={el}
+                                    isSelected={selectedIds.includes(el.id)}
+                                    isTextEditing={editingTileId === el.id}
+                                    onRequestTextEdit={() => {
+                                        setEditingTileId(el.id);
+                                        setSelectedIds([el.id]);
+                                    }}
+                                    onUpdate={(updates) =>
+                                        onUpdateElement(el.id, updates)
+                                    }
+                                    onDelete={() => onDeleteElement(el.id)}
+                                />
+                            </div>
+                        ))}
+                </div>
+            </div>
+
+            {/* Canvas Overlay (selection, in-progress drawings, cursors) */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
                     {/* Render remote users' in-progress drawings */}
                     {remoteDrawingElements.map(({ id, color, element }) => (
                         <g key={`remote-drawing-${id}`} opacity={0.7}>
@@ -1044,14 +1097,12 @@ export function Canvas({
                             stroke="currentColor"
                             strokeWidth={1 / zoom}
                             opacity={0.5}
-                            pointerEvents="none"
                         />
                     )}
 
                     {/* Laser pointer cursor - glowing red dot with white center */}
                     {tool === "laser" && laserCursorPos && (
-                        <g pointerEvents="none">
-                            {/* Outer glow - large red blur */}
+                        <g>
                             <circle
                                 cx={laserCursorPos.x}
                                 cy={laserCursorPos.y}
@@ -1060,7 +1111,6 @@ export function Canvas({
                                 opacity={0.3}
                                 filter="blur(4px)"
                             />
-                            {/* Middle glow - medium red blur */}
                             <circle
                                 cx={laserCursorPos.x}
                                 cy={laserCursorPos.y}
@@ -1069,7 +1119,6 @@ export function Canvas({
                                 opacity={0.5}
                                 filter="blur(2px)"
                             />
-                            {/* Main red dot */}
                             <circle
                                 cx={laserCursorPos.x}
                                 cy={laserCursorPos.y}
@@ -1077,7 +1126,6 @@ export function Canvas({
                                 fill="#ff0000"
                                 opacity={0.9}
                             />
-                            {/* White center dot */}
                             <circle
                                 cx={laserCursorPos.x}
                                 cy={laserCursorPos.y}
