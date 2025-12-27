@@ -28,7 +28,10 @@ import {
   getBoxSelectedIds,
   getGroupSelectionIds,
 } from "../shapes";
-import { findNearestSnapTarget } from "../utils/connectionSnapping";
+import {
+  findNearestSnapTarget,
+  generateElbowRouteAroundObstacles,
+} from "../utils/connectionSnapping";
 import { getMinTileSize, getDefaultTileSize } from "@/lib/tile-utils";
 import {
   getMinSingleCharWidth,
@@ -778,6 +781,52 @@ export function useCanvasHandlers({
             const isEnd = index === newPoints.length - 1;
             const eps = 0.5 / zoom;
 
+            // Check for snapping first
+            let finalPoint = localPoint;
+            const snapDistance = 20 / zoom;
+            const otherEndpointIndex = isStart ? newPoints.length - 1 : 0;
+            const otherEndpoint = newPoints[otherEndpointIndex];
+
+            const snapResult = findNearestSnapTarget(
+              localPoint,
+              elements,
+              originalElement.id,
+              snapDistance,
+              style,
+              otherEndpoint,
+            );
+
+            if (snapResult) {
+              finalPoint = snapResult.snapPoint.point;
+              setSnapTarget({
+                elementId: snapResult.elementId,
+                point: snapResult.snapPoint.point,
+              });
+
+              // Generate elbow routing around obstacles
+              const routedPoints = generateElbowRouteAroundObstacles(
+                otherEndpoint,
+                finalPoint,
+                elements,
+                originalElement.id,
+                snapResult.elementId,
+              );
+
+              // Update all points with the routed path
+              const updatedPoints = isStart
+                ? routedPoints.reverse()
+                : routedPoints;
+
+              onUpdateElement(originalElement.id, {
+                points: updatedPoints,
+                connectorStyle: "elbow",
+                elbowRoute: undefined,
+              });
+              return; // Skip the manual endpoint adjustment below
+            } else {
+              setSnapTarget(null);
+            }
+
             if (isStart) {
               // Dragging start (point 0):
               // - Point 0 moves freely
@@ -790,16 +839,16 @@ export function useCanvasHandlers({
               const edge12Horizontal = Math.abs(p1.y - p2.y) <= eps;
               const edge12Vertical = Math.abs(p1.x - p2.x) <= eps;
 
-              newPoints[0] = localPoint;
+              newPoints[0] = finalPoint;
 
               if (edge12Vertical) {
                 // Edge 1→2 is vertical (same X), so point 1 keeps X from point 2
                 // but takes Y from new point 0 to connect the first edge
-                newPoints[1] = { x: p2.x, y: localPoint.y };
+                newPoints[1] = { x: p2.x, y: finalPoint.y };
               } else if (edge12Horizontal) {
                 // Edge 1→2 is horizontal (same Y), so point 1 keeps Y from point 2
                 // but takes X from new point 0 to connect the first edge
-                newPoints[1] = { x: localPoint.x, y: p2.y };
+                newPoints[1] = { x: finalPoint.x, y: p2.y };
               } else {
                 // Not axis-aligned, keep point 1 fixed
               }
@@ -816,20 +865,20 @@ export function useCanvasHandlers({
               const edgeHorizontal = Math.abs(p1.y - p2.y) <= eps;
               const edgeVertical = Math.abs(p1.x - p2.x) <= eps;
 
-              newPoints[lastIdx] = localPoint;
+              newPoints[lastIdx] = finalPoint;
 
               if (edgeVertical) {
                 // Edge p2→p1 is vertical (same X), so p1 keeps X from p2
                 // but takes Y from new endpoint to connect the last edge
                 newPoints[lastIdx - 1] = {
                   x: p2.x,
-                  y: localPoint.y,
+                  y: finalPoint.y,
                 };
               } else if (edgeHorizontal) {
                 // Edge p2→p1 is horizontal (same Y), so p1 keeps Y from p2
                 // but takes X from new endpoint to connect the last edge
                 newPoints[lastIdx - 1] = {
-                  x: localPoint.x,
+                  x: finalPoint.x,
                   y: p2.y,
                 };
               } else {
@@ -845,11 +894,17 @@ export function useCanvasHandlers({
             const isEndpoint = index === 0 || index === newPoints.length - 1;
 
             if (isEndpoint) {
+              // Get the other endpoint for line-of-sight checking
+              const otherEndpointIndex = index === 0 ? newPoints.length - 1 : 0;
+              const otherEndpoint = newPoints[otherEndpointIndex];
+
               const snapResult = findNearestSnapTarget(
                 localPoint,
                 elements,
                 originalElement.id,
                 snapDistance,
+                style,
+                otherEndpoint,
               );
 
               if (snapResult) {
@@ -859,6 +914,34 @@ export function useCanvasHandlers({
                   elementId: snapResult.elementId,
                   point: snapResult.snapPoint.point,
                 });
+
+                // For elbow mode, generate routing around obstacles
+                if (style === "elbow") {
+                  const routedPoints = generateElbowRouteAroundObstacles(
+                    otherEndpoint,
+                    finalPoint,
+                    elements,
+                    originalElement.id,
+                    snapResult.elementId,
+                  );
+
+                  // Update all points with the routed path
+                  if (index === 0) {
+                    // Dragging start point - reverse the route
+                    newPoints = routedPoints.reverse();
+                  } else {
+                    // Dragging end point - use route as-is
+                    newPoints = routedPoints;
+                  }
+
+                  // Update with routed points for elbow mode
+                  onUpdateElement(originalElement.id, {
+                    points: newPoints,
+                    connectorStyle: "elbow",
+                    elbowRoute: undefined,
+                  });
+                  return; // Skip the normal point update below
+                }
               } else {
                 setSnapTarget(null);
               }
@@ -866,6 +949,7 @@ export function useCanvasHandlers({
               setSnapTarget(null);
             }
 
+            // For non-elbow modes, just update the endpoint
             newPoints[index] = finalPoint;
           }
 
