@@ -61,6 +61,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   );
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode>("tiles");
 
+  // Handle toolbar mode change and reset to select tool
+  const handleToolbarModeChange = useCallback((mode: ToolbarMode) => {
+    setToolbarMode(mode);
+    setTool("select");
+  }, []);
+
   // Default color based on theme: black in light mode, white in dark mode
   const getDefaultStrokeColor = () => {
     const currentTheme = resolvedTheme || theme;
@@ -1498,7 +1504,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             toolLock={isToolLocked}
             onToggleToolLock={() => setIsToolLocked(!isToolLocked)}
             mode={toolbarMode}
-            onModeChange={setToolbarMode}
+            onModeChange={handleToolbarModeChange}
           />
         )}
 
