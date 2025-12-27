@@ -1612,22 +1612,11 @@ export function useCanvasHandlers({
       const point = getMousePosition(e);
       setStartPoint(point);
 
-      // Get the element ID from the clicked SVG element (check parent if needed)
-      let target = e.target as SVGElement;
-      let clickedElementId = target.getAttribute("data-element-id");
-
-      // If not found on target, check parent elements up to the SVG root
-      if (!clickedElementId && target.parentElement) {
-        let parent: Element | null = target.parentElement;
-        while (parent && parent.tagName !== "svg" && !clickedElementId) {
-          clickedElementId = parent.getAttribute("data-element-id");
-          if (!clickedElementId && parent.parentElement) {
-            parent = parent.parentElement;
-          } else {
-            break;
-          }
-        }
-      }
+      // Get the element ID from the event target (works for SVG + HTML overlay).
+      const target = e.target as Element | null;
+      const clickedElementId =
+        target?.closest?.("[data-element-id]")?.getAttribute("data-element-id") ??
+        null;
 
       const clickedElement = clickedElementId
         ? elements.find((el) => el.id === clickedElementId)
@@ -1640,6 +1629,18 @@ export function useCanvasHandlers({
         clickedElement?.type === "laser" || isRemotelySelected
           ? null
           : clickedElement;
+
+      const isCanvasInteractiveTarget =
+        !!target?.closest?.(
+          '[data-canvas-interactive="true"], [contenteditable="true"], input, textarea',
+        );
+      if (isCanvasInteractiveTarget) {
+        // Allow editing/selection inside DOM editors without triggering canvas drags/box-select.
+        if (selectableClickedElement) {
+          setSelectedIds(getGroupSelectionIds(selectableClickedElement, elements));
+        }
+        return;
+      }
 
       if (tool === "select") {
         // Double-click text to edit (Excalidraw-style).

@@ -35,7 +35,6 @@ import {
 } from "../curves";
 import { getBoundingBox } from "../shapes";
 import { getMinSingleCharWidth, measureTextWidthPx } from "../text-utils";
-import { TileRenderer } from "../tile-renderer";
 
 interface UseCanvasRenderersProps {
     elements: BoardElement[];
@@ -1713,56 +1712,8 @@ export function useCanvasRenderers({
                 );
             }
             case "tile": {
-                const isSelected = selectedIds.includes(effectiveElement.id);
-                const isMarkedForDeletion = eraserMarkedIds.has(
-                    effectiveElement.id,
-                );
-
-                const handleUpdate = (updates: Partial<BoardElement>) => {
-                    onUpdateElement(effectiveElement.id, updates);
-                };
-
-                const handleDelete = () => {
-                    onDeleteElement(effectiveElement.id);
-                };
-
-                const x = effectiveElement.x || 0;
-                const y = effectiveElement.y || 0;
-                const width = effectiveElement.width || 300;
-                const height = effectiveElement.height || 200;
-
-                return (
-                    <g key={effectiveElement.id}>
-                        {/* Transparent rect to capture pointer events */}
-                        <rect
-                            data-element-id={effectiveElement.id}
-                            x={x}
-                            y={y}
-                            width={width}
-                            height={height}
-                            fill="transparent"
-                            stroke="transparent"
-                            strokeWidth={1}
-                            pointerEvents="fill"
-                        />
-                        <TileRenderer
-                            element={effectiveElement}
-                            isSelected={isSelected}
-                            onUpdate={handleUpdate}
-                            onDelete={handleDelete}
-                        />
-                        {isMarkedForDeletion && (
-                            <rect
-                                x={x}
-                                y={y}
-                                width={width}
-                                height={height}
-                                fill="rgba(0, 0, 0, 0.7)"
-                                pointerEvents="none"
-                            />
-                        )}
-                    </g>
-                );
+                // Tiles render in the HTML overlay layer (Canvas) to support rich DOM editors.
+                return null;
             }
 
             default:
