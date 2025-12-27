@@ -616,7 +616,7 @@ export function Canvas({
 
     // Wrapped mouse handlers with trash zone detection
     const handleMouseMove = useCallback(
-        (e: React.MouseEvent<SVGSVGElement>) => {
+        (e: React.MouseEvent<HTMLDivElement>) => {
             setMouseClientPos({ x: e.clientX, y: e.clientY });
 
             // Only check trash zone if dragging selected elements
@@ -632,7 +632,7 @@ export function Canvas({
                 }
             }
 
-            originalHandleMouseMove(e);
+            originalHandleMouseMove(e as any);
         },
         [
             isDragging,
@@ -644,16 +644,16 @@ export function Canvas({
     );
 
     const handleMouseDown = useCallback(
-        (e: React.MouseEvent<SVGSVGElement>) => {
+        (e: React.MouseEvent<HTMLDivElement>) => {
             setMouseClientPos({ x: e.clientX, y: e.clientY });
             wasDraggingRef.current = false; // Reset on mouse down
-            originalHandleMouseDown(e);
+            originalHandleMouseDown(e as any);
         },
         [originalHandleMouseDown],
     );
 
     const handleMouseUp = useCallback(
-        (e: React.MouseEvent<SVGSVGElement>) => {
+        (e: React.MouseEvent<HTMLDivElement>) => {
             setMouseClientPos({ x: e.clientX, y: e.clientY });
 
             // Simple approach: if isOverTrash is true and we have selected items, delete them
@@ -667,7 +667,7 @@ export function Canvas({
             wasDraggingRef.current = false;
 
             // Call original handler first to clean up drag state
-            originalHandleMouseUp(e);
+            originalHandleMouseUp();
 
             // Then delete elements if needed (after drag cleanup)
             if (idsToDelete.length > 0) {
