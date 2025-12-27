@@ -132,6 +132,10 @@ export function Canvas({
   // Tile editing state
   const [editingTileId, setEditingTileId] = useState<string | null>(null);
 
+  // Refs for edit states to avoid dependency array issues
+  const editingTextElementIdRef = useRef<string | null>(null);
+  const editingTileIdRef = useRef<string | null>(null);
+
   const state = useCanvasState({ elements, remoteSelections });
   const {
     drawing: { isDrawing, currentElement, startPoint },
@@ -204,15 +208,42 @@ export function Canvas({
     },
   } = state;
 
+  // Keep refs in sync with edit states
+  useEffect(() => {
+    editingTextElementIdRef.current = editingTextElementId;
+    editingTileIdRef.current = editingTileId;
+  }, [editingTextElementId, editingTileId]);
+
   // Track shift key and other shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnly) return;
       if (e.key === "Shift") setShiftPressed(true);
-      if (e.key === "Delete" && selectedIds.length > 0) {
-        selectedIds.forEach((id) => onDeleteElement(id));
-        setSelectedIds([]);
+
+      // Handle Delete and Backspace keys for selected elements
+      // Don't delete if user is typing in an input, textarea, or contentEditable element
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selectedIds.length > 0
+      ) {
+        // Check if user is editing text or in an editable element
+        const isEditingText =
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          (e.target instanceof HTMLElement && e.target.isContentEditable);
+
+        // Don't delete elements if editing text or if a tile/text element is being edited
+        if (
+          !isEditingText &&
+          !editingTextElementIdRef.current &&
+          !editingTileIdRef.current
+        ) {
+          e.preventDefault(); // Prevent browser back navigation on Backspace
+          selectedIds.forEach((id) => onDeleteElement(id));
+          setSelectedIds([]);
+        }
       }
+
       if (e.key === "Escape") {
         setSelectedIds([]);
         setTextInput(null);
