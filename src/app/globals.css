@@ -169,7 +169,7 @@
     }
 }
 
-@keyframes shadeworks-caret-blink {
+@keyframes kladde-caret-blink {
     0% {
         opacity: 1;
     }
@@ -181,6 +181,6 @@
     }
 }
 
-.shadeworks-text-caret {
-    animation: shadeworks-caret-blink 1.05s ease-in-out infinite;
+.kladde-text-caret {
+    animation: kladde-caret-blink 1.05s ease-in-out infinite;
 }

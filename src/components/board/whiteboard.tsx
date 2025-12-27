@@ -137,7 +137,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [canvasBackground, setCanvasBackground] = useState<
     "none" | "dots" | "lines" | "grid"
   >("none");
-  const [handDrawnMode, setHandDrawnMode] = useState(false);
+  const [handDrawnMode, setHandDrawnMode] = useState(() => {
+    // Initialize from localStorage if available
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("kladde-handdrawn-mode");
+      return saved === "true";
+    }
+    return false;
+  });
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveFileName, setSaveFileName] = useState("");
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -170,6 +177,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   useEffect(() => {
     elementsRef.current = elements;
   }, [elements]);
+
+  // Persist handDrawn mode to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("kladde-handdrawn-mode", String(handDrawnMode));
+    }
+  }, [handDrawnMode]);
 
   // Update default stroke color when theme changes
   useEffect(() => {
@@ -208,12 +222,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
   // Ensure a display name exists for collaboration.
   useEffect(() => {
-    const existingName = sessionStorage.getItem("shadeworks-name");
+    const existingName = sessionStorage.getItem("kladde-name");
     if (existingName) {
       setPendingName(existingName);
     } else {
       const name = generateFunnyName();
-      sessionStorage.setItem("shadeworks-name", name);
+      sessionStorage.setItem("kladde-name", name);
       setPendingName(name);
     }
   }, [isReadOnly]);
@@ -533,14 +547,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const handleSave = useCallback(() => {
     if (isReadOnly) return;
     // Set default filename with current date
-    setSaveFileName(`shadeworks-${new Date().toISOString().split("T")[0]}`);
+    setSaveFileName(`kladde-${new Date().toISOString().split("T")[0]}`);
     setShowSaveDialog(true);
   }, [isReadOnly]);
 
   const handleConfirmSave = useCallback(() => {
     if (isReadOnly) return;
-    const shadeworksFile: ShadeworksFile = {
-      type: "shadeworks",
+    const kladdeFile: ShadeworksFile = {
+      type: "kladde",
       version: 1,
       elements: elements,
       appState: {
@@ -548,16 +562,16 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       },
     };
 
-    const jsonString = JSON.stringify(shadeworksFile, null, 2);
+    const jsonString = JSON.stringify(kladdeFile, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
     link.href = url;
-    // Ensure .shadeworks extension
-    const fileName = saveFileName.endsWith(".shadeworks")
+    // Ensure .kladde extension
+    const fileName = saveFileName.endsWith(".kladde")
       ? saveFileName
-      : `${saveFileName}.shadeworks`;
+      : `${saveFileName}.kladde`;
     link.download = fileName;
     document.body.appendChild(link);
     link.click();
@@ -572,7 +586,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     if (isReadOnly) return;
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".shadeworks,application/json";
+    input.accept = ".kladde,.shadeworks,application/json";
 
     input.onchange = (e: Event) => {
       const file = (e.target as HTMLInputElement).files?.[0];
@@ -584,9 +598,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           const content = event.target?.result as string;
           const data: ShadeworksFile = JSON.parse(content);
 
-          // Validate file format
-          if (data.type !== "shadeworks") {
-            alert("Invalid file format. Please select a .shadeworks file.");
+          // Validate file format (support both old and new format)
+          if (data.type !== "kladde" && data.type !== "shadeworks") {
+            alert("Invalid file format. Please select a .kladde file.");
             return;
           }
 
@@ -608,7 +622,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         } catch (error) {
           console.error("Error loading file:", error);
           alert(
-            "Failed to load file. Please ensure it is a valid .shadeworks file.",
+            "Failed to load file. Please ensure it is a valid .kladde file.",
           );
         }
       };
@@ -1630,9 +1644,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         {showSaveDialog && (
           <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-6 w-96 max-w-[90vw]">
-              <h2 className="text-lg font-semibold mb-4">
-                Save Shadeworks File
-              </h2>
+              <h2 className="text-lg font-semibold mb-4">Save Kladde File</h2>
               <div className="mb-4">
                 <label
                   htmlFor="filename"
@@ -1657,7 +1669,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                   placeholder="Enter file name"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  {saveFileName && !saveFileName.endsWith(".shadeworks")}
+                  {saveFileName && !saveFileName.endsWith(".kladde")}
                 </p>
               </div>
               <div className="flex gap-2 justify-end">

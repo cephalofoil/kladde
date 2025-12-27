@@ -28,7 +28,7 @@ export function JoinModal({ open, onJoin }: JoinModalProps) {
 
   const handleJoin = () => {
     const name = displayName.trim() || generateFunnyName();
-    sessionStorage.setItem("shadeworks-name", name);
+    sessionStorage.setItem("kladde-name", name);
     onJoin(name);
   };
 

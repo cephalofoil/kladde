@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { X, Pipette } from 'lucide-react';
-import { Button } from './button';
-import { Input } from './input';
-import { cn } from '@/lib/utils';
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { X, Pipette } from "lucide-react";
+import { Button } from "./button";
+import { Input } from "./input";
+import { cn } from "@/lib/utils";
 import {
   RGB,
   HSV,
@@ -16,9 +16,9 @@ import {
   parseColor,
   isValidHex,
   clamp,
-} from '@/lib/utils/color-conversions';
+} from "@/lib/utils/color-conversions";
 
-const RECENT_COLORS_KEY = 'shadeworks-recent-colors';
+const RECENT_COLORS_KEY = "kladde-recent-colors";
 const MAX_RECENT_COLORS = 10;
 
 export interface ColorPickerProps {
@@ -27,17 +27,17 @@ export interface ColorPickerProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
-  position?: { left: number; top: number } | 'auto';
+  position?: { left: number; top: number } | "auto";
   showAlpha?: boolean;
   showEyedropper?: boolean;
   showSwatches?: boolean;
 }
 
-type ColorFormat = 'hex' | 'rgb' | 'hsl';
+type ColorFormat = "hex" | "rgb" | "hsl";
 
 // Helper functions for recent colors
 function getRecentColors(): string[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === "undefined") return [];
   try {
     const stored = localStorage.getItem(RECENT_COLORS_KEY);
     return stored ? JSON.parse(stored) : [];
@@ -47,7 +47,7 @@ function getRecentColors(): string[] {
 }
 
 function addRecentColor(color: string): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     const recent = getRecentColors();
     const filtered = recent.filter((c) => c !== color);
@@ -69,7 +69,12 @@ interface SaturationValueSelectorProps {
   onChange: (s: number, v: number) => void;
 }
 
-function SaturationValueSelector({ hue, saturation, value, onChange }: SaturationValueSelectorProps) {
+function SaturationValueSelector({
+  hue,
+  saturation,
+  value,
+  onChange,
+}: SaturationValueSelectorProps) {
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -86,18 +91,18 @@ function SaturationValueSelector({ hue, saturation, value, onChange }: Saturatio
 
       onChange(s, v);
     },
-    [onChange]
+    [onChange],
   );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (e.button !== 0 && e.pointerType === "mouse") return;
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       setIsDragging(true);
       updateColor(e.clientX, e.clientY);
     },
-    [updateColor]
+    [updateColor],
   );
 
   const handlePointerMove = useCallback(
@@ -106,7 +111,7 @@ function SaturationValueSelector({ hue, saturation, value, onChange }: Saturatio
         updateColor(e.clientX, e.clientY);
       }
     },
-    [isDragging, updateColor]
+    [isDragging, updateColor],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -139,7 +144,8 @@ function SaturationValueSelector({ hue, saturation, value, onChange }: Saturatio
         style={{
           left: `${indicatorX}%`,
           top: `${indicatorY}%`,
-          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)',
+          boxShadow:
+            "0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)",
         }}
       />
     </div>
@@ -169,18 +175,18 @@ function HueSlider({ hue, onChange }: HueSliderProps) {
 
       onChange(newHue);
     },
-    [onChange]
+    [onChange],
   );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (e.button !== 0 && e.pointerType === "mouse") return;
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       setIsDragging(true);
       updateHue(e.clientX);
     },
-    [updateHue]
+    [updateHue],
   );
 
   const handlePointerMove = useCallback(
@@ -189,7 +195,7 @@ function HueSlider({ hue, onChange }: HueSliderProps) {
         updateHue(e.clientX);
       }
     },
-    [isDragging, updateHue]
+    [isDragging, updateHue],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -200,13 +206,15 @@ function HueSlider({ hue, onChange }: HueSliderProps) {
 
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Hue</label>
+      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        Hue
+      </label>
       <div
         ref={sliderRef}
         className="relative h-3 rounded-md cursor-pointer touch-none select-none"
         style={{
           background:
-            'linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)',
+            "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -218,7 +226,8 @@ function HueSlider({ hue, onChange }: HueSliderProps) {
           className="absolute top-1/2 w-4 h-4 -ml-2 -mt-2 bg-white border-2 border-white rounded-full shadow-lg pointer-events-none"
           style={{
             left: `${indicatorPosition}%`,
-            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)',
+            boxShadow:
+              "0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)",
           }}
         />
       </div>
@@ -250,18 +259,18 @@ function AlphaSlider({ alpha, color, onChange }: AlphaSliderProps) {
 
       onChange(newAlpha);
     },
-    [onChange]
+    [onChange],
   );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (e.button !== 0 && e.pointerType === "mouse") return;
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       setIsDragging(true);
       updateAlpha(e.clientX);
     },
-    [updateAlpha]
+    [updateAlpha],
   );
 
   const handlePointerMove = useCallback(
@@ -270,7 +279,7 @@ function AlphaSlider({ alpha, color, onChange }: AlphaSliderProps) {
         updateAlpha(e.clientX);
       }
     },
-    [isDragging, updateAlpha]
+    [isDragging, updateAlpha],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -281,14 +290,16 @@ function AlphaSlider({ alpha, color, onChange }: AlphaSliderProps) {
 
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Opacity</label>
+      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        Opacity
+      </label>
       <div className="relative">
         <div
           ref={sliderRef}
           className="relative h-3 rounded-md cursor-pointer touch-none select-none overflow-hidden"
           style={{
             background:
-              'repeating-conic-gradient(#e5e5e5 0% 25%, transparent 0% 50%) 50% / 10px 10px',
+              "repeating-conic-gradient(#e5e5e5 0% 25%, transparent 0% 50%) 50% / 10px 10px",
           }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -308,7 +319,8 @@ function AlphaSlider({ alpha, color, onChange }: AlphaSliderProps) {
           className="absolute top-1/2 w-4 h-4 -ml-2 -mt-2 bg-white border-2 border-white rounded-full shadow-lg pointer-events-none"
           style={{
             left: `${indicatorPosition}%`,
-            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)',
+            boxShadow:
+              "0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)",
           }}
         />
       </div>
@@ -327,19 +339,26 @@ interface ColorFormatInputProps {
   onChange: (rgb: RGB) => void;
 }
 
-function ColorFormatInput({ rgb, format, onFormatChange, onChange }: ColorFormatInputProps) {
-  const [inputValue, setInputValue] = useState('');
+function ColorFormatInput({
+  rgb,
+  format,
+  onFormatChange,
+  onChange,
+}: ColorFormatInputProps) {
+  const [inputValue, setInputValue] = useState("");
 
   // Update input value when rgb or format changes
   useEffect(() => {
     switch (format) {
-      case 'hex':
+      case "hex":
         setInputValue(rgbToHex(rgb));
         break;
-      case 'rgb':
-        setInputValue(`${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}`);
+      case "rgb":
+        setInputValue(
+          `${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}`,
+        );
         break;
-      case 'hsl': {
+      case "hsl": {
         const hslString = rgbToHslString(rgb);
         const match = hslString.match(/(\d+),\s*(\d+)%,\s*(\d+)%/);
         if (match) {
@@ -358,10 +377,10 @@ function ColorFormatInput({ rgb, format, onFormatChange, onChange }: ColorFormat
     let parsed: RGB | null = null;
 
     switch (format) {
-      case 'hex':
+      case "hex":
         parsed = parseColor(inputValue);
         break;
-      case 'rgb': {
+      case "rgb": {
         const rgbMatch = inputValue.match(/(\d+),\s*(\d+),\s*(\d+)/);
         if (rgbMatch) {
           parsed = {
@@ -373,7 +392,7 @@ function ColorFormatInput({ rgb, format, onFormatChange, onChange }: ColorFormat
         }
         break;
       }
-      case 'hsl': {
+      case "hsl": {
         const hslMatch = inputValue.match(/(\d+),\s*(\d+)%,\s*(\d+)%/);
         if (hslMatch) {
           const hslString = `hsl(${hslMatch[1]}, ${hslMatch[2]}, ${hslMatch[3]})`;
@@ -389,13 +408,15 @@ function ColorFormatInput({ rgb, format, onFormatChange, onChange }: ColorFormat
     } else {
       // Reset to current value if invalid
       switch (format) {
-        case 'hex':
+        case "hex":
           setInputValue(rgbToHex(rgb));
           break;
-        case 'rgb':
-          setInputValue(`${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}`);
+        case "rgb":
+          setInputValue(
+            `${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}`,
+          );
           break;
-        case 'hsl': {
+        case "hsl": {
           const hslString = rgbToHslString(rgb);
           const match = hslString.match(/(\d+),\s*(\d+)%,\s*(\d+)%/);
           if (match) {
@@ -408,7 +429,7 @@ function ColorFormatInput({ rgb, format, onFormatChange, onChange }: ColorFormat
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleInputBlur();
     }
   };
@@ -418,28 +439,28 @@ function ColorFormatInput({ rgb, format, onFormatChange, onChange }: ColorFormat
       <div className="flex gap-1">
         <Button
           type="button"
-          variant={format === 'hex' ? 'default' : 'outline'}
+          variant={format === "hex" ? "default" : "outline"}
           size="sm"
           className="flex-1 h-7 text-xs"
-          onClick={() => onFormatChange('hex')}
+          onClick={() => onFormatChange("hex")}
         >
           HEX
         </Button>
         <Button
           type="button"
-          variant={format === 'rgb' ? 'default' : 'outline'}
+          variant={format === "rgb" ? "default" : "outline"}
           size="sm"
           className="flex-1 h-7 text-xs"
-          onClick={() => onFormatChange('rgb')}
+          onClick={() => onFormatChange("rgb")}
         >
           RGB
         </Button>
         <Button
           type="button"
-          variant={format === 'hsl' ? 'default' : 'outline'}
+          variant={format === "hsl" ? "default" : "outline"}
           size="sm"
           className="flex-1 h-7 text-xs"
-          onClick={() => onFormatChange('hsl')}
+          onClick={() => onFormatChange("hsl")}
         >
           HSL
         </Button>
@@ -450,7 +471,13 @@ function ColorFormatInput({ rgb, format, onFormatChange, onChange }: ColorFormat
         onBlur={handleInputBlur}
         onKeyDown={handleKeyDown}
         className="font-mono text-sm"
-        placeholder={format === 'hex' ? '#FFFFFF' : format === 'rgb' ? '255, 255, 255' : '0, 0%, 100%'}
+        placeholder={
+          format === "hex"
+            ? "#FFFFFF"
+            : format === "rgb"
+              ? "255, 255, 255"
+              : "0, 0%, 100%"
+        }
       />
     </div>
   );
@@ -471,10 +498,12 @@ function ColorSwatches({ colors, onSelect, currentColor }: ColorSwatchesProps) {
 
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Recent Colors</label>
+      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        Recent Colors
+      </label>
       <div className="flex flex-wrap gap-1">
         {colors.map((color, index) => {
-          const isTransparent = color === 'transparent';
+          const isTransparent = color === "transparent";
           const isCurrent = color === currentColor;
 
           return (
@@ -482,18 +511,18 @@ function ColorSwatches({ colors, onSelect, currentColor }: ColorSwatchesProps) {
               key={`${color}-${index}`}
               onClick={() => onSelect(color)}
               className={cn(
-                'relative w-7 h-7 rounded-md border border-input shadow-xs transition-all duration-200 hover:scale-110 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                isCurrent && 'scale-105'
+                "relative w-7 h-7 rounded-md border border-input shadow-xs transition-all duration-200 hover:scale-110 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isCurrent && "scale-105",
               )}
               style={{
-                backgroundColor: isTransparent ? 'transparent' : color,
+                backgroundColor: isTransparent ? "transparent" : color,
                 backgroundImage: isTransparent
-                  ? 'repeating-conic-gradient(#e5e5e5 0% 25%, transparent 0% 50%)'
+                  ? "repeating-conic-gradient(#e5e5e5 0% 25%, transparent 0% 50%)"
                   : undefined,
-                backgroundSize: isTransparent ? '6px 6px' : undefined,
-                backgroundPosition: isTransparent ? '50% 50%' : undefined,
+                backgroundSize: isTransparent ? "6px 6px" : undefined,
+                backgroundPosition: isTransparent ? "50% 50%" : undefined,
                 boxShadow: isCurrent
-                  ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${isTransparent ? 'hsl(var(--foreground) / 0.5)' : color}`
+                  ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${isTransparent ? "hsl(var(--foreground) / 0.5)" : color}`
                   : undefined,
               }}
               title={color}
@@ -519,13 +548,13 @@ export function ColorPicker({
   onChange,
   isOpen,
   onClose,
-  title = 'Custom Color',
-  position = 'auto',
+  title = "Custom Color",
+  position = "auto",
   showAlpha = true,
   showEyedropper = true,
   showSwatches = true,
 }: ColorPickerProps) {
-  const [format, setFormat] = useState<ColorFormat>('hex');
+  const [format, setFormat] = useState<ColorFormat>("hex");
   const [recentColors, setRecentColors] = useState<string[]>([]);
 
   // Parse initial color to HSV
@@ -558,7 +587,7 @@ export function ColorPicker({
   // Eyedropper support detection
   const [supportsEyedropper, setSupportsEyedropper] = useState(false);
   useEffect(() => {
-    setSupportsEyedropper('EyeDropper' in window);
+    setSupportsEyedropper("EyeDropper" in window);
   }, []);
 
   const handleEyedropper = useCallback(async () => {
@@ -601,39 +630,36 @@ export function ColorPicker({
     onClose();
   }, [hex, onChange, onClose]);
 
-  const handleSwatchSelect = useCallback(
-    (color: string) => {
-      const parsed = parseColor(color);
-      if (parsed) {
-        setHsv(rgbToHsv(parsed));
-      }
-    },
-    []
-  );
+  const handleSwatchSelect = useCallback((color: string) => {
+    const parsed = parseColor(color);
+    if (parsed) {
+      setHsv(rgbToHsv(parsed));
+    }
+  }, []);
 
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   // Calculate position
   const modalStyle: React.CSSProperties =
-    position === 'auto'
+    position === "auto"
       ? {
-          right: '20rem',
-          top: '50%',
-          transform: 'translateY(-50%)',
+          right: "20rem",
+          top: "50%",
+          transform: "translateY(-50%)",
         }
       : {
           left: position.left,
@@ -658,7 +684,12 @@ export function ColorPicker({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <Button onClick={onClose} variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-foreground">
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -677,10 +708,21 @@ export function ColorPicker({
           <HueSlider hue={hsv.h} onChange={handleHueChange} />
 
           {/* Alpha Slider */}
-          {showAlpha && <AlphaSlider alpha={hsv.a ?? 1} color={rgb} onChange={handleAlphaChange} />}
+          {showAlpha && (
+            <AlphaSlider
+              alpha={hsv.a ?? 1}
+              color={rgb}
+              onChange={handleAlphaChange}
+            />
+          )}
 
           {/* Format Input */}
-          <ColorFormatInput rgb={rgb} format={format} onFormatChange={setFormat} onChange={handleRgbChange} />
+          <ColorFormatInput
+            rgb={rgb}
+            format={format}
+            onFormatChange={setFormat}
+            onChange={handleRgbChange}
+          />
 
           {/* Eyedropper */}
           {showEyedropper && supportsEyedropper && (
@@ -697,7 +739,13 @@ export function ColorPicker({
           )}
 
           {/* Recent Colors */}
-          {showSwatches && <ColorSwatches colors={recentColors} onSelect={handleSwatchSelect} currentColor={hex} />}
+          {showSwatches && (
+            <ColorSwatches
+              colors={recentColors}
+              onSelect={handleSwatchSelect}
+              currentColor={hex}
+            />
+          )}
 
           {/* Apply Button */}
           <Button onClick={handleApply} className="w-full">

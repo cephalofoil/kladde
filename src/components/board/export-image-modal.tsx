@@ -720,7 +720,7 @@ export function ExportImageModal({
   useEffect(() => {
     if (!isOpen) return;
     const date = new Date().toISOString().split("T")[0];
-    setFileName(`shadeworks-${date}`);
+    setFileName(`kladde-${date}`);
   }, [isOpen]);
 
   useEffect(() => {
@@ -1133,13 +1133,13 @@ export function ExportImageModal({
     // Embed scene data if requested
     if (embedScene) {
       const sceneData = JSON.stringify({
-        type: "shadeworks",
+        type: "kladde",
         version: 1,
         elements,
         appState: { canvasBackground },
       });
       svgContent += `\n  <metadata>
-    <shadeworks>${sceneData}</shadeworks>
+    <kladde>${sceneData}</kladde>
   </metadata>`;
     }
 

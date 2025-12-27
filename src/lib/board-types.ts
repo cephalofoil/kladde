@@ -204,7 +204,7 @@ export function isClosedShape(
 }
 
 export interface ShadeworksFile {
-  type: "shadeworks";
+  type: "kladde" | "shadeworks"; // Support both for backwards compatibility
   version: number;
   elements: BoardElement[];
   appState: {

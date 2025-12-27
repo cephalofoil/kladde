@@ -1507,7 +1507,7 @@ export function Canvas({
           />
           <div
             ref={textEditorCaretRef}
-            className="shadeworks-text-caret"
+            className="kladde-text-caret"
             style={{
               position: "absolute",
               width: "2px",
