@@ -28,6 +28,7 @@ import {
   getBoxSelectedIds,
   getGroupSelectionIds,
 } from "../shapes";
+import { findNearestSnapTarget } from "../utils/connectionSnapping";
 import { getMinTileSize, getDefaultTileSize } from "@/lib/tile-utils";
 import {
   getMinSingleCharWidth,
@@ -113,6 +114,7 @@ export function useCanvasHandlers({
     text,
     eraser,
     laser,
+    snapping,
     ui,
     refs,
   } = state;
@@ -160,6 +162,7 @@ export function useCanvasHandlers({
   } = text;
   const { eraserMarkedIds, setEraserMarkedIds, setEraserCursorPos } = eraser;
   const { setLaserCursorPos } = laser;
+  const { snapTarget, setSnapTarget } = snapping;
   const {
     hoverCursor,
     setHoverCursor,
@@ -834,7 +837,36 @@ export function useCanvasHandlers({
               }
             }
           } else if (index >= 0 && index < newPoints.length) {
-            newPoints[index] = localPoint;
+            // Check for snapping to other elements
+            let finalPoint = localPoint;
+            const snapDistance = 20 / zoom; // 20px in screen space
+
+            // Only snap endpoints (first or last point)
+            const isEndpoint = index === 0 || index === newPoints.length - 1;
+
+            if (isEndpoint) {
+              const snapResult = findNearestSnapTarget(
+                localPoint,
+                elements,
+                originalElement.id,
+                snapDistance,
+              );
+
+              if (snapResult) {
+                // Snap to the target point
+                finalPoint = snapResult.snapPoint.point;
+                setSnapTarget({
+                  elementId: snapResult.elementId,
+                  point: snapResult.snapPoint.point,
+                });
+              } else {
+                setSnapTarget(null);
+              }
+            } else {
+              setSnapTarget(null);
+            }
+
+            newPoints[index] = finalPoint;
           }
 
           onUpdateElement(originalElement.id, { points: newPoints });
@@ -1615,8 +1647,9 @@ export function useCanvasHandlers({
       // Get the element ID from the event target (works for SVG + HTML overlay).
       const target = e.target as Element | null;
       const clickedElementId =
-        target?.closest?.("[data-element-id]")?.getAttribute("data-element-id") ??
-        null;
+        target
+          ?.closest?.("[data-element-id]")
+          ?.getAttribute("data-element-id") ?? null;
 
       const clickedElement = clickedElementId
         ? elements.find((el) => el.id === clickedElementId)
@@ -1630,14 +1663,15 @@ export function useCanvasHandlers({
           ? null
           : clickedElement;
 
-      const isCanvasInteractiveTarget =
-        !!target?.closest?.(
-          '[data-canvas-interactive="true"], [contenteditable="true"], input, textarea',
-        );
+      const isCanvasInteractiveTarget = !!target?.closest?.(
+        '[data-canvas-interactive="true"], [contenteditable="true"], input, textarea',
+      );
       if (isCanvasInteractiveTarget) {
         // Allow editing/selection inside DOM editors without triggering canvas drags/box-select.
         if (selectableClickedElement) {
-          setSelectedIds(getGroupSelectionIds(selectableClickedElement, elements));
+          setSelectedIds(
+            getGroupSelectionIds(selectableClickedElement, elements),
+          );
         }
         return;
       }
@@ -2254,6 +2288,7 @@ export function useCanvasHandlers({
       }
       setDraggingConnectorPoint(null);
       setOriginalElements([]);
+      setSnapTarget(null);
       return;
     }
 

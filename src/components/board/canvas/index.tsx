@@ -178,6 +178,7 @@ export function Canvas({
       setEraserCursorPos,
     },
     laser: { laserCursorPos, setLaserCursorPos },
+    snapping: { snapTarget, setSnapTarget },
     ui: {
       hoverCursor,
       lastMousePos,
@@ -839,6 +840,7 @@ export function Canvas({
     renderRemoteSelections,
     renderSelectionBox,
     renderHighlights,
+    renderSnapTargetHighlight,
   } = useCanvasRenderers({
     elements,
     selectedIds,
@@ -849,6 +851,7 @@ export function Canvas({
     remotelyEditingTextIds,
     editingTextElementId,
     eraserMarkedIds,
+    snapTarget,
     zoom,
     connectorStyle,
     isEditArrowMode,
@@ -1145,6 +1148,9 @@ export function Canvas({
           {/* Render search result highlights */}
           {renderHighlights()}
 
+          {/* Render snap target highlight */}
+          {renderSnapTargetHighlight()}
+
           {/* Render box selection rectangle */}
           {isBoxSelecting && selectionBox && (
             <rect
@@ -1302,6 +1308,9 @@ export function Canvas({
 
           {/* Render search result highlights */}
           {renderHighlights()}
+
+          {/* Render snap target highlight */}
+          {renderSnapTargetHighlight()}
 
           {/* Render box selection rectangle */}
           {isBoxSelecting && selectionBox && (

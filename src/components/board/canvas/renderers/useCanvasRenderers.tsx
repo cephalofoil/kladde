@@ -47,6 +47,7 @@ interface UseCanvasRenderersProps {
   remotelyEditingTextIds: Set<string>;
   editingTextElementId: string | null;
   eraserMarkedIds: Set<string>;
+  snapTarget: { elementId: string; point: Point } | null;
   zoom: number;
   connectorStyle: "sharp" | "curved" | "elbow";
   isEditArrowMode: boolean;
@@ -93,6 +94,7 @@ export function useCanvasRenderers({
   remotelyEditingTextIds,
   editingTextElementId,
   eraserMarkedIds,
+  snapTarget,
   zoom,
   connectorStyle,
   isEditArrowMode,
@@ -2890,11 +2892,52 @@ export function useCanvasRenderers({
     );
   };
 
+  // Render snap target highlight
+  const renderSnapTargetHighlight = () => {
+    if (!snapTarget) return null;
+
+    const element = elements.find((el) => el.id === snapTarget.elementId);
+    if (!element) return null;
+
+    const bounds = getBoundingBox(element);
+    if (!bounds) return null;
+
+    const padding = 4 / zoom;
+
+    return (
+      <g>
+        {/* Highlight frame around the snap target */}
+        <rect
+          x={bounds.x - padding}
+          y={bounds.y - padding}
+          width={bounds.width + padding * 2}
+          height={bounds.height + padding * 2}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth={3 / zoom}
+          pointerEvents="none"
+          rx={4 / zoom}
+        />
+        {/* Small circle at the snap point */}
+        <circle
+          cx={snapTarget.point.x}
+          cy={snapTarget.point.y}
+          r={4 / zoom}
+          fill="var(--accent)"
+          stroke="var(--background)"
+          strokeWidth={2 / zoom}
+          pointerEvents="none"
+        />
+      </g>
+    );
+  };
+
   return {
     renderElement,
     renderConnectorControls,
     renderRemoteSelections,
     renderSelectionBox,
     renderHighlights,
+    renderSnapTargetHighlight,
   };
 }
