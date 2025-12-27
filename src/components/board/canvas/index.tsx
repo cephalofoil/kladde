@@ -38,6 +38,7 @@ interface CanvasProps {
     lineHeight?: number;
     fillPattern?: "none" | "solid" | "criss-cross";
     selectedTileType?: TileType | null;
+    handDrawnMode?: boolean;
     collaboration: CollaborationManager | null;
     elements: BoardElement[];
     onAddElement: (element: BoardElement) => void;
@@ -88,6 +89,7 @@ export function Canvas({
     lineHeight = 1.5,
     fillPattern = "none",
     selectedTileType = null,
+    handDrawnMode = false,
     collaboration,
     elements,
     onAddElement,
@@ -848,6 +850,7 @@ export function Canvas({
         rotateHandleSide,
         isRotating,
         nameTagWidthCacheRef,
+        handDrawnMode,
         onStartTransform,
         onUpdateElement,
         onDeleteElement,

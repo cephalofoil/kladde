@@ -35,6 +35,7 @@ import {
 } from "../curves";
 import { getBoundingBox } from "../shapes";
 import { getMinSingleCharWidth, measureTextWidthPx } from "../text-utils";
+import { renderRoughElement } from "../rough-svg-renderer";
 
 interface UseCanvasRenderersProps {
     elements: BoardElement[];
@@ -63,6 +64,7 @@ interface UseCanvasRenderersProps {
     rotateHandleSide: RotateHandleSide;
     isRotating: boolean;
     nameTagWidthCacheRef: RefObject<Map<string, number>>;
+    handDrawnMode: boolean;
     onStartTransform?: () => void;
     onUpdateElement: (id: string, updates: Partial<BoardElement>) => void;
     onDeleteElement: (id: string) => void;
@@ -100,6 +102,7 @@ export function useCanvasRenderers({
     rotateHandleSide,
     isRotating,
     nameTagWidthCacheRef,
+    handDrawnMode,
     onStartTransform,
     onUpdateElement,
     onDeleteElement,
@@ -842,6 +845,55 @@ export function useCanvasRenderers({
                     return null;
                 };
 
+                // Use rough.js for hand-drawn rendering
+                if (handDrawnMode) {
+                    const roughElement = renderRoughElement(effectiveElement, {
+                        opacity,
+                        isMarkedForDeletion,
+                        transform: rotationTransform,
+                    });
+
+                    if (roughElement) {
+                        return (
+                            <g key={effectiveElement.id}>
+                                {/* Invisible wider hitbox for easier clicking */}
+                                {pathD ? (
+                                    <path
+                                        data-element-id={effectiveElement.id}
+                                        d={pathD}
+                                        fill="none"
+                                        stroke="transparent"
+                                        strokeWidth={hitboxWidth}
+                                        strokeLinecap={elLineCap}
+                                        strokeLinejoin="round"
+                                        pointerEvents="stroke"
+                                        transform={rotationTransform}
+                                    />
+                                ) : (
+                                    <polyline
+                                        data-element-id={effectiveElement.id}
+                                        points={(
+                                            polyPoints ||
+                                            effectiveElement.points
+                                        )
+                                            .map((p) => `${p.x},${p.y}`)
+                                            .join(" ")}
+                                        fill="none"
+                                        stroke="transparent"
+                                        strokeWidth={hitboxWidth}
+                                        strokeLinecap={elLineCap}
+                                        strokeLinejoin="round"
+                                        pointerEvents="stroke"
+                                        transform={rotationTransform}
+                                    />
+                                )}
+                                {/* Rough.js rendered line/arrow with arrowheads */}
+                                {roughElement}
+                            </g>
+                        );
+                    }
+                }
+
                 return (
                     <g key={element.id} transform={rotationTransform}>
                         {/* Invisible wider hitbox for easier clicking */}
@@ -1017,6 +1069,57 @@ export function useCanvasRenderers({
                 const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
                 const hitboxOffset =
                     (hitboxStrokeWidth - element.strokeWidth) / 2;
+
+                // Use rough.js for hand-drawn rendering
+                if (handDrawnMode) {
+                    const roughElement = renderRoughElement(element, {
+                        opacity,
+                        isMarkedForDeletion,
+                        transform: `${rotationTransform || ""} translate(${element.x}, ${element.y})`,
+                    });
+
+                    if (roughElement) {
+                        return (
+                            <g key={element.id}>
+                                {/* Invisible hitbox */}
+                                {!hasVisibleFill && element.strokeWidth > 0 && (
+                                    <rect
+                                        data-element-id={element.id}
+                                        x={(element.x ?? 0) - hitboxOffset}
+                                        y={(element.y ?? 0) - hitboxOffset}
+                                        width={
+                                            (element.width ?? 0) +
+                                            hitboxOffset * 2
+                                        }
+                                        height={
+                                            (element.height ?? 0) +
+                                            hitboxOffset * 2
+                                        }
+                                        stroke="transparent"
+                                        strokeWidth={hitboxStrokeWidth}
+                                        fill="none"
+                                        rx={elCornerRadius}
+                                        pointerEvents="stroke"
+                                    />
+                                )}
+                                {roughElement}
+                                {isMarkedForDeletion && (
+                                    <rect
+                                        x={element.x}
+                                        y={element.y}
+                                        width={element.width}
+                                        height={element.height}
+                                        fill="rgba(0, 0, 0, 0.7)"
+                                        rx={elCornerRadius}
+                                        pointerEvents="none"
+                                        transform={rotationTransform}
+                                    />
+                                )}
+                            </g>
+                        );
+                    }
+                }
+
                 return (
                     <g key={element.id} transform={rotationTransform}>
                         {/* Invisible wider hitbox for easier clicking (stroke-only shapes) */}
@@ -1169,6 +1272,31 @@ export function useCanvasRenderers({
                 // Simple polygon points for hitbox
                 const diamondPoints = `${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`;
 
+                // Use rough.js for hand-drawn rendering
+                if (handDrawnMode) {
+                    const roughElement = renderRoughElement(element, {
+                        opacity,
+                        isMarkedForDeletion,
+                        transform: `${rotationTransform || ""} translate(${element.x}, ${element.y})`,
+                    });
+
+                    if (roughElement) {
+                        return (
+                            <g key={element.id}>
+                                {roughElement}
+                                {isMarkedForDeletion && (
+                                    <path
+                                        d={diamondPath}
+                                        fill="rgba(0, 0, 0, 0.7)"
+                                        pointerEvents="none"
+                                        transform={rotationTransform}
+                                    />
+                                )}
+                            </g>
+                        );
+                    }
+                }
+
                 return (
                     <g key={element.id} transform={rotationTransform}>
                         {/* Invisible wider hitbox for easier clicking (stroke-only shapes) */}
@@ -1249,6 +1377,35 @@ export function useCanvasRenderers({
                 const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
                 const hitboxOffset =
                     (hitboxStrokeWidth - element.strokeWidth) / 2;
+
+                // Use rough.js for hand-drawn rendering
+                if (handDrawnMode) {
+                    const roughElement = renderRoughElement(element, {
+                        opacity,
+                        isMarkedForDeletion,
+                        transform: `${rotationTransform || ""} translate(${element.x}, ${element.y})`,
+                    });
+
+                    if (roughElement) {
+                        return (
+                            <g key={element.id}>
+                                {roughElement}
+                                {isMarkedForDeletion && (
+                                    <ellipse
+                                        cx={cx}
+                                        cy={cy}
+                                        rx={(element.width || 0) / 2}
+                                        ry={(element.height || 0) / 2}
+                                        fill="rgba(0, 0, 0, 0.7)"
+                                        pointerEvents="none"
+                                        transform={rotationTransform}
+                                    />
+                                )}
+                            </g>
+                        );
+                    }
+                }
+
                 return (
                     <g key={element.id} transform={rotationTransform}>
                         {/* Invisible wider hitbox for easier clicking (stroke-only shapes) */}
