@@ -153,11 +153,17 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const undoStackRef = useRef<BoardElement[][]>([]);
   const redoStackRef = useRef<BoardElement[][]>([]);
   const isUndoingRef = useRef(false);
+  const elementsRef = useRef<BoardElement[]>(elements);
 
   // Ref to store the setViewport function from Canvas
   const setViewportRef = useRef<
     ((pan: { x: number; y: number }, zoom: number) => void) | null
   >(null);
+
+  // Keep elementsRef in sync with elements
+  useEffect(() => {
+    elementsRef.current = elements;
+  }, [elements]);
 
   // Update default stroke color when theme changes
   useEffect(() => {
@@ -344,12 +350,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const saveToUndoStack = useCallback(() => {
     if (isUndoingRef.current) return;
 
-    const snapshot = JSON.parse(JSON.stringify(elements));
+    const snapshot = JSON.parse(JSON.stringify(elementsRef.current));
     undoStackRef.current = [...undoStackRef.current, snapshot].slice(
       -MAX_UNDO_STACK,
     );
     redoStackRef.current = []; // Clear redo on new action
-  }, [elements]);
+  }, []);
 
   // Apply state to collaboration
   const applyState = useCallback(
@@ -371,7 +377,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     isUndoingRef.current = true;
 
     // Save current to redo
-    const currentSnapshot = JSON.parse(JSON.stringify(elements));
+    const currentSnapshot = JSON.parse(JSON.stringify(elementsRef.current));
     redoStackRef.current = [...redoStackRef.current, currentSnapshot];
 
     // Pop from undo
@@ -384,7 +390,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     requestAnimationFrame(() => {
       isUndoingRef.current = false;
     });
-  }, [elements, applyState]);
+  }, [applyState]);
 
   // Redo function - instant
   const handleRedo = useCallback(() => {
@@ -393,7 +399,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     isUndoingRef.current = true;
 
     // Save current to undo
-    const currentSnapshot = JSON.parse(JSON.stringify(elements));
+    const currentSnapshot = JSON.parse(JSON.stringify(elementsRef.current));
     undoStackRef.current = [...undoStackRef.current, currentSnapshot];
 
     // Pop from redo
@@ -406,7 +412,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     requestAnimationFrame(() => {
       isUndoingRef.current = false;
     });
-  }, [elements, applyState]);
+  }, [applyState]);
 
   // Handle keyboard shortcuts for undo/redo
   useEffect(() => {
