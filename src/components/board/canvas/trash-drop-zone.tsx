@@ -46,32 +46,29 @@ export function TrashDropZone({
           height: "200px",
         }}
       >
-        {/* Outer glow when hovered */}
-        <div
-          className="absolute bottom-0 left-0 rounded-tr-full transition-all duration-300"
+        {/* SVG for dashed quarter circle outline */}
+        <svg
+          className="absolute bottom-0 left-0 pointer-events-none"
+          width="200"
+          height="200"
+          viewBox="0 0 200 200"
           style={{
-            width: "200px",
-            height: "200px",
-            background: isHovered
-              ? "radial-gradient(circle at bottom left, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.05) 60%, transparent 100%)"
-              : "transparent",
-            filter: isHovered ? "blur(15px)" : "none",
-          }}
-        />
-
-        {/* Main quarter circle */}
-        <div
-          className="absolute bottom-0 left-0 rounded-tr-full transition-all duration-300 pointer-events-none"
-          style={{
-            width: "200px",
-            height: "200px",
-            background: isHovered
-              ? "linear-gradient(135deg, rgb(239, 68, 68) 0%, rgb(220, 38, 38) 100%)"
-              : "linear-gradient(135deg, rgb(209, 213, 219) 0%, rgb(229, 231, 235) 100%)",
             transform: `scale(${scale})`,
             transformOrigin: "bottom left",
+            transition: "transform 0.3s ease",
           }}
-        />
+        >
+          <path
+            d="M 0 0 A 200 200 0 0 1 200 200"
+            fill="none"
+            strokeWidth="3"
+            strokeDasharray="8 6"
+            className="transition-all duration-300"
+            style={{
+              stroke: isHovered ? "rgb(239, 68, 68)" : "hsl(var(--accent))",
+            }}
+          />
+        </svg>
 
         {/* Icon container */}
         <div
@@ -89,37 +86,21 @@ export function TrashDropZone({
             <Trash2
               size={36}
               strokeWidth={2}
-              className="transition-colors duration-300"
+              className="transition-colors duration-300 text-black dark:text-white"
               style={{
-                color: isHovered ? "white" : "hsl(var(--foreground))",
-                filter: isHovered
-                  ? "drop-shadow(0 2px 8px rgba(0,0,0,0.3))"
-                  : "none",
+                color: isHovered ? "rgb(239, 68, 68)" : undefined,
               }}
             />
-
-            {/* Ripple effect */}
-            {isHovered && (
-              <>
-                <div
-                  className="absolute inset-0 -m-3 rounded-full border-2 animate-ping"
-                  style={{
-                    borderColor: "rgba(255, 255, 255, 0.6)",
-                    animationDuration: "1.5s",
-                  }}
-                />
-              </>
-            )}
           </div>
         </div>
 
         {/* Helper text */}
         <div
-          className="absolute left-0 bottom-2 text-center whitespace-nowrap text-xs font-medium transition-all duration-300 pointer-events-none"
+          className="absolute left-0 bottom-2 text-center whitespace-nowrap text-xs font-medium transition-all duration-300 pointer-events-none text-black dark:text-white"
           style={{
             width: "120px",
-            color: isHovered ? "white" : "hsl(var(--muted-foreground))",
             opacity: isVisible ? 1 : 0,
+            color: isHovered ? "rgb(239, 68, 68)" : undefined,
           }}
         >
           {isHovered ? "Release to delete" : "Drop to delete"}
