@@ -588,6 +588,7 @@ export function Canvas({
     lineHeight,
     fillPattern,
     selectedTileType,
+    handDrawnMode,
     collaboration,
     elements,
     selectedBounds,

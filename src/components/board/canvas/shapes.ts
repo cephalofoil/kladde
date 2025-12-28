@@ -33,11 +33,10 @@ export function getBoundingBox(element: BoardElement): BoundingBox | null {
     if (
       (element.type === "line" || element.type === "arrow") &&
       hasCorner &&
-      style === "curved" &&
-      element.points.length >= 3
+      control &&
+      style === "curved"
     ) {
-      // rough.js uses Catmull-Rom splines for curved connectors,
-      // so we need to sample the actual curve to get accurate bounds
+      // For curved connectors, use Catmull-Rom bounds (curve passes through all points)
       const b = getCatmullRomBounds(element.points);
       if (b) {
         xs = [b.x, b.x + b.width];

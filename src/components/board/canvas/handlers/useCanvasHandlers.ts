@@ -58,6 +58,7 @@ interface UseCanvasHandlersProps {
   lineHeight: number;
   fillPattern: "none" | "solid" | "criss-cross";
   selectedTileType?: TileType | null;
+  handDrawnMode?: boolean;
   collaboration: CollaborationManager | null;
   elements: BoardElement[];
   selectedBounds: BoundingBox | null;
@@ -95,6 +96,7 @@ export function useCanvasHandlers({
   lineHeight,
   fillPattern,
   selectedTileType,
+  handDrawnMode = false,
   collaboration,
   elements,
   selectedBounds,
@@ -713,11 +715,12 @@ export function useCanvasHandlers({
             const pEnd = newPoints[newPoints.length - 1];
 
             if (style === "curved") {
+              // Use cursor position directly - Catmull-Rom passes through control point
               newPoints = [
                 pStart,
                 {
-                  x: 2 * localPoint.x - (pStart.x + pEnd.x) / 2,
-                  y: 2 * localPoint.y - (pStart.y + pEnd.y) / 2,
+                  x: localPoint.x,
+                  y: localPoint.y,
                 },
                 pEnd,
               ];

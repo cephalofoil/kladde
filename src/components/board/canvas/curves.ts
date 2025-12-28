@@ -6,11 +6,12 @@ export function getQuadraticBezierBounds(
   c: Point,
   p1: Point,
 ): BoundingBox {
-  // Include control point in bounds so the handle is always inside the selection frame
+  // Include endpoints and control point
+  // Control point is always included because handle is positioned there
   const xs = [p0.x, p1.x, c.x];
   const ys = [p0.y, p1.y, c.y];
 
-  // Also include curve extrema
+  // Include curve extrema (the actual bounds of the bezier curve)
   const denomX = p0.x - 2 * c.x + p1.x;
   if (denomX !== 0) {
     const t = (p0.x - c.x) / denomX;

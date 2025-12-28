@@ -339,11 +339,12 @@ export function useCanvasRenderers({
         const pEnd = originalPoints[1];
 
         if (style === "curved") {
+          // Use cursor position directly - Catmull-Rom passes through control point
           const nextPoints = [
             pStart,
             {
-              x: 2 * localPoint.x - (pStart.x + pEnd.x) / 2,
-              y: 2 * localPoint.y - (pStart.y + pEnd.y) / 2,
+              x: localPoint.x,
+              y: localPoint.y,
             },
             pEnd,
           ];
@@ -551,11 +552,8 @@ export function useCanvasRenderers({
 
         if (hasCorner && control) {
           if (style === "curved") {
-            if (effectiveElement.points.length === 3) {
-              pathD = `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`;
-            } else {
-              pathD = getCatmullRomPath(effectiveElement.points);
-            }
+            // Use Catmull-Rom for all curved connectors so curve passes through control point
+            pathD = getCatmullRomPath(effectiveElement.points);
           } else if (style === "elbow") {
             const elbowEps = 0.5 / zoom;
             polyPoints =
@@ -1754,8 +1752,7 @@ export function useCanvasRenderers({
       const hitboxRadius = 16 / zoom; // Larger invisible hitbox for easier grabbing
       const existingRadius = isEditArrowMode ? baseRadius * 1.6 : baseRadius;
 
-      // Position handle at the actual control point
-      // This ensures 1:1 movement when dragging
+      // Position handle at the control point for both modes
       const handlePosCurved = control;
       const handlePosElbow =
         route === "vertical"
