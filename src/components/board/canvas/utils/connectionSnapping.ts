@@ -458,75 +458,188 @@ function getSnapSide(
 }
 
 /**
- * Check if a simple L-path would pass through or along a shape's bounds
+ * Check if a simple L-path would pass through or along a shape's bounds.
+ *
+ * Path is [start, corner, end] where:
+ * - start: the arrow's far endpoint (NOT on the shape)
+ * - corner: the L-bend point
+ * - end: the connection point ON the shape edge
  */
 function pathPassesThroughBounds(
   path: Point[],
   bounds: BoundingBox,
-  margin: number,
+  _margin: number,
 ): boolean {
-  const expanded = {
-    x: bounds.x - margin,
-    y: bounds.y - margin,
-    width: bounds.width + margin * 2,
-    height: bounds.height + margin * 2,
-  };
+  if (path.length < 3) return false;
 
-  for (let i = 0; i < path.length - 1; i++) {
-    const segStart = path[i];
-    const segEnd = path[i + 1];
+  const corner = path[1];
+  const end = path[2];
 
-    // Skip segments that start or end at the bounds edge (the connection point)
-    const startOnEdge =
-      (Math.abs(segStart.x - bounds.x) < 2 ||
-        Math.abs(segStart.x - (bounds.x + bounds.width)) < 2 ||
-        Math.abs(segStart.y - bounds.y) < 2 ||
-        Math.abs(segStart.y - (bounds.y + bounds.height)) < 2) &&
-      segStart.x >= bounds.x - 2 &&
-      segStart.x <= bounds.x + bounds.width + 2 &&
-      segStart.y >= bounds.y - 2 &&
-      segStart.y <= bounds.y + bounds.height + 2;
+  // Check 1: Is the corner point inside the shape? That means we cut through.
+  const cornerInside =
+    corner.x > bounds.x &&
+    corner.x < bounds.x + bounds.width &&
+    corner.y > bounds.y &&
+    corner.y < bounds.y + bounds.height;
 
-    if (startOnEdge && i === 0) {
-      // First segment from connection point - check if it goes INTO the shape
-      // or rides ALONG the edge
-      const isHorizontal = Math.abs(segStart.y - segEnd.y) < 1;
-      const isVertical = Math.abs(segStart.x - segEnd.x) < 1;
+  if (cornerInside) {
+    console.log("BAD: corner inside", { corner, bounds });
+    return true;
+  }
 
-      if (isHorizontal) {
-        // Check if this horizontal segment is along top or bottom edge
-        const alongTop = Math.abs(segStart.y - bounds.y) < 2;
-        const alongBottom =
-          Math.abs(segStart.y - (bounds.y + bounds.height)) < 2;
-        if (alongTop || alongBottom) {
-          // Segment rides along the edge - this is bad
-          const minX = Math.min(segStart.x, segEnd.x);
-          const maxX = Math.max(segStart.x, segEnd.x);
-          if (minX < bounds.x + bounds.width && maxX > bounds.x) {
-            return true;
-          }
-        }
-      } else if (isVertical) {
-        // Check if this vertical segment is along left or right edge
-        const alongLeft = Math.abs(segStart.x - bounds.x) < 2;
-        const alongRight = Math.abs(segStart.x - (bounds.x + bounds.width)) < 2;
-        if (alongLeft || alongRight) {
-          // Segment rides along the edge - this is bad
-          const minY = Math.min(segStart.y, segEnd.y);
-          const maxY = Math.max(segStart.y, segEnd.y);
-          if (minY < bounds.y + bounds.height && maxY > bounds.y) {
-            return true;
-          }
-        }
+  // Check 2: Does the last segment (corner → end) pass through the shape interior?
+  // This segment goes from corner to the connection point on the shape edge.
+  // If the corner is outside but the segment has to cross through the shape to reach
+  // the connection point, that's bad.
+
+  // Check if the last segment passes through the shape's interior
+  // The segment is from corner to end. end is ON the shape edge.
+  // If corner is outside but the line to end crosses through the interior, that's bad.
+
+  const isHorizontal = Math.abs(corner.y - end.y) < 1;
+  const isVertical = Math.abs(corner.x - end.x) < 1;
+
+  if (isVertical) {
+    // Vertical segment from corner to end (same X, different Y)
+    // Check if this vertical line at corner.x passes through the shape
+    const withinX = corner.x > bounds.x && corner.x < bounds.x + bounds.width;
+    if (withinX) {
+      // The vertical line is within the shape's x-range
+      // Check if it passes through the shape's y-range
+      const minY = Math.min(corner.y, end.y);
+      const maxY = Math.max(corner.y, end.y);
+      // If the segment spans across the shape's top edge, it passes through
+      if (minY < bounds.y && maxY > bounds.y + 5) {
+        console.log("BAD: vertical segment passes through shape", {
+          corner,
+          end,
+          bounds,
+        });
+        return true;
+      }
+      // If the segment spans across the shape's bottom edge from below
+      if (
+        minY < bounds.y + bounds.height - 5 &&
+        maxY > bounds.y + bounds.height
+      ) {
+        console.log("BAD: vertical segment passes through shape from bottom", {
+          corner,
+          end,
+          bounds,
+        });
+        return true;
       }
     }
 
-    // Check if segment passes through the interior
-    if (lineIntersectsBox(segStart, segEnd, bounds, 1)) {
-      return true;
+    // Check if vertical segment rides along left or right edge
+    const onLeftEdge = Math.abs(corner.x - bounds.x) < 3;
+    const onRightEdge = Math.abs(corner.x - (bounds.x + bounds.width)) < 3;
+    if (onLeftEdge || onRightEdge) {
+      // Check if the segment overlaps with the shape's height
+      const minY = Math.min(corner.y, end.y);
+      const maxY = Math.max(corner.y, end.y);
+      if (minY < bounds.y + bounds.height && maxY > bounds.y) {
+        console.log("BAD: vertical segment rides along edge", {
+          corner,
+          end,
+          bounds,
+          onLeftEdge,
+          onRightEdge,
+        });
+        return true;
+      }
+    }
+  } else if (isHorizontal) {
+    // Horizontal segment from corner to end (same Y, different X)
+    const withinY = corner.y > bounds.y && corner.y < bounds.y + bounds.height;
+    if (withinY) {
+      // The horizontal line is within the shape's y-range
+      const minX = Math.min(corner.x, end.x);
+      const maxX = Math.max(corner.x, end.x);
+      // If the segment spans across the shape's left edge, it passes through
+      if (minX < bounds.x && maxX > bounds.x + 5) {
+        console.log("BAD: horizontal segment passes through shape", {
+          corner,
+          end,
+          bounds,
+        });
+        return true;
+      }
+      // If the segment spans across the shape's right edge
+      if (
+        minX < bounds.x + bounds.width - 5 &&
+        maxX > bounds.x + bounds.width
+      ) {
+        console.log("BAD: horizontal segment passes through shape from right", {
+          corner,
+          end,
+          bounds,
+        });
+        return true;
+      }
+    }
+
+    // Check if horizontal segment rides along top or bottom edge
+    const onTopEdge = Math.abs(corner.y - bounds.y) < 3;
+    const onBottomEdge = Math.abs(corner.y - (bounds.y + bounds.height)) < 3;
+    if (onTopEdge || onBottomEdge) {
+      // Check if the segment overlaps with the shape's width
+      const minX = Math.min(corner.x, end.x);
+      const maxX = Math.max(corner.x, end.x);
+      if (minX < bounds.x + bounds.width && maxX > bounds.x) {
+        console.log("BAD: horizontal segment rides along edge", {
+          corner,
+          end,
+          bounds,
+          onTopEdge,
+          onBottomEdge,
+        });
+        return true;
+      }
     }
   }
 
+  // Check 3: Does the first segment (start → corner) pass through the shape?
+  // Only check this if the corner is NOT already adjacent to the shape
+  const start = path[0];
+  const cornerNearShape =
+    Math.abs(corner.x - bounds.x) < 5 ||
+    Math.abs(corner.x - (bounds.x + bounds.width)) < 5 ||
+    Math.abs(corner.y - bounds.y) < 5 ||
+    Math.abs(corner.y - (bounds.y + bounds.height)) < 5;
+
+  if (!cornerNearShape) {
+    // Corner is not near the shape, check if the first segment crosses through
+    // Use a slightly shrunk bounds to avoid edge false positives
+    const shrunk = {
+      x: bounds.x + 3,
+      y: bounds.y + 3,
+      width: bounds.width - 6,
+      height: bounds.height - 6,
+    };
+    if (shrunk.width > 0 && shrunk.height > 0) {
+      if (lineIntersectsBox(start, corner, shrunk, 0)) {
+        console.log("BAD: first segment through shape", {
+          start,
+          corner,
+          shrunk,
+        });
+        return true;
+      }
+    }
+  }
+
+  console.log("OK: path is valid", {
+    start: { x: Math.round(path[0].x), y: Math.round(path[0].y) },
+    corner: { x: Math.round(corner.x), y: Math.round(corner.y) },
+    end: { x: Math.round(end.x), y: Math.round(end.y) },
+    bounds: {
+      x: Math.round(bounds.x),
+      y: Math.round(bounds.y),
+      right: Math.round(bounds.x + bounds.width),
+      bottom: Math.round(bounds.y + bounds.height),
+    },
+  });
   return false;
 }
 
@@ -605,19 +718,35 @@ export function generateElbowRouteAroundObstacles(
     const vFirstObstacleClear =
       obstacles.length === 0 || !pathIntersectsObstacles(vFirstPath, obstacles);
 
+    console.log("Route decision:", {
+      hFirstBad,
+      vFirstBad,
+      hFirstObstacleClear,
+      vFirstObstacleClear,
+      dx,
+      dy,
+      obstacleCount: obstacles.length,
+    });
+
     // Only use simple path if it doesn't pass through target AND is clear of obstacles
     if (!hFirstBad && hFirstObstacleClear && dx >= dy) {
+      console.log("Using hFirstPath (simple)");
       return hFirstPath;
     }
     if (!vFirstBad && vFirstObstacleClear && dy > dx) {
+      console.log("Using vFirstPath (simple)");
       return vFirstPath;
     }
     if (!hFirstBad && hFirstObstacleClear) {
+      console.log("Using hFirstPath (fallback)");
       return hFirstPath;
     }
     if (!vFirstBad && vFirstObstacleClear) {
+      console.log("Using vFirstPath (fallback)");
       return vFirstPath;
     }
+
+    console.log("No simple path works, routing around...");
 
     // Need to route around the target shape
     // Determine which side of the target shape the END point is on (end is the snap point)
