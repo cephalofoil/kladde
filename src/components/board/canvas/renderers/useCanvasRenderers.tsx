@@ -1752,6 +1752,7 @@ export function useCanvasRenderers({
       const dotSize = 8 / zoom;
       const dotStrokeWidth = 2 / zoom;
       const baseRadius = dotSize / 2;
+      const hitboxRadius = 16 / zoom; // Larger invisible hitbox for easier grabbing
       const existingRadius = isEditArrowMode ? baseRadius * 1.6 : baseRadius;
 
       const handlePosCurved = {
@@ -2137,13 +2138,12 @@ export function useCanvasRenderers({
               })}
 
             {/* Endpoints (always big for elbow) */}
+            {/* Start endpoint - invisible hitbox */}
             <circle
               cx={elbowPolyline[0].x}
               cy={elbowPolyline[0].y}
-              r={bigRadius}
-              fill="var(--background)"
-              stroke="var(--accent)"
-              strokeWidth={dotStrokeWidth}
+              r={hitboxRadius}
+              fill="transparent"
               style={{ cursor: "move" }}
               onMouseDown={(e) =>
                 startDragWithExplicit(e, {
@@ -2152,13 +2152,22 @@ export function useCanvasRenderers({
                 })
               }
             />
+            {/* Start endpoint - visible dot */}
             <circle
-              cx={elbowPolyline[elbowPolyline.length - 1].x}
-              cy={elbowPolyline[elbowPolyline.length - 1].y}
+              cx={elbowPolyline[0].x}
+              cy={elbowPolyline[0].y}
               r={bigRadius}
               fill="var(--background)"
               stroke="var(--accent)"
               strokeWidth={dotStrokeWidth}
+              pointerEvents="none"
+            />
+            {/* End endpoint - invisible hitbox */}
+            <circle
+              cx={elbowPolyline[elbowPolyline.length - 1].x}
+              cy={elbowPolyline[elbowPolyline.length - 1].y}
+              r={hitboxRadius}
+              fill="transparent"
               style={{ cursor: "move" }}
               onMouseDown={(e) =>
                 startDragWithExplicit(e, {
@@ -2166,6 +2175,16 @@ export function useCanvasRenderers({
                   index: elbowPolyline.length - 1,
                 })
               }
+            />
+            {/* End endpoint - visible dot */}
+            <circle
+              cx={elbowPolyline[elbowPolyline.length - 1].x}
+              cy={elbowPolyline[elbowPolyline.length - 1].y}
+              r={bigRadius}
+              fill="var(--background)"
+              stroke="var(--accent)"
+              strokeWidth={dotStrokeWidth}
+              pointerEvents="none"
             />
 
             {/* Insert handles: one per edge */}
