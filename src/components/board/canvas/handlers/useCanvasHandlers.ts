@@ -746,11 +746,10 @@ export function useCanvasHandlers({
             index === 1 &&
             newPoints.length >= 3
           ) {
-            const pStart = newPoints[0];
-            const pEnd = newPoints[newPoints.length - 1];
+            // Set control point directly to cursor position for 1:1 movement
             newPoints[1] = {
-              x: 2 * localPoint.x - (pStart.x + pEnd.x) / 2,
-              y: 2 * localPoint.y - (pStart.y + pEnd.y) / 2,
+              x: localPoint.x,
+              y: localPoint.y,
             };
           } else if (
             draggingConnectorPoint.kind === "elbowHandle" &&

@@ -154,12 +154,11 @@ export function useCanvasRenderers({
         index === 1 &&
         originalPoints.length >= 3
       ) {
-        const pStart = originalPoints[0];
-        const pEnd = originalPoints[originalPoints.length - 1];
         const nextPoints = originalPoints.map((p) => ({ ...p }));
+        // Set control point directly to cursor position for 1:1 movement
         nextPoints[1] = {
-          x: 2 * localPoint.x - (pStart.x + pEnd.x) / 2,
-          y: 2 * localPoint.y - (pStart.y + pEnd.y) / 2,
+          x: localPoint.x,
+          y: localPoint.y,
         };
         return {
           ...element,
@@ -1755,10 +1754,9 @@ export function useCanvasRenderers({
       const hitboxRadius = 16 / zoom; // Larger invisible hitbox for easier grabbing
       const existingRadius = isEditArrowMode ? baseRadius * 1.6 : baseRadius;
 
-      const handlePosCurved = {
-        x: (start.x + 2 * control.x + end.x) / 4,
-        y: (start.y + 2 * control.y + end.y) / 4,
-      };
+      // Position handle at the actual control point
+      // This ensures 1:1 movement when dragging
+      const handlePosCurved = control;
       const handlePosElbow =
         route === "vertical"
           ? { x: control.x, y: midY }
