@@ -406,8 +406,140 @@ export function findNearestSnapTarget(
 }
 
 /**
- * Generate elbow routing points that go around obstacles
- * Simple algorithm: try to route around the bounding box of blocking elements
+ * Check if a polyline path intersects any obstacles
+ */
+function pathIntersectsObstacles(
+  path: Point[],
+  obstacles: BoundingBox[],
+): boolean {
+  for (let i = 0; i < path.length - 1; i++) {
+    const segStart = path[i];
+    const segEnd = path[i + 1];
+    for (const obs of obstacles) {
+      if (lineIntersectsBox(segStart, segEnd, obs, 0)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Determine which side of a shape a point is snapped to (or nearest to)
+ * Returns: 'top', 'bottom', 'left', 'right', or null if point is inside
+ */
+function getSnapSide(
+  point: Point,
+  bounds: BoundingBox,
+): "top" | "bottom" | "left" | "right" | null {
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+
+  // Check if point is on or near an edge
+  const onTop = Math.abs(point.y - bounds.y) < 5;
+  const onBottom = Math.abs(point.y - (bounds.y + bounds.height)) < 5;
+  const onLeft = Math.abs(point.x - bounds.x) < 5;
+  const onRight = Math.abs(point.x - (bounds.x + bounds.width)) < 5;
+
+  if (onTop) return "top";
+  if (onBottom) return "bottom";
+  if (onLeft) return "left";
+  if (onRight) return "right";
+
+  // Determine based on relative position
+  const dx = point.x - centerX;
+  const dy = point.y - centerY;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? "right" : "left";
+  } else {
+    return dy > 0 ? "bottom" : "top";
+  }
+}
+
+/**
+ * Check if a simple L-path would pass through or along a shape's bounds
+ */
+function pathPassesThroughBounds(
+  path: Point[],
+  bounds: BoundingBox,
+  margin: number,
+): boolean {
+  const expanded = {
+    x: bounds.x - margin,
+    y: bounds.y - margin,
+    width: bounds.width + margin * 2,
+    height: bounds.height + margin * 2,
+  };
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const segStart = path[i];
+    const segEnd = path[i + 1];
+
+    // Skip segments that start or end at the bounds edge (the connection point)
+    const startOnEdge =
+      (Math.abs(segStart.x - bounds.x) < 2 ||
+        Math.abs(segStart.x - (bounds.x + bounds.width)) < 2 ||
+        Math.abs(segStart.y - bounds.y) < 2 ||
+        Math.abs(segStart.y - (bounds.y + bounds.height)) < 2) &&
+      segStart.x >= bounds.x - 2 &&
+      segStart.x <= bounds.x + bounds.width + 2 &&
+      segStart.y >= bounds.y - 2 &&
+      segStart.y <= bounds.y + bounds.height + 2;
+
+    if (startOnEdge && i === 0) {
+      // First segment from connection point - check if it goes INTO the shape
+      // or rides ALONG the edge
+      const isHorizontal = Math.abs(segStart.y - segEnd.y) < 1;
+      const isVertical = Math.abs(segStart.x - segEnd.x) < 1;
+
+      if (isHorizontal) {
+        // Check if this horizontal segment is along top or bottom edge
+        const alongTop = Math.abs(segStart.y - bounds.y) < 2;
+        const alongBottom =
+          Math.abs(segStart.y - (bounds.y + bounds.height)) < 2;
+        if (alongTop || alongBottom) {
+          // Segment rides along the edge - this is bad
+          const minX = Math.min(segStart.x, segEnd.x);
+          const maxX = Math.max(segStart.x, segEnd.x);
+          if (minX < bounds.x + bounds.width && maxX > bounds.x) {
+            return true;
+          }
+        }
+      } else if (isVertical) {
+        // Check if this vertical segment is along left or right edge
+        const alongLeft = Math.abs(segStart.x - bounds.x) < 2;
+        const alongRight = Math.abs(segStart.x - (bounds.x + bounds.width)) < 2;
+        if (alongLeft || alongRight) {
+          // Segment rides along the edge - this is bad
+          const minY = Math.min(segStart.y, segEnd.y);
+          const maxY = Math.max(segStart.y, segEnd.y);
+          if (minY < bounds.y + bounds.height && maxY > bounds.y) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Check if segment passes through the interior
+    if (lineIntersectsBox(segStart, segEnd, bounds, 1)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Generate elbow routing points that go around obstacles with proper spacing.
+ * The algorithm ensures arrows don't ride along shape edges but maintain
+ * a clear margin/spacing from all obstacles.
+ *
+ * IMPORTANT: The parameters are:
+ * - start: The "other" endpoint (the one NOT being snapped)
+ * - end: The snap point ON the target shape
+ * - excludeElementId: The arrow element itself
+ * - targetElementId: The shape being connected TO (where 'end' point is)
  */
 export function generateElbowRouteAroundObstacles(
   start: Point,
@@ -416,23 +548,19 @@ export function generateElbowRouteAroundObstacles(
   excludeElementId: string | null,
   targetElementId: string | null,
 ): Point[] {
-  // Check if direct path is clear
-  if (hasLineOfSight(start, end, elements, excludeElementId, targetElementId)) {
-    // Direct path is clear, use simple elbow
-    const dx = Math.abs(end.x - start.x);
-    const dy = Math.abs(end.y - start.y);
+  const MARGIN = 80; // Spacing around obstacles
 
-    if (dx > dy) {
-      // Horizontal-first routing
-      return [start, { x: end.x, y: start.y }, end];
-    } else {
-      // Vertical-first routing
-      return [start, { x: start.x, y: end.y }, end];
+  // Get the target element bounds - this is the shape that 'end' point is ON
+  let targetBounds: BoundingBox | null = null;
+  if (targetElementId) {
+    const targetEl = elements.find((el) => el.id === targetElementId);
+    if (targetEl) {
+      targetBounds = getBoundingBox(targetEl);
     }
   }
 
-  // Find blocking elements
-  const blockingElements: BoundingBox[] = [];
+  // Collect all obstacle bounds with margin (excluding the arrow and target shape)
+  const obstacles: BoundingBox[] = [];
   for (const element of elements) {
     if (element.id === excludeElementId || element.id === targetElementId) {
       continue;
@@ -449,110 +577,318 @@ export function generateElbowRouteAroundObstacles(
     const bounds = getBoundingBox(element);
     if (!bounds) continue;
 
-    // Add margin around obstacles
-    const margin = 10;
-    blockingElements.push({
-      x: bounds.x - margin,
-      y: bounds.y - margin,
-      width: bounds.width + margin * 2,
-      height: bounds.height + margin * 2,
+    obstacles.push({
+      x: bounds.x - MARGIN,
+      y: bounds.y - MARGIN,
+      width: bounds.width + MARGIN * 2,
+      height: bounds.height + MARGIN * 2,
     });
   }
 
-  // Simple routing: go around the nearest obstacle
-  // Find the obstacle that's most in the way
-  const midX = (start.x + end.x) / 2;
-  const midY = (start.y + end.y) / 2;
+  const dx = Math.abs(end.x - start.x);
+  const dy = Math.abs(end.y - start.y);
 
-  let nearestObstacle: BoundingBox | null = null;
-  let minDistToMid = Infinity;
+  // Simple paths for reference
+  const hFirstPath = [start, { x: end.x, y: start.y }, end];
+  const vFirstPath = [start, { x: start.x, y: end.y }, end];
 
-  for (const obstacle of blockingElements) {
-    const obstacleCenter = {
-      x: obstacle.x + obstacle.width / 2,
-      y: obstacle.y + obstacle.height / 2,
+  // IMPORTANT: If we're connecting TO a shape (targetBounds exists),
+  // we MUST route around it - never allow paths that ride along or through it
+  if (targetBounds) {
+    // Check if simple paths would pass through the target shape
+    const hFirstBad = pathPassesThroughBounds(hFirstPath, targetBounds, 2);
+    const vFirstBad = pathPassesThroughBounds(vFirstPath, targetBounds, 2);
+
+    // Also check other obstacles
+    const hFirstObstacleClear =
+      obstacles.length === 0 || !pathIntersectsObstacles(hFirstPath, obstacles);
+    const vFirstObstacleClear =
+      obstacles.length === 0 || !pathIntersectsObstacles(vFirstPath, obstacles);
+
+    // Only use simple path if it doesn't pass through target AND is clear of obstacles
+    if (!hFirstBad && hFirstObstacleClear && dx >= dy) {
+      return hFirstPath;
+    }
+    if (!vFirstBad && vFirstObstacleClear && dy > dx) {
+      return vFirstPath;
+    }
+    if (!hFirstBad && hFirstObstacleClear) {
+      return hFirstPath;
+    }
+    if (!vFirstBad && vFirstObstacleClear) {
+      return vFirstPath;
+    }
+
+    // Need to route around the target shape
+    // Determine which side of the target shape the END point is on (end is the snap point)
+    const endSide = getSnapSide(end, targetBounds);
+
+    // Calculate expanded bounds for routing around target
+    const targetExpanded = {
+      x: targetBounds.x - MARGIN,
+      y: targetBounds.y - MARGIN,
+      width: targetBounds.width + MARGIN * 2,
+      height: targetBounds.height + MARGIN * 2,
     };
-    const dist = Math.hypot(obstacleCenter.x - midX, obstacleCenter.y - midY);
 
-    if (dist < minDistToMid) {
-      minDistToMid = dist;
-      nearestObstacle = obstacle;
+    if (endSide) {
+      // Route based on which side of the target shape the endpoint is on
+      // We need to approach from outside the expanded bounds
+      switch (endSide) {
+        case "left": {
+          // End point is on left side of target shape
+          // Arrow should approach from the left (outside the expanded bounds)
+          const approachX = targetExpanded.x;
+
+          if (start.y < targetExpanded.y) {
+            // Start is above - come down on the left side
+            return [
+              start,
+              { x: approachX, y: start.y },
+              { x: approachX, y: end.y },
+              end,
+            ];
+          } else if (start.y > targetExpanded.y + targetExpanded.height) {
+            // Start is below - come up on the left side
+            return [
+              start,
+              { x: approachX, y: start.y },
+              { x: approachX, y: end.y },
+              end,
+            ];
+          } else {
+            // Start is at same height range - need to go around
+            const goUp = end.y <= targetBounds.y + targetBounds.height / 2;
+            const cornerY = goUp
+              ? targetExpanded.y
+              : targetExpanded.y + targetExpanded.height;
+            return [
+              start,
+              { x: start.x, y: cornerY },
+              { x: approachX, y: cornerY },
+              { x: approachX, y: end.y },
+              end,
+            ];
+          }
+        }
+
+        case "right": {
+          // End point is on right side of target shape
+          const approachX = targetExpanded.x + targetExpanded.width;
+
+          if (start.y < targetExpanded.y) {
+            return [
+              start,
+              { x: approachX, y: start.y },
+              { x: approachX, y: end.y },
+              end,
+            ];
+          } else if (start.y > targetExpanded.y + targetExpanded.height) {
+            return [
+              start,
+              { x: approachX, y: start.y },
+              { x: approachX, y: end.y },
+              end,
+            ];
+          } else {
+            const goUp = end.y <= targetBounds.y + targetBounds.height / 2;
+            const cornerY = goUp
+              ? targetExpanded.y
+              : targetExpanded.y + targetExpanded.height;
+            return [
+              start,
+              { x: start.x, y: cornerY },
+              { x: approachX, y: cornerY },
+              { x: approachX, y: end.y },
+              end,
+            ];
+          }
+        }
+
+        case "top": {
+          // End point is on top of target shape
+          const approachY = targetExpanded.y;
+
+          if (start.x < targetExpanded.x) {
+            // Start is to the left - come across on top
+            return [
+              start,
+              { x: start.x, y: approachY },
+              { x: end.x, y: approachY },
+              end,
+            ];
+          } else if (start.x > targetExpanded.x + targetExpanded.width) {
+            // Start is to the right - come across on top
+            return [
+              start,
+              { x: start.x, y: approachY },
+              { x: end.x, y: approachY },
+              end,
+            ];
+          } else {
+            // Start is directly above/below - go around via left or right
+            const goLeft = end.x <= targetBounds.x + targetBounds.width / 2;
+            const cornerX = goLeft
+              ? targetExpanded.x
+              : targetExpanded.x + targetExpanded.width;
+            return [
+              start,
+              { x: cornerX, y: start.y },
+              { x: cornerX, y: approachY },
+              { x: end.x, y: approachY },
+              end,
+            ];
+          }
+        }
+
+        case "bottom": {
+          // End point is on bottom of target shape
+          const approachY = targetExpanded.y + targetExpanded.height;
+
+          if (start.x < targetExpanded.x) {
+            return [
+              start,
+              { x: start.x, y: approachY },
+              { x: end.x, y: approachY },
+              end,
+            ];
+          } else if (start.x > targetExpanded.x + targetExpanded.width) {
+            return [
+              start,
+              { x: start.x, y: approachY },
+              { x: end.x, y: approachY },
+              end,
+            ];
+          } else {
+            const goLeft = end.x <= targetBounds.x + targetBounds.width / 2;
+            const cornerX = goLeft
+              ? targetExpanded.x
+              : targetExpanded.x + targetExpanded.width;
+            return [
+              start,
+              { x: cornerX, y: start.y },
+              { x: cornerX, y: approachY },
+              { x: end.x, y: approachY },
+              end,
+            ];
+          }
+        }
+      }
     }
   }
 
-  if (!nearestObstacle) {
-    // No obstacles found, return simple path
-    return [start, { x: end.x, y: start.y }, end];
+  // No target shape to route around - check obstacles only
+  const hFirstClear =
+    obstacles.length === 0 || !pathIntersectsObstacles(hFirstPath, obstacles);
+  const vFirstClear =
+    obstacles.length === 0 || !pathIntersectsObstacles(vFirstPath, obstacles);
+
+  if (hFirstClear && dx >= dy) {
+    return hFirstPath;
+  }
+  if (vFirstClear && dy > dx) {
+    return vFirstPath;
+  }
+  if (hFirstClear) {
+    return hFirstPath;
+  }
+  if (vFirstClear) {
+    return vFirstPath;
   }
 
-  // Route around the obstacle
-  // Determine which side to route around based on start/end positions
-  const obs = nearestObstacle;
-  const goRight = start.x < obs.x && end.x > obs.x + obs.width;
-  const goLeft = start.x > obs.x + obs.width && end.x < obs.x;
-  const goDown = start.y < obs.y && end.y > obs.y + obs.height;
-  const goUp = start.y > obs.y + obs.height && end.y < obs.y;
+  // Route around obstacles
+  let blockingObstacle: BoundingBox | null = null;
+  let minDist = Infinity;
 
-  if (goRight || goLeft) {
-    // Route horizontally around
-    if (Math.abs(start.y - end.y) < obs.height / 2) {
-      // Route above or below the obstacle
-      const routeAbove = start.y < obs.y;
-      const routeY = routeAbove ? obs.y : obs.y + obs.height;
+  for (const obs of obstacles) {
+    const obsCenter = {
+      x: obs.x + obs.width / 2,
+      y: obs.y + obs.height / 2,
+    };
+    const betweenX =
+      obs.x <= Math.max(start.x, end.x) &&
+      obs.x + obs.width >= Math.min(start.x, end.x);
+    const betweenY =
+      obs.y <= Math.max(start.y, end.y) &&
+      obs.y + obs.height >= Math.min(start.y, end.y);
 
-      return [
-        start,
-        { x: start.x, y: routeY },
-        { x: end.x, y: routeY },
-        { x: end.x, y: end.y },
-        end,
-      ];
+    if (betweenX && betweenY) {
+      const dist = Math.hypot(
+        obsCenter.x - (start.x + end.x) / 2,
+        obsCenter.y - (start.y + end.y) / 2,
+      );
+      if (dist < minDist) {
+        minDist = dist;
+        blockingObstacle = obs;
+      }
     }
   }
 
-  if (goDown || goUp) {
-    // Route vertically around
-    if (Math.abs(start.x - end.x) < obs.width / 2) {
-      // Route left or right of the obstacle
-      const routeLeft = start.x < obs.x;
-      const routeX = routeLeft ? obs.x : obs.x + obs.width;
-
-      return [
-        start,
-        { x: routeX, y: start.y },
-        { x: routeX, y: end.y },
-        { x: end.x, y: end.y },
-        end,
-      ];
-    }
+  if (!blockingObstacle) {
+    return dx > dy ? hFirstPath : vFirstPath;
   }
 
-  // Default: try to route around closest corner
+  const obs = blockingObstacle;
   const corners = [
-    { x: obs.x, y: obs.y }, // top-left
-    { x: obs.x + obs.width, y: obs.y }, // top-right
-    { x: obs.x + obs.width, y: obs.y + obs.height }, // bottom-right
-    { x: obs.x, y: obs.y + obs.height }, // bottom-left
+    { x: obs.x, y: obs.y },
+    { x: obs.x + obs.width, y: obs.y },
+    { x: obs.x + obs.width, y: obs.y + obs.height },
+    { x: obs.x, y: obs.y + obs.height },
   ];
 
-  let bestCorner = corners[0];
-  let bestDist = Infinity;
+  const candidatePaths: { path: Point[]; dist: number }[] = [];
 
   for (const corner of corners) {
-    const dist =
-      Math.hypot(start.x - corner.x, start.y - corner.y) +
-      Math.hypot(end.x - corner.x, end.y - corner.y);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestCorner = corner;
+    const path1 = [
+      start,
+      { x: corner.x, y: start.y },
+      corner,
+      { x: corner.x, y: end.y },
+      end,
+    ];
+    const path2 = [
+      start,
+      { x: start.x, y: corner.y },
+      corner,
+      { x: end.x, y: corner.y },
+      end,
+    ];
+
+    const calcLen = (p: Point[]) => {
+      let len = 0;
+      for (let i = 0; i < p.length - 1; i++) {
+        len += Math.abs(p[i + 1].x - p[i].x) + Math.abs(p[i + 1].y - p[i].y);
+      }
+      return len;
+    };
+
+    if (!pathIntersectsObstacles(path1, obstacles)) {
+      candidatePaths.push({ path: path1, dist: calcLen(path1) });
+    }
+    if (!pathIntersectsObstacles(path2, obstacles)) {
+      candidatePaths.push({ path: path2, dist: calcLen(path2) });
     }
   }
 
-  return [
-    start,
-    { x: start.x, y: bestCorner.y },
-    bestCorner,
-    { x: bestCorner.x, y: end.y },
-    end,
-  ];
+  if (candidatePaths.length > 0) {
+    candidatePaths.sort((a, b) => a.dist - b.dist);
+    return candidatePaths[0].path;
+  }
+
+  // Last resort
+  const obsCenter = {
+    x: obs.x + obs.width / 2,
+    y: obs.y + obs.height / 2,
+  };
+
+  if (start.y < obsCenter.y) {
+    return [start, { x: start.x, y: obs.y }, { x: end.x, y: obs.y }, end];
+  } else {
+    return [
+      start,
+      { x: start.x, y: obs.y + obs.height },
+      { x: end.x, y: obs.y + obs.height },
+      end,
+    ];
+  }
 }
