@@ -68,6 +68,7 @@ interface CanvasProps {
   isReadOnly?: boolean;
   showRemoteCursors?: boolean;
   showUndoRedo?: boolean;
+  onOpenDocumentEditor?: (elementId: string) => void;
 }
 
 export function Canvas({
@@ -115,6 +116,7 @@ export function Canvas({
   isReadOnly = false,
   showRemoteCursors = true,
   showUndoRedo = true,
+  onOpenDocumentEditor,
 }: CanvasProps) {
   const TEXT_CLIP_BUFFER_PX = 2;
   const LASER_HOLD_DURATION_MS = 3000;
@@ -1271,6 +1273,7 @@ export function Canvas({
                   }}
                   onUpdate={(updates) => onUpdateElement(el.id, updates)}
                   onDelete={() => onDeleteElement(el.id)}
+                  onOpenDocumentEditor={onOpenDocumentEditor}
                 />
               </div>
             ))}

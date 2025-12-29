@@ -16,6 +16,7 @@ import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
 import { MarkdownEditor } from "./content-renderers/markdown-editor";
+import { DocumentRenderer } from "./content-renderers/document-renderer";
 import {
   HeaderColorPicker,
   getContrastTextColor,
@@ -28,6 +29,7 @@ interface HtmlTileRendererProps {
   onRequestTextEdit: () => void;
   onUpdate?: (updates: Partial<BoardElement>) => void;
   onDelete?: () => void;
+  onOpenDocumentEditor?: (elementId: string) => void;
 }
 
 export function HtmlTileRenderer({
@@ -37,6 +39,7 @@ export function HtmlTileRenderer({
   onRequestTextEdit,
   onUpdate,
   onDelete,
+  onOpenDocumentEditor,
 }: HtmlTileRendererProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -83,6 +86,8 @@ export function HtmlTileRenderer({
         return "bg-sky-50 dark:bg-sky-900/20";
       case "tile-image":
         return "bg-gray-100 dark:bg-gray-800";
+      case "tile-document":
+        return "bg-orange-50 dark:bg-orange-900/20";
       default:
         return "bg-white dark:bg-slate-900";
     }
@@ -96,6 +101,8 @@ export function HtmlTileRenderer({
         return "text-amber-900 dark:text-amber-100";
       case "tile-mermaid":
         return "text-sky-900 dark:text-sky-100";
+      case "tile-document":
+        return "text-orange-900 dark:text-orange-100";
       default:
         return "text-gray-900 dark:text-gray-100";
     }
@@ -340,6 +347,19 @@ export function HtmlTileRenderer({
                 Click to add image...
               </div>
             )}
+          </div>
+        );
+
+      case "tile-document":
+        return (
+          <div
+            className="absolute left-0 right-0 bottom-0 top-10 overflow-hidden rounded-b-lg pointer-events-auto cursor-pointer"
+            onClick={() => onOpenDocumentEditor?.(element.id)}
+          >
+            <DocumentRenderer
+              documentContent={content?.documentContent}
+              className={getTileTextColor()}
+            />
           </div>
         );
 

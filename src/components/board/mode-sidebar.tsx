@@ -23,6 +23,7 @@ import {
     Pencil,
     Lock,
     Unlock,
+    FileText,
 } from "lucide-react";
 import type { Tool, TileType, ToolbarMode } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
@@ -95,6 +96,13 @@ const TILE_TYPES: TileTypeInfo[] = [
         label: "Image",
         color: "bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/30",
         hotkey: "I",
+    },
+    {
+        type: "tile-document",
+        icon: <FileText className="h-4 w-4" />,
+        label: "Doc",
+        color: "bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30",
+        hotkey: "O",
     },
 ];
 

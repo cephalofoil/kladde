@@ -10,6 +10,7 @@ import { Toolbar } from "./toolbar";
 import { ToolSidebar } from "./tool-sidebar";
 import { LayersSidebar } from "./layers-sidebar";
 import { ModeSidebar } from "./mode-sidebar";
+import { DocumentEditorPanel } from "./document-editor";
 import { BurgerMenu } from "./burger-menu";
 import { CanvasTitleBar } from "./canvas-title-bar";
 import { ExportImageModal } from "./export-image-modal";
@@ -152,6 +153,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [showHotkeysDialog, setShowHotkeysDialog] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showLayersSidebar, setShowLayersSidebar] = useState(false);
+  const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
   const [pendingName, setPendingName] = useState<string | null>(null);
   const [highlightedElementIds, setHighlightedElementIds] = useState<string[]>(
     [],
@@ -1638,6 +1640,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           isReadOnly={isReadOnly}
           showRemoteCursors={!isReadOnly}
           showUndoRedo={!isReadOnly}
+          onOpenDocumentEditor={setEditingDocumentId}
         />
 
         {/* Save File Dialog */}
@@ -1711,6 +1714,20 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           onReorderElement={handleReorderElement}
         />
       )}
+
+      {/* Document Editor Panel */}
+      {editingDocumentId && (() => {
+        const documentElement = elements.find((el) => el.id === editingDocumentId);
+        if (!documentElement) return null;
+        return (
+          <DocumentEditorPanel
+            documentElement={documentElement}
+            allElements={elements}
+            onClose={() => setEditingDocumentId(null)}
+            onUpdateDocument={(updates) => handleUpdateElement(editingDocumentId, updates)}
+          />
+        );
+      })()}
     </div>
   );
 }
