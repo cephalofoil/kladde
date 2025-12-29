@@ -1097,7 +1097,6 @@ export function generateCurvedRouteAroundObstacles(
     existingPoints?: Point[],
 ): Point[] {
     const MARGIN = 80; // Spacing around obstacles for the control point
-    const EDGE_OFFSET = 40; // Offset to avoid running along edges
 
     // Get the target element bounds
     let targetBounds: BoundingBox | null = null;
@@ -1160,55 +1159,17 @@ export function generateCurvedRouteAroundObstacles(
         }
     }
 
-    // If line doesn't intersect (line of sight), use a curve with offset to avoid edge
+    // If line doesn't intersect (line of sight), use a gentle curve
     if (!lineIntersectsShape) {
         if (hasExistingCurve) {
             // Preserve existing control points
             return [start, ...existingControlPoints, end];
         }
 
-        // Calculate an offset midpoint that curves away from the shape
-        const shapeCenter = {
-            x: targetBounds.x + targetBounds.width / 2,
-            y: targetBounds.y + targetBounds.height / 2,
-        };
-
-        // Offset perpendicular to the line, away from the shape center
-        const dx = end.x - start.x;
-        const dy = end.y - start.y;
-        const len = Math.hypot(dx, dy) || 1;
-        // Perpendicular vector (normalized)
-        const perpX = -dy / len;
-        const perpY = dx / len;
-
-        // Determine which side of the line the shape center is on
-        // and offset to the opposite side
-        const crossProduct =
-            dx * (shapeCenter.y - start.y) - dy * (shapeCenter.x - start.x);
-        const offsetDir = crossProduct > 0 ? -1 : 1;
-
-        // Calculate distance from midpoint to closest shape edge
-        const distToShape = Math.min(
-            Math.abs(midPoint.x - targetBounds.x),
-            Math.abs(midPoint.x - (targetBounds.x + targetBounds.width)),
-            Math.abs(midPoint.y - targetBounds.y),
-            Math.abs(midPoint.y - (targetBounds.y + targetBounds.height)),
-        );
-
-        // Offset needs to be larger than distance to shape, plus margin
-        // For a quadratic bezier, the curve gets closest to the control point at t=0.5
-        // but only reaches about 50% of the way to it, so we need 2x the desired clearance
-        const requiredOffset = Math.max(
-            EDGE_OFFSET,
-            (distToShape + EDGE_OFFSET) * 2,
-        );
-
-        const offsetMidPoint = {
-            x: midPoint.x + perpX * requiredOffset * offsetDir,
-            y: midPoint.y + perpY * requiredOffset * offsetDir,
-        };
-
-        return [start, offsetMidPoint, end];
+        // For line-of-sight connections, use a simple midpoint control point
+        // This creates a gentle, natural curve without aggressive offsets
+        // The Catmull-Rom spline will pass through this point creating a smooth curve
+        return [start, midPoint, end];
     }
 
     // Need to route around - use two control points to ensure curve clears the shape
