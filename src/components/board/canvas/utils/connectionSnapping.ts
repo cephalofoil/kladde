@@ -1308,18 +1308,11 @@ export function generateCurvedRouteAroundObstacles(
         }
     }
 
-    // If there are existing control points, preserve them and add the routing points
-    if (hasExistingCurve) {
-        // Add routing points near the end, preserving existing curve
-        return [
-            start,
-            ...existingControlPoints,
-            routingPoint,
-            approachPoint,
-            end,
-        ];
-    }
-
+    // When routing around obstacles, always use fresh routing points.
+    // Don't preserve existing control points here because they may be from previous
+    // routing iterations during drag, which would cause points to accumulate and
+    // create a "bundled up" arrow. User-defined control points (from manual curve
+    // adjustment) are preserved in the non-intersecting path above.
     // Use two control points: routing point to go around, approach point to enter correctly
     return [start, routingPoint, approachPoint, end];
 }
