@@ -404,11 +404,27 @@ export function findNearestSnapTarget(
                 );
 
                 if (preferredSnapPoints.length === 0 && dist < minDistance) {
+                    // Check if edge snap point is accessible (line of sight)
+                    let edgeOutOfLineOfSight = false;
+                    if (connectorStyle === "sharp" && otherEndpoint) {
+                        if (
+                            !isSnapPointAccessible(
+                                otherEndpoint,
+                                edgeSnap.point,
+                                element.id,
+                                elements,
+                            )
+                        ) {
+                            edgeOutOfLineOfSight = true;
+                        }
+                    }
+
                     minDistance = dist;
                     nearestTarget = {
                         elementId: element.id,
                         snapPoint: edgeSnap,
                         distance: dist,
+                        outOfLineOfSight: edgeOutOfLineOfSight,
                     };
                 }
             }
