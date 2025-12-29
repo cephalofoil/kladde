@@ -619,25 +619,14 @@ export function useCanvasRenderers({
                         pathD = getCatmullRomPath(effectiveElement.points);
                     } else if (style === "elbow") {
                         const elbowEps = 0.5 / zoom;
-                        polyPoints =
-                            effectiveElement.points.length === 3
-                                ? route === "vertical"
-                                    ? [
-                                          start,
-                                          { x: control.x, y: start.y },
-                                          { x: control.x, y: end.y },
-                                          end,
-                                      ]
-                                    : [
-                                          start,
-                                          { x: start.x, y: control.y },
-                                          { x: end.x, y: control.y },
-                                          end,
-                                      ]
-                                : getElbowPolylineForVertices(
-                                      effectiveElement.points,
-                                      elbowEps,
-                                  );
+                        // Always use getElbowPolylineForVertices for elbow arrows
+                        // This correctly handles both:
+                        // - 3-point paths from generateElbowRouteAroundObstacles (already axis-aligned)
+                        // - 3-point paths with a control point that needs expansion
+                        polyPoints = getElbowPolylineForVertices(
+                            effectiveElement.points,
+                            elbowEps,
+                        );
                     } else {
                         polyPoints = effectiveElement.points;
                     }
@@ -2016,24 +2005,12 @@ export function useCanvasRenderers({
                     originalElements.length === 1 &&
                     originalElements[0].id === element.id;
 
+                // Always use getElbowPolylineForVertices for 3+ point elbows
+                // This correctly handles paths from generateElbowRouteAroundObstacles
                 const elbowPolylineRaw =
                     el.points.length === 2
                         ? [start, end]
-                        : el.points.length === 3
-                          ? route === "vertical"
-                              ? [
-                                    start,
-                                    { x: control.x, y: start.y },
-                                    { x: control.x, y: end.y },
-                                    end,
-                                ]
-                              : [
-                                    start,
-                                    { x: start.x, y: control.y },
-                                    { x: end.x, y: control.y },
-                                    end,
-                                ]
-                          : getElbowPolylineForVertices(el.points, eps);
+                        : getElbowPolylineForVertices(el.points, eps);
 
                 // Normalize: remove consecutive duplicate points (avoids zero-length segments causing duplicate handles).
                 const elbowPolyline = elbowPolylineRaw.reduce<Point[]>(
