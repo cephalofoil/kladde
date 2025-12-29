@@ -31,6 +31,7 @@ import {
 import {
     findNearestSnapTarget,
     generateElbowRouteAroundObstacles,
+    generateCurvedRouteAroundObstacles,
 } from "../utils/connectionSnapping";
 import { getMinTileSize, getDefaultTileSize } from "@/lib/tile-utils";
 import {
@@ -1050,6 +1051,35 @@ export function useCanvasHandlers({
                                     });
                                     return; // Skip the normal point update below
                                 }
+
+                                // For curved mode, generate routing around obstacles
+                                if (style === "curved") {
+                                    const routedPoints =
+                                        generateCurvedRouteAroundObstacles(
+                                            otherEndpoint,
+                                            finalPoint,
+                                            elements,
+                                            originalElement.id,
+                                            snapResult.elementId,
+                                            originalElement.points,
+                                        );
+
+                                    // Update all points with the routed path
+                                    if (index === 0) {
+                                        // Dragging start point - reverse the route
+                                        newPoints = routedPoints.reverse();
+                                    } else {
+                                        // Dragging end point - use route as-is
+                                        newPoints = routedPoints;
+                                    }
+
+                                    // Update with routed points for curved mode
+                                    onUpdateElement(originalElement.id, {
+                                        points: newPoints,
+                                        connectorStyle: "curved",
+                                    });
+                                    return; // Skip the normal point update below
+                                }
                             } else {
                                 setSnapTarget(null);
                             }
@@ -1792,6 +1822,22 @@ export function useCanvasHandlers({
                                 points: routedPoints,
                                 connectorStyle: "elbow",
                                 elbowRoute: undefined,
+                            });
+                        } else if (activeConnectorStyle === "curved") {
+                            // Generate curved route around obstacles for preview
+                            const routedPoints =
+                                generateCurvedRouteAroundObstacles(
+                                    startPoint,
+                                    snappedEndPoint,
+                                    elements,
+                                    currentElement.id,
+                                    snapResult.elementId,
+                                    currentElement.points,
+                                );
+                            setCurrentElement({
+                                ...currentElement,
+                                points: routedPoints,
+                                connectorStyle: "curved",
                             });
                         } else {
                             setCurrentElement({

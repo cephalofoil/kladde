@@ -34,7 +34,10 @@ import {
     getElbowPolylineForVertices,
 } from "../curves";
 import { getBoundingBox } from "../shapes";
-import { generateElbowRouteAroundObstacles } from "../utils/connectionSnapping";
+import {
+    generateElbowRouteAroundObstacles,
+    generateCurvedRouteAroundObstacles,
+} from "../utils/connectionSnapping";
 import { getMinSingleCharWidth, measureTextWidthPx } from "../text-utils";
 import { renderRoughElement } from "../rough-svg-renderer";
 
@@ -151,6 +154,33 @@ export function useCanvasRenderers({
                 index >= 0 &&
                 index < originalPoints.length
             ) {
+                // Check if we have a snap target for curved arrows
+                const isEndpoint =
+                    index === 0 || index === originalPoints.length - 1;
+                if (style === "curved" && snapTarget && isEndpoint) {
+                    const otherEndpointIndex =
+                        index === 0 ? originalPoints.length - 1 : 0;
+                    const otherEndpoint = originalPoints[otherEndpointIndex];
+                    const routedPoints = generateCurvedRouteAroundObstacles(
+                        otherEndpoint,
+                        snapTarget.point,
+                        elements,
+                        originalElement.id,
+                        snapTarget.elementId,
+                        originalPoints,
+                    );
+
+                    // Reverse if dragging start point
+                    const finalPoints =
+                        index === 0 ? routedPoints.reverse() : routedPoints;
+
+                    return {
+                        ...element,
+                        points: finalPoints,
+                        connectorStyle: "curved",
+                    };
+                }
+
                 const nextPoints = originalPoints.map((p) => ({ ...p }));
                 nextPoints[index] = localPoint;
                 return { ...element, points: nextPoints };
