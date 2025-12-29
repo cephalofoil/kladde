@@ -1147,7 +1147,7 @@ export function generateCurvedRouteAroundObstacles(
         }
     }
 
-    // If line doesn't intersect (line of sight), use a gentle curve
+    // If line doesn't intersect (line of sight), try a gentle curve
     if (!lineIntersectsShape) {
         // For line-of-sight connections, create a gentle curve by offsetting
         // the control point slightly perpendicular to the line
@@ -1177,7 +1177,49 @@ export function generateCurvedRouteAroundObstacles(
             y: midPoint.y + perpY * gentleOffset * offsetDir,
         };
 
-        return [start, controlPoint, end];
+        // Verify the curve doesn't pass through the shape by sampling points along it
+        const curvePassesThroughShape = (() => {
+            // Add margin around shape for safety
+            const margin = 5;
+            const expandedBounds = {
+                x: targetBounds.x - margin,
+                y: targetBounds.y - margin,
+                width: targetBounds.width + margin * 2,
+                height: targetBounds.height + margin * 2,
+            };
+
+            // Sample the quadratic bezier curve
+            for (let t = 0.1; t <= 0.9; t += 0.1) {
+                const mt = 1 - t;
+                // Quadratic bezier: B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
+                const curvePoint = {
+                    x:
+                        mt * mt * start.x +
+                        2 * mt * t * controlPoint.x +
+                        t * t * end.x,
+                    y:
+                        mt * mt * start.y +
+                        2 * mt * t * controlPoint.y +
+                        t * t * end.y,
+                };
+
+                if (
+                    curvePoint.x > expandedBounds.x &&
+                    curvePoint.x < expandedBounds.x + expandedBounds.width &&
+                    curvePoint.y > expandedBounds.y &&
+                    curvePoint.y < expandedBounds.y + expandedBounds.height
+                ) {
+                    return true;
+                }
+            }
+            return false;
+        })();
+
+        // If curve doesn't pass through shape, use the gentle curve
+        if (!curvePassesThroughShape) {
+            return [start, controlPoint, end];
+        }
+        // Otherwise fall through to the more aggressive routing below
     }
 
     // Need to route around - use two control points to ensure curve clears the shape
