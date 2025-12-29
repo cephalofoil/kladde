@@ -1149,8 +1149,6 @@ export function generateCurvedRouteAroundObstacles(
         }
 
         // Calculate an offset midpoint that curves away from the shape
-        // Determine which direction to offset based on endpoint side
-        let offsetMidPoint = { ...midPoint };
         const shapeCenter = {
             x: targetBounds.x + targetBounds.width / 2,
             y: targetBounds.y + targetBounds.height / 2,
@@ -1170,97 +1168,139 @@ export function generateCurvedRouteAroundObstacles(
             dx * (shapeCenter.y - start.y) - dy * (shapeCenter.x - start.x);
         const offsetDir = crossProduct > 0 ? -1 : 1;
 
-        offsetMidPoint = {
-            x: midPoint.x + perpX * EDGE_OFFSET * offsetDir,
-            y: midPoint.y + perpY * EDGE_OFFSET * offsetDir,
+        // Calculate distance from midpoint to closest shape edge
+        const distToShape = Math.min(
+            Math.abs(midPoint.x - targetBounds.x),
+            Math.abs(midPoint.x - (targetBounds.x + targetBounds.width)),
+            Math.abs(midPoint.y - targetBounds.y),
+            Math.abs(midPoint.y - (targetBounds.y + targetBounds.height)),
+        );
+
+        // Offset needs to be larger than distance to shape, plus margin
+        // For a quadratic bezier, the curve gets closest to the control point at t=0.5
+        // but only reaches about 50% of the way to it, so we need 2x the desired clearance
+        const requiredOffset = Math.max(
+            EDGE_OFFSET,
+            (distToShape + EDGE_OFFSET) * 2,
+        );
+
+        const offsetMidPoint = {
+            x: midPoint.x + perpX * requiredOffset * offsetDir,
+            y: midPoint.y + perpY * requiredOffset * offsetDir,
         };
 
         return [start, offsetMidPoint, end];
     }
 
-    // Need to route around - place control point on the outside of the shape
-    // Choose the corner/side that's closest to both start and end
+    // Need to route around - use two control points to ensure curve clears the shape
+    // One control point pulls the curve away, another ensures proper approach to endpoint
+
+    // Calculate an "approach point" outside the shape on the same side as the endpoint
+    let approachPoint: Point;
+    switch (endSide) {
+        case "left":
+            approachPoint = { x: targetBounds.x - MARGIN, y: end.y };
+            break;
+        case "right":
+            approachPoint = {
+                x: targetBounds.x + targetBounds.width + MARGIN,
+                y: end.y,
+            };
+            break;
+        case "top":
+            approachPoint = { x: end.x, y: targetBounds.y - MARGIN };
+            break;
+        case "bottom":
+            approachPoint = {
+                x: end.x,
+                y: targetBounds.y + targetBounds.height + MARGIN,
+            };
+            break;
+        default:
+            approachPoint = { x: targetBounds.x - MARGIN, y: end.y };
+    }
+
+    // Calculate a "routing point" that pulls the curve around the corner
     const corners = [
-        { x: targetBounds.x - MARGIN, y: targetBounds.y - MARGIN, name: "nw" },
+        { x: targetBounds.x - MARGIN, y: targetBounds.y - MARGIN }, // nw
         {
             x: targetBounds.x + targetBounds.width + MARGIN,
             y: targetBounds.y - MARGIN,
-            name: "ne",
-        },
+        }, // ne
         {
             x: targetBounds.x + targetBounds.width + MARGIN,
             y: targetBounds.y + targetBounds.height + MARGIN,
-            name: "se",
-        },
+        }, // se
         {
             x: targetBounds.x - MARGIN,
             y: targetBounds.y + targetBounds.height + MARGIN,
-            name: "sw",
-        },
+        }, // sw
     ];
 
     // Find the best corner based on which side the end is on and where start is
-    let controlPoint: Point;
+    let routingPoint: Point;
 
     switch (endSide) {
         case "left": {
-            // End is on left side - route around left side
-            // Choose top-left or bottom-left corner based on where start is
             if (start.y < targetBounds.y + targetBounds.height / 2) {
-                controlPoint = corners[0]; // nw
+                routingPoint = corners[0]; // nw
             } else {
-                controlPoint = corners[3]; // sw
+                routingPoint = corners[3]; // sw
             }
             break;
         }
         case "right": {
-            // End is on right side - route around right side
             if (start.y < targetBounds.y + targetBounds.height / 2) {
-                controlPoint = corners[1]; // ne
+                routingPoint = corners[1]; // ne
             } else {
-                controlPoint = corners[2]; // se
+                routingPoint = corners[2]; // se
             }
             break;
         }
         case "top": {
-            // End is on top - route around top
             if (start.x < targetBounds.x + targetBounds.width / 2) {
-                controlPoint = corners[0]; // nw
+                routingPoint = corners[0]; // nw
             } else {
-                controlPoint = corners[1]; // ne
+                routingPoint = corners[1]; // ne
             }
             break;
         }
         case "bottom": {
-            // End is on bottom - route around bottom
             if (start.x < targetBounds.x + targetBounds.width / 2) {
-                controlPoint = corners[3]; // sw
+                routingPoint = corners[3]; // sw
             } else {
-                controlPoint = corners[2]; // se
+                routingPoint = corners[2]; // se
             }
             break;
         }
         default: {
             // Fallback - find nearest corner
             let minDist = Infinity;
-            controlPoint = corners[0];
+            routingPoint = corners[0];
             for (const corner of corners) {
                 const dist =
                     Math.hypot(corner.x - start.x, corner.y - start.y) +
                     Math.hypot(corner.x - end.x, corner.y - end.y);
                 if (dist < minDist) {
                     minDist = dist;
-                    controlPoint = corner;
+                    routingPoint = corner;
                 }
             }
         }
     }
 
-    // If there are existing control points, preserve them and add the routing point
+    // If there are existing control points, preserve them and add the routing points
     if (hasExistingCurve) {
-        // Add the routing control point near the end, preserving existing curve
-        return [start, ...existingControlPoints, controlPoint, end];
+        // Add routing points near the end, preserving existing curve
+        return [
+            start,
+            ...existingControlPoints,
+            routingPoint,
+            approachPoint,
+            end,
+        ];
     }
 
-    return [start, controlPoint, end];
+    // Use two control points: routing point to go around, approach point to enter correctly
+    return [start, routingPoint, approachPoint, end];
 }
