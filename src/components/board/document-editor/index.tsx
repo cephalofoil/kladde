@@ -186,7 +186,7 @@ export function DocumentEditorPanel({
   );
 
   return (
-    <div className="fixed top-0 right-0 h-full w-[600px] bg-card border-l border-border shadow-2xl flex flex-col z-50">
+    <div className="fixed top-0 right-0 h-full w-[1800px] max-w-[95vw] bg-card border-l border-border shadow-2xl flex flex-col z-50">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2">
@@ -220,10 +220,10 @@ export function DocumentEditorPanel({
         </div>
       </div>
 
-      {/* Two-column layout */}
+      {/* Two-column layout - 1:2 ratio */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Tiles Picker */}
-        <div className="w-[200px] border-r border-border flex-shrink-0 overflow-hidden">
+        {/* Left Panel: Tiles Picker (1/3 width) */}
+        <div className="w-1/3 border-r border-border flex-shrink-0 overflow-hidden">
           <TilesPicker
             tiles={availableTiles}
             onAddTile={handleAddTileToDocument}
@@ -231,8 +231,8 @@ export function DocumentEditorPanel({
           />
         </div>
 
-        {/* Right Panel: A4 Document Preview */}
-        <div className="flex-1 overflow-hidden">
+        {/* Right Panel: A4 Document Preview (2/3 width) */}
+        <div className="w-2/3 overflow-hidden">
           <A4DocumentPreview
             documentContent={documentContent}
             allElements={allElements}

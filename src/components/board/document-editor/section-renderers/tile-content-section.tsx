@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import {
   GripVertical,
   X,
@@ -54,6 +54,120 @@ const getTileTypeColor = (tileType: string | undefined) => {
   }
 };
 
+// Parse markdown to HTML
+function parseMarkdown(text: string): string {
+  if (!text) return "";
+
+  const lines = text.split("\n");
+  const parsed = lines.map((line) => {
+    let html = line;
+
+    // Headers
+    if (html.match(/^### /)) {
+      html = html.replace(/^### (.+)$/, '<h3 class="text-sm font-bold my-1">$1</h3>');
+    } else if (html.match(/^## /)) {
+      html = html.replace(/^## (.+)$/, '<h2 class="text-base font-bold my-1">$1</h2>');
+    } else if (html.match(/^# /)) {
+      html = html.replace(/^# (.+)$/, '<h1 class="text-lg font-bold my-2">$1</h1>');
+    }
+    // Unordered list
+    else if (html.match(/^[-*] /)) {
+      html = html.replace(/^[-*] (.+)$/, '<li class="ml-3">• $1</li>');
+    }
+    // Ordered list
+    else if (html.match(/^\d+\. /)) {
+      html = html.replace(/^(\d+)\. (.+)$/, '<li class="ml-3">$1. $2</li>');
+    }
+    // Empty line
+    else if (!html.trim()) {
+      html = "<br />";
+    }
+    // Regular paragraph
+    else {
+      html = `<p class="my-0.5">${html}</p>`;
+    }
+
+    // Inline formatting
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold">$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong class="font-bold">$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em class="italic">$1</em>');
+    html = html.replace(/_(.+?)_/g, '<em class="italic">$1</em>');
+    html = html.replace(/~~(.+?)~~/g, '<del class="line-through">$1</del>');
+    html = html.replace(
+      /`(.+?)`/g,
+      '<code class="bg-gray-200 px-0.5 rounded text-[8px] font-mono">$1</code>'
+    );
+
+    return html;
+  });
+
+  return parsed.join("");
+}
+
+// Mermaid renderer component for document preview
+function MermaidPreview({ chart }: { chart: string }) {
+  const [svgContent, setSvgContent] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chart) return;
+
+    const renderMermaid = async () => {
+      try {
+        const mermaid = (await import("mermaid")).default;
+
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "default",
+          securityLevel: "loose",
+        });
+
+        const id = `mermaid-doc-${Math.random().toString(36).slice(2, 11)}`;
+        const { svg } = await mermaid.render(id, chart);
+
+        setSvgContent(svg);
+        setError("");
+      } catch (err) {
+        console.error("Mermaid rendering error:", err);
+        setError(err instanceof Error ? err.message : "Failed to render diagram");
+        setSvgContent("");
+      }
+    };
+
+    renderMermaid();
+  }, [chart]);
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded p-2 text-center">
+        <p className="text-[8px] text-red-600">Error: {error}</p>
+      </div>
+    );
+  }
+
+  if (!svgContent) {
+    return (
+      <div className="bg-purple-50 border border-purple-200 rounded p-2 text-center">
+        <p className="text-[8px] text-purple-600">Rendering diagram...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="bg-white border border-gray-200 rounded p-2 overflow-hidden"
+      style={{ maxHeight: "200px" }}
+    >
+      <div
+        className="w-full flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-[180px] [&_svg]:w-auto [&_svg]:h-auto"
+        dangerouslySetInnerHTML={{ __html: svgContent }}
+      />
+    </div>
+  );
+}
+
 export function TileContentSectionRenderer({
   section,
   allElements,
@@ -79,12 +193,11 @@ export function TileContentSectionRenderer({
     switch (tileType) {
       case "tile-text":
         if (tileContent.richText) {
-          // Strip HTML and render as plain text for preview
-          const plainText = tileContent.richText.replace(/<[^>]*>/g, "");
           return (
-            <p className="text-gray-700 text-[9px] leading-relaxed whitespace-pre-wrap">
-              {plainText}
-            </p>
+            <div
+              className="text-gray-700 text-[9px] leading-relaxed prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: parseMarkdown(tileContent.richText) }}
+            />
           );
         }
         return null;
@@ -93,9 +206,10 @@ export function TileContentSectionRenderer({
         if (tileContent.noteText) {
           return (
             <div className="bg-yellow-50 border-l-2 border-yellow-400 pl-2 py-1">
-              <p className="text-gray-700 text-[9px] leading-relaxed whitespace-pre-wrap">
-                {tileContent.noteText}
-              </p>
+              <div
+                className="text-gray-700 text-[9px] leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: parseMarkdown(tileContent.noteText) }}
+              />
             </div>
           );
         }
@@ -104,8 +218,8 @@ export function TileContentSectionRenderer({
       case "tile-code":
         if (tileContent.code) {
           return (
-            <div className="bg-gray-100 rounded p-2 overflow-x-auto">
-              <pre className="text-[8px] font-mono text-gray-800 whitespace-pre-wrap">
+            <div className="bg-gray-800 rounded p-2 overflow-x-auto">
+              <pre className="text-[8px] font-mono text-gray-100 whitespace-pre-wrap">
                 {tileContent.code}
               </pre>
               {tileContent.language && (
@@ -120,15 +234,7 @@ export function TileContentSectionRenderer({
 
       case "tile-mermaid":
         if (tileContent.chart) {
-          return (
-            <div className="bg-purple-50 border border-purple-200 rounded p-2 text-center">
-              <GitBranch className="w-6 h-6 text-purple-400 mx-auto mb-1" />
-              <p className="text-[8px] text-purple-600">Mermaid Diagram</p>
-              <p className="text-[7px] text-gray-400 mt-0.5">
-                (Rendered in PDF export)
-              </p>
-            </div>
-          );
+          return <MermaidPreview chart={tileContent.chart} />;
         }
         return null;
 
@@ -140,7 +246,7 @@ export function TileContentSectionRenderer({
                 src={tileContent.imageSrc}
                 alt={tileContent.imageAlt || "Image"}
                 className="max-w-full h-auto rounded"
-                style={{ maxHeight: "100px" }}
+                style={{ maxHeight: "150px" }}
               />
             </div>
           );
