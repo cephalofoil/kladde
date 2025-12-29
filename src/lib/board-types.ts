@@ -58,6 +58,17 @@ export interface TileContent {
   headerTextColor?: string;
 }
 
+/**
+ * Describes a connection between an arrow endpoint and a shape/tile.
+ * Used to maintain arrow attachments when shapes move.
+ */
+export interface ArrowConnection {
+  /** The ID of the connected element (shape or tile) */
+  elementId: string;
+  /** The snap point position type on the connected element */
+  position: "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+}
+
 export interface BoardElement {
   id: string;
   type:
@@ -86,6 +97,16 @@ export interface BoardElement {
   y?: number;
   width?: number;
   height?: number;
+  /**
+   * Connection info for the start point of an arrow/line.
+   * When set, the arrow endpoint stays attached to the connected element.
+   */
+  startConnection?: ArrowConnection;
+  /**
+   * Connection info for the end point of an arrow/line.
+   * When set, the arrow endpoint stays attached to the connected element.
+   */
+  endConnection?: ArrowConnection;
   // For text scaling/squishing
   scaleX?: number;
   scaleY?: number;
