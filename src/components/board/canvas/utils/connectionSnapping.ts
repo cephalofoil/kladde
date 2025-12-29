@@ -13,6 +13,8 @@ export interface SnapTarget {
     elementId: string;
     snapPoint: SnapPoint;
     distance: number;
+    /** True if the snap point is not directly accessible (line of sight blocked) */
+    outOfLineOfSight?: boolean;
 }
 
 /**
@@ -355,8 +357,8 @@ export function findNearestSnapTarget(
             );
 
             if (dist < minDistance) {
-                // For sharp mode only, check if snap point is accessible
-                // Curved and elbow modes can route around obstacles
+                // Check if snap point is accessible (line of sight)
+                let outOfLineOfSight = false;
                 if (connectorStyle === "sharp" && otherEndpoint) {
                     // Check if the snap point can be reached without going through the target shape
                     if (
@@ -367,8 +369,8 @@ export function findNearestSnapTarget(
                             elements,
                         )
                     ) {
-                        // Snap point not accessible (would go through shape interior), skip it
-                        continue;
+                        // Snap point not directly accessible - flag it but don't skip
+                        outOfLineOfSight = true;
                     }
                 }
 
@@ -377,6 +379,7 @@ export function findNearestSnapTarget(
                     elementId: element.id,
                     snapPoint,
                     distance: dist,
+                    outOfLineOfSight,
                 };
             }
         }

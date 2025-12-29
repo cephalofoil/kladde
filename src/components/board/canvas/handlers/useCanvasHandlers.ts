@@ -905,6 +905,7 @@ export function useCanvasHandlers({
                             setSnapTarget({
                                 elementId: snapResult.elementId,
                                 point: snapResult.snapPoint.point,
+                                outOfLineOfSight: snapResult.outOfLineOfSight,
                             });
 
                             // Generate elbow routing around obstacles
@@ -1021,6 +1022,8 @@ export function useCanvasHandlers({
                                 setSnapTarget({
                                     elementId: snapResult.elementId,
                                     point: snapResult.snapPoint.point,
+                                    outOfLineOfSight:
+                                        snapResult.outOfLineOfSight,
                                 });
 
                                 // For elbow mode, generate routing around obstacles
@@ -1080,14 +1083,42 @@ export function useCanvasHandlers({
                                     });
                                     return; // Skip the normal point update below
                                 }
+
+                                // For sharp mode with out-of-sight snap, DON'T update the element yet.
+                                // Just set the snap target - the preview will show the elbow routing.
+                                // The actual connectorStyle change will happen on mouse up.
+                                // This matches the behavior during arrow creation.
+                                if (
+                                    connectorStyle === "sharp" &&
+                                    snapResult.outOfLineOfSight
+                                ) {
+                                    // Don't update the element - let the preview handle the visual
+                                    // The snapTarget is already set above with outOfLineOfSight: true
+                                    return;
+                                }
                             } else {
                                 setSnapTarget(null);
+
+                                // No snap - reset to the toolbar's connector style
+                                // This handles switching back to sharp when moving away from
+                                // an out-of-sight snap point
+                                if (connectorStyle === "sharp") {
+                                    newPoints[index] = finalPoint;
+                                    onUpdateElement(originalElement.id, {
+                                        points: [
+                                            newPoints[0],
+                                            newPoints[newPoints.length - 1],
+                                        ],
+                                        connectorStyle: "sharp",
+                                    });
+                                    return;
+                                }
                             }
                         } else {
                             setSnapTarget(null);
                         }
 
-                        // For non-elbow modes, just update the endpoint
+                        // For sharp/curved modes without out-of-sight issues, just update the endpoint
                         newPoints[index] = finalPoint;
                     }
 
@@ -1805,6 +1836,7 @@ export function useCanvasHandlers({
                         setSnapTarget({
                             elementId: snapResult.elementId,
                             point: snappedEndPoint,
+                            outOfLineOfSight: snapResult.outOfLineOfSight,
                         });
 
                         if (activeConnectorStyle === "elbow") {
@@ -1839,6 +1871,26 @@ export function useCanvasHandlers({
                                 points: routedPoints,
                                 connectorStyle: "curved",
                             });
+                        } else if (
+                            activeConnectorStyle === "sharp" &&
+                            snapResult.outOfLineOfSight
+                        ) {
+                            // Sharp mode but snap target is out of line of sight
+                            // Switch to elbow mode for this connection
+                            const routedPoints =
+                                generateElbowRouteAroundObstacles(
+                                    startPoint,
+                                    snappedEndPoint,
+                                    elements,
+                                    currentElement.id,
+                                    snapResult.elementId,
+                                );
+                            setCurrentElement({
+                                ...currentElement,
+                                points: routedPoints,
+                                connectorStyle: "elbow",
+                                elbowRoute: undefined,
+                            });
                         } else {
                             setCurrentElement({
                                 ...currentElement,
@@ -1848,7 +1900,10 @@ export function useCanvasHandlers({
                     } else {
                         setSnapTarget(null);
 
-                        if (activeConnectorStyle === "elbow") {
+                        // Use the original connector style from props (not currentElement)
+                        // to ensure we switch back to sharp when moving away from an
+                        // out-of-sight snap point that temporarily used elbow
+                        if (connectorStyle === "elbow") {
                             const dx = endPoint.x - startPoint.x;
                             const dy = endPoint.y - startPoint.y;
                             const elbowRoute =
@@ -1869,9 +1924,11 @@ export function useCanvasHandlers({
                                 elbowRoute,
                             });
                         } else {
+                            // Sharp or curved mode - use simple 2-point line
                             setCurrentElement({
                                 ...currentElement,
                                 points: [startPoint, endPoint],
+                                connectorStyle: connectorStyle,
                             });
                         }
                     }
@@ -2666,6 +2723,51 @@ export function useCanvasHandlers({
         }
 
         if (draggingConnectorPoint) {
+            // Handle sharp mode with out-of-sight snap - finalize to elbow mode
+            // This matches the behavior during arrow creation where the elbow is only
+            // applied on mouse up, not during the drag preview
+            if (
+                originalElements.length === 1 &&
+                snapTarget?.outOfLineOfSight &&
+                connectorStyle === "sharp"
+            ) {
+                const orig = originalElements[0];
+                if (orig.type === "line" || orig.type === "arrow") {
+                    const index = draggingConnectorPoint.index;
+                    const isEndpoint =
+                        index === 0 || index === orig.points.length - 1;
+
+                    if (isEndpoint) {
+                        const otherEndpointIndex =
+                            index === 0 ? orig.points.length - 1 : 0;
+                        const otherEndpoint = orig.points[otherEndpointIndex];
+
+                        const routedPoints = generateElbowRouteAroundObstacles(
+                            otherEndpoint,
+                            snapTarget.point,
+                            elements,
+                            orig.id,
+                            snapTarget.elementId,
+                        );
+
+                        // Reverse if dragging start point
+                        const finalPoints =
+                            index === 0 ? routedPoints.reverse() : routedPoints;
+
+                        onUpdateElement(orig.id, {
+                            points: finalPoints,
+                            connectorStyle: "elbow",
+                            elbowRoute: undefined,
+                        });
+
+                        setDraggingConnectorPoint(null);
+                        setOriginalElements([]);
+                        setSnapTarget(null);
+                        return;
+                    }
+                }
+            }
+
             // Cleanup elbow polylines after edge drags so temporary points don't "stick" until the next drag.
             if (originalElements.length === 1) {
                 const orig = originalElements[0];

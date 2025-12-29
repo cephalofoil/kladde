@@ -51,7 +51,11 @@ interface UseCanvasRenderersProps {
     remotelyEditingTextIds: Set<string>;
     editingTextElementId: string | null;
     eraserMarkedIds: Set<string>;
-    snapTarget: { elementId: string; point: Point } | null;
+    snapTarget: {
+        elementId: string;
+        point: Point;
+        outOfLineOfSight?: boolean;
+    } | null;
     zoom: number;
     connectorStyle: "sharp" | "curved" | "elbow";
     isEditArrowMode: boolean;
@@ -178,6 +182,37 @@ export function useCanvasRenderers({
                         ...element,
                         points: finalPoints,
                         connectorStyle: "curved",
+                    };
+                }
+
+                // For sharp mode with out-of-sight snap, show elbow preview
+                // This previews the elbow routing before mouse up finalizes it
+                if (
+                    connectorStyle === "sharp" &&
+                    snapTarget?.outOfLineOfSight &&
+                    isEndpoint
+                ) {
+                    const otherEndpointIndex =
+                        index === 0 ? originalPoints.length - 1 : 0;
+                    const otherEndpoint = originalPoints[otherEndpointIndex];
+
+                    const routedPoints = generateElbowRouteAroundObstacles(
+                        otherEndpoint,
+                        snapTarget.point,
+                        elements,
+                        originalElement.id,
+                        snapTarget.elementId,
+                    );
+
+                    // Reverse if dragging start point
+                    const finalPoints =
+                        index === 0 ? routedPoints.reverse() : routedPoints;
+
+                    return {
+                        ...element,
+                        points: finalPoints,
+                        connectorStyle: "elbow",
+                        elbowRoute: undefined,
                     };
                 }
 
@@ -447,8 +482,10 @@ export function useCanvasRenderers({
         [
             connectorStyle,
             draggingConnectorPoint,
+            elements,
             lastMousePos,
             originalElements,
+            snapTarget,
             zoom,
         ],
     );
