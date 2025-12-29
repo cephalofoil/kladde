@@ -1083,10 +1083,9 @@ export function generateElbowRouteAroundObstacles(
 }
 
 /**
- * Generate a curved arrow path with a control point that routes around the target shape.
- * If existingPoints has a user-defined control point, preserve it and add routing points.
- * The control point is positioned to pull the curve away from the target shape
- * so the curve doesn't pass through it.
+ * Generate a curved arrow path with control points that route around the target shape.
+ * For line-of-sight connections, uses a gentle midpoint curve.
+ * For out-of-sight connections, routes around the target shape with proper clearance.
  */
 export function generateCurvedRouteAroundObstacles(
     start: Point,
@@ -1094,7 +1093,6 @@ export function generateCurvedRouteAroundObstacles(
     elements: BoardElement[],
     excludeElementId: string | null,
     targetElementId: string | null,
-    existingPoints?: Point[],
 ): Point[] {
     const MARGIN = 80; // Spacing around obstacles for the control point
 
@@ -1107,18 +1105,8 @@ export function generateCurvedRouteAroundObstacles(
         }
     }
 
-    // Check if there's an existing user-defined control point (3+ points means user moved it)
-    const hasExistingCurve = existingPoints && existingPoints.length >= 3;
-    const existingControlPoints = hasExistingCurve
-        ? existingPoints.slice(1, existingPoints.length - 1)
-        : [];
-
     // If no target bounds, just return a simple curved path with midpoint control
     if (!targetBounds) {
-        if (hasExistingCurve) {
-            // Preserve existing control points, just update start and end
-            return [start, ...existingControlPoints, end];
-        }
         return [
             start,
             { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
@@ -1161,15 +1149,35 @@ export function generateCurvedRouteAroundObstacles(
 
     // If line doesn't intersect (line of sight), use a gentle curve
     if (!lineIntersectsShape) {
-        if (hasExistingCurve) {
-            // Preserve existing control points
-            return [start, ...existingControlPoints, end];
-        }
+        // For line-of-sight connections, create a gentle curve by offsetting
+        // the control point slightly perpendicular to the line
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const len = Math.hypot(dx, dy) || 1;
 
-        // For line-of-sight connections, use a simple midpoint control point
-        // This creates a gentle, natural curve without aggressive offsets
-        // The Catmull-Rom spline will pass through this point creating a smooth curve
-        return [start, midPoint, end];
+        // Perpendicular vector (normalized)
+        const perpX = -dy / len;
+        const perpY = dx / len;
+
+        // Use a small offset proportional to line length for a gentle curve
+        // About 10% of the line length, capped at a reasonable maximum
+        const gentleOffset = Math.min(len * 0.1, 30);
+
+        // Offset away from the shape center for a natural curve
+        const shapeCenter = {
+            x: targetBounds.x + targetBounds.width / 2,
+            y: targetBounds.y + targetBounds.height / 2,
+        };
+        const crossProduct =
+            dx * (shapeCenter.y - start.y) - dy * (shapeCenter.x - start.x);
+        const offsetDir = crossProduct > 0 ? -1 : 1;
+
+        const controlPoint = {
+            x: midPoint.x + perpX * gentleOffset * offsetDir,
+            y: midPoint.y + perpY * gentleOffset * offsetDir,
+        };
+
+        return [start, controlPoint, end];
     }
 
     // Need to route around - use two control points to ensure curve clears the shape

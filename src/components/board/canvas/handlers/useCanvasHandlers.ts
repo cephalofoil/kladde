@@ -1064,7 +1064,6 @@ export function useCanvasHandlers({
                                             elements,
                                             originalElement.id,
                                             snapResult.elementId,
-                                            originalElement.points,
                                         );
 
                                     // Update all points with the routed path
@@ -1864,7 +1863,6 @@ export function useCanvasHandlers({
                                     elements,
                                     currentElement.id,
                                     snapResult.elementId,
-                                    currentElement.points,
                                 );
                             setCurrentElement({
                                 ...currentElement,

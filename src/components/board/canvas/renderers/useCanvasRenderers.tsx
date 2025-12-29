@@ -171,7 +171,6 @@ export function useCanvasRenderers({
                         elements,
                         originalElement.id,
                         snapTarget.elementId,
-                        originalPoints,
                     );
 
                     // Reverse if dragging start point
