@@ -2440,7 +2440,7 @@ export function useCanvasRenderers({
                               index: 1,
                               kind: "createCorner",
                           },
-                          { pos: end, index: 2, kind: "normal" },
+                          { pos: end, index: 1, kind: "normal" },
                       ]
                     : style === "curved" && element.points.length === 3
                       ? [
@@ -2581,9 +2581,9 @@ export function useCanvasRenderers({
 
             return (
                 <g transform={rotationTransform}>
-                    {handles.map((h) => (
+                    {handles.map((h, i) => (
                         <circle
-                            key={`${element.id}-pt-${h.index}`}
+                            key={`${element.id}-pt-${h.index}-${h.kind}-${i}`}
                             cx={h.pos.x}
                             cy={h.pos.y}
                             r={existingRadius}
