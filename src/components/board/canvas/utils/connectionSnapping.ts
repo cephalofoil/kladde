@@ -499,186 +499,44 @@ function pathPassesThroughBounds(
     bounds: BoundingBox,
     _margin: number,
 ): boolean {
-    if (path.length < 3) return false;
+    // Simple check: does any segment pass through the shape interior?
+    // We sample points along each segment and check if they're inside the bounds
 
-    const corner = path[1];
-    const end = path[2];
+    for (let i = 0; i < path.length - 1; i++) {
+        const p1 = path[i];
+        const p2 = path[i + 1];
 
-    // Check 1: Is the corner point inside the shape? That means we cut through.
-    const cornerInside =
-        corner.x > bounds.x &&
-        corner.x < bounds.x + bounds.width &&
-        corner.y > bounds.y &&
-        corner.y < bounds.y + bounds.height;
+        // Sample points along the segment (skip endpoints - they may be on shape edge)
+        for (let t = 0.1; t <= 0.9; t += 0.1) {
+            const px = p1.x + (p2.x - p1.x) * t;
+            const py = p1.y + (p2.y - p1.y) * t;
 
-    if (cornerInside) {
-        console.log("BAD: corner inside", { corner, bounds });
-        return true;
-    }
-
-    // Check 2: Does the last segment (corner → end) pass through the shape interior?
-    // This segment goes from corner to the connection point on the shape edge.
-    // If the corner is outside but the segment has to cross through the shape to reach
-    // the connection point, that's bad.
-
-    // Check if the last segment passes through the shape's interior
-    // The segment is from corner to end. end is ON the shape edge.
-    // If corner is outside but the line to end crosses through the interior, that's bad.
-
-    const isHorizontal = Math.abs(corner.y - end.y) < 1;
-    const isVertical = Math.abs(corner.x - end.x) < 1;
-
-    if (isVertical) {
-        // Vertical segment from corner to end (same X, different Y)
-        // Check if this vertical line at corner.x passes through the shape
-        const withinX =
-            corner.x > bounds.x && corner.x < bounds.x + bounds.width;
-        if (withinX) {
-            // The vertical line is within the shape's x-range
-            // Check if it passes through the shape's y-range
-            const minY = Math.min(corner.y, end.y);
-            const maxY = Math.max(corner.y, end.y);
-            // If the segment spans across the shape's top edge, it passes through
-            if (minY < bounds.y && maxY > bounds.y + 5) {
-                console.log("BAD: vertical segment passes through shape", {
-                    corner,
-                    end,
-                    bounds,
-                });
-                return true;
-            }
-            // If the segment spans across the shape's bottom edge from below
+            // Check if point is strictly inside bounds
             if (
-                minY < bounds.y + bounds.height - 5 &&
-                maxY > bounds.y + bounds.height
+                px > bounds.x &&
+                px < bounds.x + bounds.width &&
+                py > bounds.y &&
+                py < bounds.y + bounds.height
             ) {
-                console.log(
-                    "BAD: vertical segment passes through shape from bottom",
-                    {
-                        corner,
-                        end,
-                        bounds,
-                    },
-                );
-                return true;
-            }
-        }
-
-        // Check if vertical segment rides along left or right edge
-        const onLeftEdge = Math.abs(corner.x - bounds.x) < 3;
-        const onRightEdge = Math.abs(corner.x - (bounds.x + bounds.width)) < 3;
-        if (onLeftEdge || onRightEdge) {
-            // Check if the segment overlaps with the shape's height
-            const minY = Math.min(corner.y, end.y);
-            const maxY = Math.max(corner.y, end.y);
-            if (minY < bounds.y + bounds.height && maxY > bounds.y) {
-                console.log("BAD: vertical segment rides along edge", {
-                    corner,
-                    end,
-                    bounds,
-                    onLeftEdge,
-                    onRightEdge,
-                });
-                return true;
-            }
-        }
-    } else if (isHorizontal) {
-        // Horizontal segment from corner to end (same Y, different X)
-        const withinY =
-            corner.y > bounds.y && corner.y < bounds.y + bounds.height;
-        if (withinY) {
-            // The horizontal line is within the shape's y-range
-            const minX = Math.min(corner.x, end.x);
-            const maxX = Math.max(corner.x, end.x);
-            // If the segment spans across the shape's left edge, it passes through
-            if (minX < bounds.x && maxX > bounds.x + 5) {
-                console.log("BAD: horizontal segment passes through shape", {
-                    corner,
-                    end,
-                    bounds,
-                });
-                return true;
-            }
-            // If the segment spans across the shape's right edge
-            if (
-                minX < bounds.x + bounds.width - 5 &&
-                maxX > bounds.x + bounds.width
-            ) {
-                console.log(
-                    "BAD: horizontal segment passes through shape from right",
-                    {
-                        corner,
-                        end,
-                        bounds,
-                    },
-                );
-                return true;
-            }
-        }
-
-        // Check if horizontal segment rides along top or bottom edge
-        const onTopEdge = Math.abs(corner.y - bounds.y) < 3;
-        const onBottomEdge =
-            Math.abs(corner.y - (bounds.y + bounds.height)) < 3;
-        if (onTopEdge || onBottomEdge) {
-            // Check if the segment overlaps with the shape's width
-            const minX = Math.min(corner.x, end.x);
-            const maxX = Math.max(corner.x, end.x);
-            if (minX < bounds.x + bounds.width && maxX > bounds.x) {
-                console.log("BAD: horizontal segment rides along edge", {
-                    corner,
-                    end,
-                    bounds,
-                    onTopEdge,
-                    onBottomEdge,
-                });
-                return true;
+                return true; // Path passes through shape
             }
         }
     }
 
-    // Check 3: Does the first segment (start → corner) pass through the shape?
-    // Only check this if the corner is NOT already adjacent to the shape
-    const start = path[0];
-    const cornerNearShape =
-        Math.abs(corner.x - bounds.x) < 5 ||
-        Math.abs(corner.x - (bounds.x + bounds.width)) < 5 ||
-        Math.abs(corner.y - bounds.y) < 5 ||
-        Math.abs(corner.y - (bounds.y + bounds.height)) < 5;
-
-    if (!cornerNearShape) {
-        // Corner is not near the shape, check if the first segment crosses through
-        // Use a slightly shrunk bounds to avoid edge false positives
-        const shrunk = {
-            x: bounds.x + 3,
-            y: bounds.y + 3,
-            width: bounds.width - 6,
-            height: bounds.height - 6,
-        };
-        if (shrunk.width > 0 && shrunk.height > 0) {
-            if (lineIntersectsBox(start, corner, shrunk, 0)) {
-                console.log("BAD: first segment through shape", {
-                    start,
-                    corner,
-                    shrunk,
-                });
-                return true;
-            }
+    // Also check if the corner point (for L-paths) is inside the shape
+    if (path.length >= 3) {
+        const corner = path[1];
+        if (
+            corner.x > bounds.x &&
+            corner.x < bounds.x + bounds.width &&
+            corner.y > bounds.y &&
+            corner.y < bounds.y + bounds.height
+        ) {
+            return true;
         }
     }
 
-    console.log("OK: path is valid", {
-        start: { x: Math.round(path[0].x), y: Math.round(path[0].y) },
-        corner: { x: Math.round(corner.x), y: Math.round(corner.y) },
-        end: { x: Math.round(end.x), y: Math.round(end.y) },
-        bounds: {
-            x: Math.round(bounds.x),
-            y: Math.round(bounds.y),
-            right: Math.round(bounds.x + bounds.width),
-            bottom: Math.round(bounds.y + bounds.height),
-        },
-    });
-    return false;
+    return false; // Path is clear
 }
 
 /**
@@ -754,30 +612,84 @@ export function generateElbowRouteAroundObstacles(
     const dx = Math.abs(end.x - start.x);
     const dy = Math.abs(end.y - start.y);
 
-    // Simple paths for reference
+    // Helper: check if a point is strictly inside bounds
+    const pointInside = (p: Point, b: BoundingBox) =>
+        p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height;
+
+    // Helper: check if a straight line between two points passes through a shape
+    const linePassesThrough = (
+        p1: Point,
+        p2: Point,
+        bounds: BoundingBox,
+    ): boolean => {
+        // Sample points along the line (skip endpoints which are on shape edges)
+        for (let t = 0.1; t <= 0.9; t += 0.1) {
+            const px = p1.x + (p2.x - p1.x) * t;
+            const py = p1.y + (p2.y - p1.y) * t;
+            if (pointInside({ x: px, y: py }, bounds)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // FIRST: Check for line of sight - if start and end are roughly aligned,
+    // a straight line (2 points) is the most efficient path
+    const straightLine = [start, end];
+    const straightLineValid = (): boolean => {
+        // Check the line doesn't pass through connected shapes
+        if (targetBounds && linePassesThrough(start, end, targetBounds))
+            return false;
+        if (startBounds && linePassesThrough(start, end, startBounds))
+            return false;
+        // Check obstacles too
+        if (
+            obstacles.length > 0 &&
+            pathIntersectsObstacles(straightLine, obstacles)
+        )
+            return false;
+        return true;
+    };
+
+    // If straight line works, use it (this handles line of sight cases)
+    if (straightLineValid()) {
+        return straightLine;
+    }
+
+    // Simple L-paths for reference
     const hFirstPath = [start, { x: end.x, y: start.y }, end];
     const vFirstPath = [start, { x: start.x, y: end.y }, end];
 
     // IMPORTANT: If we're connecting TO shapes (targetBounds/startBounds exist),
     // we MUST route around them - never allow paths that ride along or through them
     if (targetBounds || startBounds) {
-        // Check if simple paths would pass through either connected shape
-        const hFirstBadTarget = targetBounds
-            ? pathPassesThroughBounds(hFirstPath, targetBounds, 2)
-            : false;
-        const vFirstBadTarget = targetBounds
-            ? pathPassesThroughBounds(vFirstPath, targetBounds, 2)
-            : false;
-        const hFirstBadStart = startBounds
-            ? pathPassesThroughBounds([...hFirstPath].reverse(), startBounds, 2)
-            : false;
-        const vFirstBadStart = startBounds
-            ? pathPassesThroughBounds([...vFirstPath].reverse(), startBounds, 2)
-            : false;
-        const hFirstBad = hFirstBadTarget || hFirstBadStart;
-        const vFirstBad = vFirstBadTarget || vFirstBadStart;
+        // Helper: check if path is valid (corner not inside shapes, no tunneling)
+        const isPathValid = (path: Point[]): boolean => {
+            if (path.length < 3) return true;
+            const corner = path[1];
 
-        // Also check other obstacles
+            // Corner must not be inside either connected shape
+            if (targetBounds && pointInside(corner, targetBounds)) return false;
+            if (startBounds && pointInside(corner, startBounds)) return false;
+
+            // Check segments don't pass through shapes (sample interior points)
+            for (let i = 0; i < path.length - 1; i++) {
+                const p1 = path[i],
+                    p2 = path[i + 1];
+                for (let t = 0.2; t <= 0.8; t += 0.2) {
+                    const px = p1.x + (p2.x - p1.x) * t;
+                    const py = p1.y + (p2.y - p1.y) * t;
+                    const testPt = { x: px, y: py };
+                    if (targetBounds && pointInside(testPt, targetBounds))
+                        return false;
+                    if (startBounds && pointInside(testPt, startBounds))
+                        return false;
+                }
+            }
+            return true;
+        };
+
+        // Check obstacles
         const hFirstObstacleClear =
             obstacles.length === 0 ||
             !pathIntersectsObstacles(hFirstPath, obstacles);
@@ -785,50 +697,195 @@ export function generateElbowRouteAroundObstacles(
             obstacles.length === 0 ||
             !pathIntersectsObstacles(vFirstPath, obstacles);
 
-        console.log("Route decision:", {
-            hFirstBad,
-            vFirstBad,
-            hFirstObstacleClear,
-            vFirstObstacleClear,
-            dx,
-            dy,
-            obstacleCount: obstacles.length,
-        });
+        // Try simple L-paths first - these are the most efficient
+        const hFirstValid = isPathValid(hFirstPath);
+        const vFirstValid = isPathValid(vFirstPath);
 
-        // Only use simple path if it doesn't pass through target AND is clear of obstacles
-        if (!hFirstBad && hFirstObstacleClear && dx >= dy) {
-            console.log("Using hFirstPath (simple)");
+        if (hFirstValid && hFirstObstacleClear && dx >= dy) {
             return hFirstPath;
         }
-        if (!vFirstBad && vFirstObstacleClear && dy > dx) {
-            console.log("Using vFirstPath (simple)");
+        if (vFirstValid && vFirstObstacleClear && dy > dx) {
             return vFirstPath;
         }
-        if (!hFirstBad && hFirstObstacleClear) {
-            console.log("Using hFirstPath (fallback)");
+        if (hFirstValid && hFirstObstacleClear) {
             return hFirstPath;
         }
-        if (!vFirstBad && vFirstObstacleClear) {
-            console.log("Using vFirstPath (fallback)");
+        if (vFirstValid && vFirstObstacleClear) {
             return vFirstPath;
         }
 
-        console.log("No simple path works, routing around...");
+        // Simple L-paths don't work - need to route around
+        // Generate candidate paths that go around each blocking shape individually
+        if (targetBounds && startBounds) {
+            const margin = 15;
+            const candidates: Point[][] = [];
 
-        // Need to route around the connected shapes
-        // Use whichever bounds we have - prefer targetBounds but use startBounds if that's all we have
-        const routingBounds = targetBounds || startBounds;
-        if (!routingBounds) {
-            // No bounds to route around - shouldn't happen but fallback to simple path
+            // Helper to generate routes around a single shape
+            const addRoutesAroundShape = (bounds: BoundingBox) => {
+                const left = bounds.x - margin;
+                const right = bounds.x + bounds.width + margin;
+                const top = bounds.y - margin;
+                const bottom = bounds.y + bounds.height + margin;
+
+                // L-paths that go around this shape
+                // Via top-left corner
+                candidates.push([
+                    start,
+                    { x: left, y: start.y },
+                    { x: left, y: top },
+                    { x: end.x, y: top },
+                    end,
+                ]);
+                // Via top-right corner
+                candidates.push([
+                    start,
+                    { x: right, y: start.y },
+                    { x: right, y: top },
+                    { x: end.x, y: top },
+                    end,
+                ]);
+                // Via bottom-left corner
+                candidates.push([
+                    start,
+                    { x: left, y: start.y },
+                    { x: left, y: bottom },
+                    { x: end.x, y: bottom },
+                    end,
+                ]);
+                // Via bottom-right corner
+                candidates.push([
+                    start,
+                    { x: right, y: start.y },
+                    { x: right, y: bottom },
+                    { x: end.x, y: bottom },
+                    end,
+                ]);
+                // Vertical first variants
+                candidates.push([
+                    start,
+                    { x: start.x, y: top },
+                    { x: left, y: top },
+                    { x: left, y: end.y },
+                    end,
+                ]);
+                candidates.push([
+                    start,
+                    { x: start.x, y: top },
+                    { x: right, y: top },
+                    { x: right, y: end.y },
+                    end,
+                ]);
+                candidates.push([
+                    start,
+                    { x: start.x, y: bottom },
+                    { x: left, y: bottom },
+                    { x: left, y: end.y },
+                    end,
+                ]);
+                candidates.push([
+                    start,
+                    { x: start.x, y: bottom },
+                    { x: right, y: bottom },
+                    { x: right, y: end.y },
+                    end,
+                ]);
+            };
+
+            // Add routes around each shape
+            addRoutesAroundShape(startBounds);
+            addRoutesAroundShape(targetBounds);
+
+            // Also add simpler 3-point routes
+            const sMargin = 15;
+            const sLeft = Math.min(startBounds.x, targetBounds.x) - sMargin;
+            const sRight =
+                Math.max(
+                    startBounds.x + startBounds.width,
+                    targetBounds.x + targetBounds.width,
+                ) + sMargin;
+            const sTop = Math.min(startBounds.y, targetBounds.y) - sMargin;
+            const sBottom =
+                Math.max(
+                    startBounds.y + startBounds.height,
+                    targetBounds.y + targetBounds.height,
+                ) + sMargin;
+
+            candidates.push([
+                start,
+                { x: start.x, y: sTop },
+                { x: end.x, y: sTop },
+                end,
+            ]);
+            candidates.push([
+                start,
+                { x: start.x, y: sBottom },
+                { x: end.x, y: sBottom },
+                end,
+            ]);
+            candidates.push([
+                start,
+                { x: sLeft, y: start.y },
+                { x: sLeft, y: end.y },
+                end,
+            ]);
+            candidates.push([
+                start,
+                { x: sRight, y: start.y },
+                { x: sRight, y: end.y },
+                end,
+            ]);
+
+            // Find shortest valid path
+            let bestPath: Point[] | null = null;
+            let bestLen = Infinity;
+
+            for (const path of candidates) {
+                if (isPathValid(path)) {
+                    let len = 0;
+                    for (let i = 0; i < path.length - 1; i++) {
+                        len +=
+                            Math.abs(path[i + 1].x - path[i].x) +
+                            Math.abs(path[i + 1].y - path[i].y);
+                    }
+                    if (len < bestLen) {
+                        bestLen = len;
+                        bestPath = path;
+                    }
+                }
+            }
+
+            if (bestPath) {
+                // Simplify the path by removing collinear points
+                const simplified: Point[] = [bestPath[0]];
+                for (let i = 1; i < bestPath.length - 1; i++) {
+                    const prev = simplified[simplified.length - 1];
+                    const curr = bestPath[i];
+                    const next = bestPath[i + 1];
+                    // Keep point if direction changes
+                    const sameX = prev.x === curr.x && curr.x === next.x;
+                    const sameY = prev.y === curr.y && curr.y === next.y;
+                    if (!sameX && !sameY) {
+                        simplified.push(curr);
+                    }
+                }
+                simplified.push(bestPath[bestPath.length - 1]);
+                return simplified;
+            }
+
+            // Fallback: just use whichever simple path is shorter
             return dx > dy ? hFirstPath : vFirstPath;
         }
 
-        // Determine which side of the shape the endpoint is on
+        // Single-connection: use the existing routing logic
+        const routingBounds = targetBounds || startBounds;
+        if (!routingBounds) {
+            return dx > dy ? hFirstPath : vFirstPath;
+        }
+
         const endSide = targetBounds
             ? getSnapSide(end, targetBounds)
             : getSnapSide(start, startBounds!);
 
-        // Calculate expanded bounds for routing around the primary shape
         const targetExpanded = {
             x: routingBounds.x - MARGIN,
             y: routingBounds.y - MARGIN,
@@ -837,27 +894,13 @@ export function generateElbowRouteAroundObstacles(
         };
 
         if (endSide) {
-            // Route based on which side of the target shape the endpoint is on
-            // We need to approach from outside the expanded bounds
             switch (endSide) {
                 case "left": {
-                    // End point is on left side of target shape
-                    // Arrow should approach from the left (outside the expanded bounds)
                     const approachX = targetExpanded.x;
-
-                    if (start.y < targetExpanded.y) {
-                        // Start is above - come down on the left side
-                        return [
-                            start,
-                            { x: approachX, y: start.y },
-                            { x: approachX, y: end.y },
-                            end,
-                        ];
-                    } else if (
-                        start.y >
-                        targetExpanded.y + targetExpanded.height
+                    if (
+                        start.y < targetExpanded.y ||
+                        start.y > targetExpanded.y + targetExpanded.height
                     ) {
-                        // Start is below - come up on the left side
                         return [
                             start,
                             { x: approachX, y: start.y },
@@ -865,7 +908,6 @@ export function generateElbowRouteAroundObstacles(
                             end,
                         ];
                     } else {
-                        // Start is at same height range - need to go around
                         const goUp =
                             end.y <= routingBounds.y + routingBounds.height / 2;
                         const cornerY = goUp
@@ -880,21 +922,11 @@ export function generateElbowRouteAroundObstacles(
                         ];
                     }
                 }
-
                 case "right": {
-                    // End point is on right side of target shape
                     const approachX = targetExpanded.x + targetExpanded.width;
-
-                    if (start.y < targetExpanded.y) {
-                        return [
-                            start,
-                            { x: approachX, y: start.y },
-                            { x: approachX, y: end.y },
-                            end,
-                        ];
-                    } else if (
-                        start.y >
-                        targetExpanded.y + targetExpanded.height
+                    if (
+                        start.y < targetExpanded.y ||
+                        start.y > targetExpanded.y + targetExpanded.height
                     ) {
                         return [
                             start,
@@ -917,24 +949,12 @@ export function generateElbowRouteAroundObstacles(
                         ];
                     }
                 }
-
                 case "top": {
-                    // End point is on top of target shape
                     const approachY = targetExpanded.y;
-
-                    if (start.x < targetExpanded.x) {
-                        // Start is to the left - come across on top
-                        return [
-                            start,
-                            { x: start.x, y: approachY },
-                            { x: end.x, y: approachY },
-                            end,
-                        ];
-                    } else if (
-                        start.x >
-                        targetExpanded.x + targetExpanded.width
+                    if (
+                        start.x < targetExpanded.x ||
+                        start.x > targetExpanded.x + targetExpanded.width
                     ) {
-                        // Start is to the right - come across on top
                         return [
                             start,
                             { x: start.x, y: approachY },
@@ -942,7 +962,6 @@ export function generateElbowRouteAroundObstacles(
                             end,
                         ];
                     } else {
-                        // Start is directly above/below - go around via left or right
                         const goLeft =
                             end.x <= routingBounds.x + routingBounds.width / 2;
                         const cornerX = goLeft
@@ -957,21 +976,11 @@ export function generateElbowRouteAroundObstacles(
                         ];
                     }
                 }
-
                 case "bottom": {
-                    // End point is on bottom of target shape
                     const approachY = targetExpanded.y + targetExpanded.height;
-
-                    if (start.x < targetExpanded.x) {
-                        return [
-                            start,
-                            { x: start.x, y: approachY },
-                            { x: end.x, y: approachY },
-                            end,
-                        ];
-                    } else if (
-                        start.x >
-                        targetExpanded.x + targetExpanded.width
+                    if (
+                        start.x < targetExpanded.x ||
+                        start.x > targetExpanded.x + targetExpanded.width
                     ) {
                         return [
                             start,
