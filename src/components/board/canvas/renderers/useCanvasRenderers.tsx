@@ -165,12 +165,18 @@ export function useCanvasRenderers({
                     const otherEndpointIndex =
                         index === 0 ? originalPoints.length - 1 : 0;
                     const otherEndpoint = originalPoints[otherEndpointIndex];
+                    // Get existing connection on the other end
+                    const otherConnection =
+                        index === 0
+                            ? originalElement.endConnection?.elementId
+                            : originalElement.startConnection?.elementId;
                     const routedPoints = generateCurvedRouteAroundObstacles(
                         otherEndpoint,
                         snapTarget.point,
                         elements,
                         originalElement.id,
                         snapTarget.elementId,
+                        otherConnection ?? null,
                     );
 
                     // Reverse if dragging start point
@@ -195,12 +201,19 @@ export function useCanvasRenderers({
                         index === 0 ? originalPoints.length - 1 : 0;
                     const otherEndpoint = originalPoints[otherEndpointIndex];
 
+                    // Get existing connection on the other end
+                    const otherConnection =
+                        index === 0
+                            ? originalElement.endConnection?.elementId
+                            : originalElement.startConnection?.elementId;
+
                     const routedPoints = generateElbowRouteAroundObstacles(
                         otherEndpoint,
                         snapTarget.point,
                         elements,
                         originalElement.id,
                         snapTarget.elementId,
+                        otherConnection ?? null,
                     );
 
                     // Reverse if dragging start point
@@ -372,12 +385,17 @@ export function useCanvasRenderers({
                         ? originalPoints.length - 1
                         : 0;
                     const otherEndpoint = originalPoints[otherEndpointIndex];
+                    // Get existing connection on the other end
+                    const otherConnection = isStart
+                        ? originalElement.endConnection?.elementId
+                        : originalElement.startConnection?.elementId;
                     const routedPoints = generateElbowRouteAroundObstacles(
                         otherEndpoint,
                         snapTarget.point,
                         elements,
                         originalElement.id,
                         snapTarget.elementId,
+                        otherConnection ?? null,
                     );
 
                     // Reverse if dragging start point
