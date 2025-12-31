@@ -241,6 +241,8 @@ function RenderMarkdownContent({ text }: { text: string }) {
 interface PreRenderedContent {
   [tileId: string]: {
     mermaidDataUrl?: string;
+    mermaidWidth?: number;
+    mermaidHeight?: number;
   };
 }
 
@@ -307,14 +309,28 @@ function RenderTileContent({
         </View>
       )}
 
-      {type === "tile-mermaid" && preRenderedContent[section.tileId]?.mermaidDataUrl && (
-        <View style={styles.imageContainer}>
-          <Image
-            style={styles.diagramImage}
-            src={preRenderedContent[section.tileId].mermaidDataUrl}
-          />
-        </View>
-      )}
+      {type === "tile-mermaid" && preRenderedContent[section.tileId]?.mermaidDataUrl && (() => {
+        const originalWidth = preRenderedContent[section.tileId].mermaidWidth || 400;
+        const originalHeight = preRenderedContent[section.tileId].mermaidHeight || 300;
+        const maxWidth = 450; // Max width to fit in the content area
+        const aspectRatio = originalHeight / originalWidth;
+
+        // Scale down if wider than max, otherwise use original size
+        const displayWidth = Math.min(originalWidth, maxWidth);
+        const displayHeight = displayWidth * aspectRatio;
+
+        return (
+          <View style={styles.imageContainer}>
+            <Image
+              src={preRenderedContent[section.tileId].mermaidDataUrl}
+              style={{
+                width: displayWidth,
+                height: displayHeight,
+              }}
+            />
+          </View>
+        );
+      })()}
 
       {type === "tile-image" && content.imageSrc && (
         <View style={styles.imageContainer}>
@@ -413,7 +429,13 @@ function DocumentPdf({
 }
 
 // Render Mermaid diagram to PNG data URL
-async function renderMermaidToDataUrl(chart: string): Promise<string | null> {
+interface MermaidRenderResult {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+async function renderMermaidToDataUrl(chart: string): Promise<MermaidRenderResult | null> {
   try {
     const mermaid = (await import("mermaid")).default;
 
@@ -426,27 +448,63 @@ async function renderMermaidToDataUrl(chart: string): Promise<string | null> {
     const id = `mermaid-export-${Math.random().toString(36).slice(2, 11)}`;
     const { svg } = await mermaid.render(id, chart);
 
+    // Parse SVG to get actual viewBox dimensions
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svg, "image/svg+xml");
+    const svgElement = svgDoc.querySelector("svg");
+
+    let svgWidth = 400;
+    let svgHeight = 300;
+
+    if (svgElement) {
+      // Try to get dimensions from viewBox first
+      const viewBox = svgElement.getAttribute("viewBox");
+      if (viewBox) {
+        const parts = viewBox.split(" ").map(Number);
+        if (parts.length === 4) {
+          svgWidth = parts[2];
+          svgHeight = parts[3];
+        }
+      } else {
+        // Fall back to width/height attributes
+        const widthAttr = svgElement.getAttribute("width");
+        const heightAttr = svgElement.getAttribute("height");
+        if (widthAttr) svgWidth = parseFloat(widthAttr) || 400;
+        if (heightAttr) svgHeight = parseFloat(heightAttr) || 300;
+      }
+
+      // Ensure SVG has explicit width and height for proper rendering
+      svgElement.setAttribute("width", String(svgWidth));
+      svgElement.setAttribute("height", String(svgHeight));
+    }
+
+    const fixedSvg = svgElement ? new XMLSerializer().serializeToString(svgElement) : svg;
+
     // Convert SVG to PNG using canvas
     return new Promise((resolve) => {
       const img = new window.Image();
-      const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      const svgBlob = new Blob([fixedSvg], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(svgBlob);
 
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        // Use higher resolution for better quality
+        // Render at 2x scale for high quality
         const scale = 2;
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        canvas.width = svgWidth * scale;
+        canvas.height = svgHeight * scale;
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.fillStyle = "white";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.scale(scale, scale);
-          ctx.drawImage(img, 0, 0);
+          ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
           const dataUrl = canvas.toDataURL("image/png");
           URL.revokeObjectURL(url);
-          resolve(dataUrl);
+          resolve({
+            dataUrl,
+            width: svgWidth,
+            height: svgHeight,
+          });
         } else {
           URL.revokeObjectURL(url);
           resolve(null);
@@ -482,9 +540,13 @@ export async function exportDocumentToPdf(
         const tileType = tile?.tileType || tileSection.cachedTileType;
 
         if (tileType === "tile-mermaid" && tileContent?.chart) {
-          const dataUrl = await renderMermaidToDataUrl(tileContent.chart);
-          if (dataUrl) {
-            preRenderedContent[tileSection.tileId] = { mermaidDataUrl: dataUrl };
+          const result = await renderMermaidToDataUrl(tileContent.chart);
+          if (result) {
+            preRenderedContent[tileSection.tileId] = {
+              mermaidDataUrl: result.dataUrl,
+              mermaidWidth: result.width,
+              mermaidHeight: result.height,
+            };
           }
         }
       }
