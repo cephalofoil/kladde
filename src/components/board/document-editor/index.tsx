@@ -50,21 +50,28 @@ export function DocumentEditorPanel({
     }, 300);
   }, [onClose]);
 
-  const documentContent: DocumentContent = documentElement.tileContent
-    ?.documentContent || {
-    title: "Untitled Document",
-    description: "",
-    layout: {
-      pageFormat: "A4",
-      orientation: "portrait",
-      margins: { top: 25, right: 25, bottom: 25, left: 25 },
-      sections: [],
-    },
-    metadata: {
-      createdAt: Date.now(),
-      modifiedAt: Date.now(),
-    },
-  };
+  // Use tileTitle as the source of truth for the document title
+  const storedDocContent = documentElement.tileContent?.documentContent;
+  const documentContent: DocumentContent = storedDocContent
+    ? {
+        ...storedDocContent,
+        // Always sync title from tileTitle (single source of truth)
+        title: documentElement.tileTitle || storedDocContent.title,
+      }
+    : {
+        title: documentElement.tileTitle || "Untitled Document",
+        description: "",
+        layout: {
+          pageFormat: "A4",
+          orientation: "portrait",
+          margins: { top: 25, right: 25, bottom: 25, left: 25 },
+          sections: [],
+        },
+        metadata: {
+          createdAt: Date.now(),
+          modifiedAt: Date.now(),
+        },
+      };
 
   const updateDocumentContent = useCallback(
     (updates: Partial<DocumentContent>) => {

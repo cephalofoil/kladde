@@ -107,8 +107,10 @@ export function A4DocumentPreview({
             type="text"
             value={documentContent.title}
             onChange={(e) => onTitleChange(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             placeholder="Document Title"
-            className="w-full text-xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 mb-2"
+            className="w-full text-xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 mb-2 cursor-text"
             style={{ fontSize: "22px", lineHeight: 1.3 }}
           />
 
@@ -116,9 +118,11 @@ export function A4DocumentPreview({
           <textarea
             value={documentContent.description}
             onChange={(e) => onDescriptionChange(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             placeholder="Add a description..."
             rows={1}
-            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 resize-none mb-5"
+            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 resize-none mb-5 cursor-text"
             style={{ fontSize: "13px", lineHeight: 1.5 }}
           />
 

@@ -64,6 +64,28 @@ export function HtmlTileRenderer({
 
   const content = element.tileContent;
 
+  // Handle title change - for document tiles, also sync documentContent.title
+  const handleTitleChange = useCallback(
+    (newTitle: string) => {
+      if (element.tileType === "tile-document") {
+        // Sync both tileTitle and documentContent.title for document tiles
+        const existingDocContent = element.tileContent?.documentContent;
+        onUpdate?.({
+          tileTitle: newTitle,
+          tileContent: {
+            ...element.tileContent,
+            documentContent: existingDocContent
+              ? { ...existingDocContent, title: newTitle }
+              : undefined,
+          },
+        });
+      } else {
+        onUpdate?.({ tileTitle: newTitle });
+      }
+    },
+    [element.tileType, element.tileContent, onUpdate]
+  );
+
   useEffect(() => {
     setMermaidScale(element.tileContent?.mermaidScale || 1);
     setMermaidOffsetX(element.tileContent?.mermaidOffsetX || 0);
@@ -415,7 +437,7 @@ export function HtmlTileRenderer({
             <input
               type="text"
               value={tileTitle}
-              onChange={(e) => onUpdate?.({ tileTitle: e.target.value })}
+              onChange={(e) => handleTitleChange(e.target.value)}
               onBlur={() => setIsEditingTitle(false)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") setIsEditingTitle(false);
