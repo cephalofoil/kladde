@@ -97,9 +97,9 @@ export function A4DocumentPreview({
         <div
           className="mx-auto bg-white shadow-xl rounded-sm"
           style={{
-            width: A4_WIDTH_PX * 0.5,
-            minHeight: A4_HEIGHT_PX * 0.5,
-            padding: MARGIN_PX * 0.5,
+            width: A4_WIDTH_PX * 0.75,
+            minHeight: A4_HEIGHT_PX * 0.75,
+            padding: MARGIN_PX * 0.75,
           }}
         >
           {/* Document Title */}
@@ -108,8 +108,8 @@ export function A4DocumentPreview({
             value={documentContent.title}
             onChange={(e) => onTitleChange(e.target.value)}
             placeholder="Document Title"
-            className="w-full text-xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 mb-1"
-            style={{ fontSize: "16px", lineHeight: 1.3 }}
+            className="w-full text-xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 mb-2"
+            style={{ fontSize: "22px", lineHeight: 1.3 }}
           />
 
           {/* Document Description */}
@@ -118,8 +118,8 @@ export function A4DocumentPreview({
             onChange={(e) => onDescriptionChange(e.target.value)}
             placeholder="Add a description..."
             rows={1}
-            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 resize-none mb-4"
-            style={{ fontSize: "10px", lineHeight: 1.5 }}
+            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 resize-none mb-5"
+            style={{ fontSize: "13px", lineHeight: 1.5 }}
           />
 
           {/* Divider */}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { X, FileText, Download, Loader2 } from "lucide-react";
+import { useCallback, useState, useEffect } from "react";
+import { ChevronRight, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   BoardElement,
@@ -34,6 +34,21 @@ export function DocumentEditorPanel({
   onUpdateDocument,
 }: DocumentEditorPanelProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
+
+  // Swipe-in animation on mount
+  useEffect(() => {
+    // Small delay to trigger the animation
+    const timer = setTimeout(() => setIsAnimating(false), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setIsAnimating(true);
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  }, [onClose]);
 
   const documentContent: DocumentContent = documentElement.tileContent
     ?.documentContent || {
@@ -186,14 +201,31 @@ export function DocumentEditorPanel({
   );
 
   return (
-    <div className="fixed top-0 right-0 h-full w-[1800px] max-w-[95vw] bg-card border-l border-border shadow-2xl flex flex-col z-50">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-orange-500" />
-          <h2 className="text-lg font-semibold">Document Editor</h2>
-        </div>
-        <div className="flex items-center gap-2">
+    <div
+      className="fixed inset-0 z-50 bg-black/20"
+      onClick={handleClose}
+    >
+      <div
+        className={cn(
+          "absolute top-4 bottom-4 right-4 w-[1400px] max-w-[calc(85vw-2rem)]",
+          "bg-card rounded-2xl shadow-2xl flex flex-col overflow-hidden",
+          "transform transition-transform duration-300 ease-in-out"
+        )}
+        style={{
+          transform: isAnimating ? "translateX(calc(100% + 1rem))" : "translateX(0)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Minimal Header - Close on left, Export on right */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
+          <button
+            onClick={handleClose}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            aria-label="Close document editor"
+          >
+            <ChevronRight className="w-5 h-5" />
+            <span className="text-sm">Close</span>
+          </button>
           <button
             onClick={handleExportPdf}
             disabled={isExporting}
@@ -210,39 +242,32 @@ export function DocumentEditorPanel({
             )}
             Export PDF
           </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-muted transition-colors"
-            aria-label="Close document editor"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Two-column layout - 1:2 ratio */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Tiles Picker (1/3 width) */}
-        <div className="w-1/3 border-r border-border flex-shrink-0 overflow-hidden">
-          <TilesPicker
-            tiles={availableTiles}
-            onAddTile={handleAddTileToDocument}
-            documentSections={documentContent.layout.sections}
-          />
         </div>
 
-        {/* Right Panel: A4 Document Preview (2/3 width) */}
-        <div className="w-2/3 overflow-hidden">
-          <A4DocumentPreview
-            documentContent={documentContent}
-            allElements={allElements}
-            onTitleChange={handleTitleChange}
-            onDescriptionChange={handleDescriptionChange}
-            onAddSection={handleAddSection}
-            onRemoveSection={handleRemoveSection}
-            onUpdateSection={handleUpdateSection}
-            onMoveSection={handleMoveSection}
-          />
+        {/* Two-column layout - 1:2 ratio */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel: Tiles Picker (1/3 width) */}
+          <div className="w-1/3 border-r border-border flex-shrink-0 overflow-hidden">
+            <TilesPicker
+              tiles={availableTiles}
+              onAddTile={handleAddTileToDocument}
+              documentSections={documentContent.layout.sections}
+            />
+          </div>
+
+          {/* Right Panel: A4 Document Preview (2/3 width) */}
+          <div className="w-2/3 overflow-hidden">
+            <A4DocumentPreview
+              documentContent={documentContent}
+              allElements={allElements}
+              onTitleChange={handleTitleChange}
+              onDescriptionChange={handleDescriptionChange}
+              onAddSection={handleAddSection}
+              onRemoveSection={handleRemoveSection}
+              onUpdateSection={handleUpdateSection}
+              onMoveSection={handleMoveSection}
+            />
+          </div>
         </div>
       </div>
     </div>
