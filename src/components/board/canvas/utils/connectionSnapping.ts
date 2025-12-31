@@ -612,9 +612,12 @@ export function generateElbowRouteAroundObstacles(
     const dx = Math.abs(end.x - start.x);
     const dy = Math.abs(end.y - start.y);
 
-    // Helper: check if a point is strictly inside bounds
-    const pointInside = (p: Point, b: BoundingBox) =>
-        p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height;
+    // Helper: check if a point is inside bounds (with small buffer to catch edge cases)
+    const pointInside = (p: Point, b: BoundingBox, buffer: number = 2) =>
+        p.x > b.x - buffer &&
+        p.x < b.x + b.width + buffer &&
+        p.y > b.y - buffer &&
+        p.y < b.y + b.height + buffer;
 
     // Helper: check if a straight line between two points passes through a shape
     const linePassesThrough = (
@@ -622,8 +625,11 @@ export function generateElbowRouteAroundObstacles(
         p2: Point,
         bounds: BoundingBox,
     ): boolean => {
-        // Sample points along the line (skip endpoints which are on shape edges)
-        for (let t = 0.1; t <= 0.9; t += 0.1) {
+        // Sample points densely along the line
+        const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+        const steps = Math.max(20, Math.ceil(dist / 5)); // Sample every 5px or at least 20 samples
+        for (let i = 1; i < steps; i++) {
+            const t = i / steps;
             const px = p1.x + (p2.x - p1.x) * t;
             const py = p1.y + (p2.y - p1.y) * t;
             if (pointInside({ x: px, y: py }, bounds)) {
@@ -663,175 +669,143 @@ export function generateElbowRouteAroundObstacles(
     // IMPORTANT: If we're connecting TO shapes (targetBounds/startBounds exist),
     // we MUST route around them - never allow paths that ride along or through them
     if (targetBounds || startBounds) {
-        // Helper: check if path is valid (corner not inside shapes, no tunneling)
+        // Helper: check if path is valid (no points inside shapes, no tunneling)
         const isPathValid = (path: Point[]): boolean => {
-            if (path.length < 3) return true;
-            const corner = path[1];
+            // Check ALL intermediate points (corners) are not inside shapes
+            for (let i = 1; i < path.length - 1; i++) {
+                const pt = path[i];
+                if (targetBounds && pointInside(pt, targetBounds)) return false;
+                if (startBounds && pointInside(pt, startBounds)) return false;
+            }
 
-            // Corner must not be inside either connected shape
-            if (targetBounds && pointInside(corner, targetBounds)) return false;
-            if (startBounds && pointInside(corner, startBounds)) return false;
-
-            // Check segments don't pass through shapes (sample interior points)
+            // Check middle segments don't pass through shapes
+            // First segment exits startBounds, last segment enters targetBounds
+            // So we check: first segment against targetBounds only, last against startBounds only
+            // Middle segments check against both
             for (let i = 0; i < path.length - 1; i++) {
                 const p1 = path[i],
                     p2 = path[i + 1];
-                for (let t = 0.2; t <= 0.8; t += 0.2) {
-                    const px = p1.x + (p2.x - p1.x) * t;
-                    const py = p1.y + (p2.y - p1.y) * t;
-                    const testPt = { x: px, y: py };
-                    if (targetBounds && pointInside(testPt, targetBounds))
-                        return false;
-                    if (startBounds && pointInside(testPt, startBounds))
-                        return false;
-                }
+                const isFirstSeg = i === 0;
+                const isLastSeg = i === path.length - 2;
+
+                // First segment can touch startBounds but not targetBounds
+                if (
+                    !isFirstSeg &&
+                    startBounds &&
+                    linePassesThrough(p1, p2, startBounds)
+                )
+                    return false;
+                // Last segment can touch targetBounds but not startBounds
+                if (
+                    !isLastSeg &&
+                    targetBounds &&
+                    linePassesThrough(p1, p2, targetBounds)
+                )
+                    return false;
             }
             return true;
         };
 
-        // Check obstacles
-        const hFirstObstacleClear =
-            obstacles.length === 0 ||
-            !pathIntersectsObstacles(hFirstPath, obstacles);
-        const vFirstObstacleClear =
-            obstacles.length === 0 ||
-            !pathIntersectsObstacles(vFirstPath, obstacles);
-
-        // Try simple L-paths first - these are the most efficient
-        const hFirstValid = isPathValid(hFirstPath);
-        const vFirstValid = isPathValid(vFirstPath);
-
-        if (hFirstValid && hFirstObstacleClear && dx >= dy) {
-            return hFirstPath;
-        }
-        if (vFirstValid && vFirstObstacleClear && dy > dx) {
-            return vFirstPath;
-        }
-        if (hFirstValid && hFirstObstacleClear) {
-            return hFirstPath;
-        }
-        if (vFirstValid && vFirstObstacleClear) {
-            return vFirstPath;
-        }
-
-        // Simple L-paths don't work - need to route around
-        // Generate candidate paths that go around each blocking shape individually
+        // For DUAL-connection (both startBounds and targetBounds exist),
+        // skip simple L-paths and use proper exit-point routing to avoid edge-riding
         if (targetBounds && startBounds) {
-            const margin = 15;
+            const margin = 40; // Enough spacing to avoid edge-riding
             const candidates: Point[][] = [];
 
-            // Helper to generate routes around a single shape
-            const addRoutesAroundShape = (bounds: BoundingBox) => {
-                const left = bounds.x - margin;
-                const right = bounds.x + bounds.width + margin;
-                const top = bounds.y - margin;
-                const bottom = bounds.y + bounds.height + margin;
+            // Determine exit directions from start and end points
+            const startSide = getSnapSide(start, startBounds);
+            const endSide = getSnapSide(end, targetBounds);
 
-                // L-paths that go around this shape
-                // Via top-left corner
-                candidates.push([
-                    start,
-                    { x: left, y: start.y },
-                    { x: left, y: top },
-                    { x: end.x, y: top },
-                    end,
-                ]);
-                // Via top-right corner
-                candidates.push([
-                    start,
-                    { x: right, y: start.y },
-                    { x: right, y: top },
-                    { x: end.x, y: top },
-                    end,
-                ]);
-                // Via bottom-left corner
-                candidates.push([
-                    start,
-                    { x: left, y: start.y },
-                    { x: left, y: bottom },
-                    { x: end.x, y: bottom },
-                    end,
-                ]);
-                // Via bottom-right corner
-                candidates.push([
-                    start,
-                    { x: right, y: start.y },
-                    { x: right, y: bottom },
-                    { x: end.x, y: bottom },
-                    end,
-                ]);
-                // Vertical first variants
-                candidates.push([
-                    start,
-                    { x: start.x, y: top },
-                    { x: left, y: top },
-                    { x: left, y: end.y },
-                    end,
-                ]);
-                candidates.push([
-                    start,
-                    { x: start.x, y: top },
-                    { x: right, y: top },
-                    { x: right, y: end.y },
-                    end,
-                ]);
-                candidates.push([
-                    start,
-                    { x: start.x, y: bottom },
-                    { x: left, y: bottom },
-                    { x: left, y: end.y },
-                    end,
-                ]);
-                candidates.push([
-                    start,
-                    { x: start.x, y: bottom },
-                    { x: right, y: bottom },
-                    { x: right, y: end.y },
-                    end,
-                ]);
+            // Calculate exit points - move away from the shape first
+            const getExitPoint = (
+                pt: Point,
+                side: string | null,
+                bounds: BoundingBox,
+            ): Point => {
+                switch (side) {
+                    case "left":
+                        return { x: bounds.x - margin, y: pt.y };
+                    case "right":
+                        return { x: bounds.x + bounds.width + margin, y: pt.y };
+                    case "top":
+                        return { x: pt.x, y: bounds.y - margin };
+                    case "bottom":
+                        return {
+                            x: pt.x,
+                            y: bounds.y + bounds.height + margin,
+                        };
+                    default:
+                        return pt;
+                }
             };
 
-            // Add routes around each shape
-            addRoutesAroundShape(startBounds);
-            addRoutesAroundShape(targetBounds);
+            const startExit = getExitPoint(start, startSide, startBounds);
+            const endExit = getExitPoint(end, endSide, targetBounds);
 
-            // Also add simpler 3-point routes
-            const sMargin = 15;
-            const sLeft = Math.min(startBounds.x, targetBounds.x) - sMargin;
-            const sRight =
+            // Try direct path through exit points
+            candidates.push([start, startExit, endExit, end]);
+
+            // Try L-path variants through exit points
+            candidates.push([
+                start,
+                startExit,
+                { x: startExit.x, y: endExit.y },
+                endExit,
+                end,
+            ]);
+            candidates.push([
+                start,
+                startExit,
+                { x: endExit.x, y: startExit.y },
+                endExit,
+                end,
+            ]);
+
+            // Calculate outer bounds for routing around both shapes
+            const outerLeft = Math.min(startBounds.x, targetBounds.x) - margin;
+            const outerRight =
                 Math.max(
                     startBounds.x + startBounds.width,
                     targetBounds.x + targetBounds.width,
-                ) + sMargin;
-            const sTop = Math.min(startBounds.y, targetBounds.y) - sMargin;
-            const sBottom =
+                ) + margin;
+            const outerTop = Math.min(startBounds.y, targetBounds.y) - margin;
+            const outerBottom =
                 Math.max(
                     startBounds.y + startBounds.height,
                     targetBounds.y + targetBounds.height,
-                ) + sMargin;
+                ) + margin;
 
+            // Routes that go around via outer edges (with proper exit from shapes)
             candidates.push([
                 start,
-                { x: start.x, y: sTop },
-                { x: end.x, y: sTop },
+                startExit,
+                { x: startExit.x, y: outerTop },
+                { x: endExit.x, y: outerTop },
+                endExit,
                 end,
             ]);
             candidates.push([
                 start,
-                { x: start.x, y: sBottom },
-                { x: end.x, y: sBottom },
+                startExit,
+                { x: startExit.x, y: outerBottom },
+                { x: endExit.x, y: outerBottom },
+                endExit,
                 end,
             ]);
             candidates.push([
                 start,
-                { x: sLeft, y: start.y },
-                { x: sLeft, y: end.y },
+                startExit,
+                { x: outerLeft, y: startExit.y },
+                { x: outerLeft, y: endExit.y },
+                endExit,
                 end,
             ]);
             candidates.push([
                 start,
-                { x: sRight, y: start.y },
-                { x: sRight, y: end.y },
+                startExit,
+                { x: outerRight, y: startExit.y },
+                { x: outerRight, y: endExit.y },
+                endExit,
                 end,
             ]);
 
