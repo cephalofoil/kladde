@@ -90,11 +90,14 @@ export interface Point {
   y: number;
 }
 
+export type NoteColor = "butter" | "mint" | "lavender";
+
 export interface TileContent {
   // Text tile
   richText?: string;
   // Note tile
   noteText?: string;
+  noteColor?: NoteColor;
   // Code tile
   code?: string;
   language?: string;

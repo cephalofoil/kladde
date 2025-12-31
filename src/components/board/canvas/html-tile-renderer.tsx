@@ -21,6 +21,7 @@ import {
   HeaderColorPicker,
   getContrastTextColor,
 } from "./content-renderers/header-color-picker";
+import { NoteTileRenderer, type NoteColor } from "./content-renderers/note-tile-renderer";
 
 interface HtmlTileRendererProps {
   element: BoardElement;
@@ -267,10 +268,8 @@ export function HtmlTileRenderer({
         const markdown = content?.richText || "";
         return renderTextTileBody(markdown, "richText");
       }
-      case "tile-note": {
-        const markdown = content?.noteText || "";
-        return renderTextTileBody(markdown, "noteText");
-      }
+      case "tile-note":
+        return null; // Note tiles render their own content in the special branch below
       case "tile-code":
         return (
           <div className="absolute left-0 right-0 bottom-0 top-10 rounded-b-lg overflow-hidden pointer-events-auto">
@@ -391,6 +390,55 @@ export function HtmlTileRenderer({
   };
 
   if (element.type !== "tile" || !element.tileType) return null;
+
+  // Note tiles have a special sticky-note design without header
+  const isNoteTile = element.tileType === "tile-note";
+
+  if (isNoteTile) {
+    return (
+      <div
+        className="absolute group"
+        style={tileStyle}
+        data-element-id={element.id}
+        data-tile-id={element.id}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onRequestTextEdit();
+        }}
+      >
+        <div
+          data-tile-header="true"
+          data-element-id={element.id}
+          className={cn(
+            "relative w-full h-full select-none",
+            isSelected && !isTextEditing ? "cursor-move" : "cursor-text",
+          )}
+        >
+          <div className="absolute inset-0 pointer-events-auto">
+            <NoteTileRenderer
+              content={content?.noteText || ""}
+              color={(content?.noteColor as NoteColor) || "butter"}
+              onChange={(text) =>
+                onUpdate?.({
+                  tileContent: { ...content, noteText: text },
+                })
+              }
+              onColorChange={(newColor) =>
+                onUpdate?.({
+                  tileContent: { ...content, noteColor: newColor },
+                })
+              }
+              onDelete={onDelete}
+              readOnly={false}
+              isSelected={isSelected}
+              isEditing={isTextEditing}
+              onRequestEdit={onRequestTextEdit}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -19,6 +19,7 @@ import {
   HeaderColorPicker,
   getContrastTextColor,
 } from "./content-renderers/header-color-picker";
+import { NoteTileRenderer, type NoteColor } from "./content-renderers/note-tile-renderer";
 
 interface TileRendererProps {
   element: BoardElement;
@@ -186,22 +187,7 @@ export function TileRenderer({
         );
 
       case "tile-note":
-        return (
-          <div className="absolute left-0 right-0 bottom-0 top-10 overflow-hidden pointer-events-auto rounded-b-lg">
-            <RichTextRenderer
-              content={content?.noteText || ""}
-              onChange={(text) =>
-                onUpdate?.({
-                  tileContent: { ...content, noteText: text },
-                })
-              }
-              readOnly={false}
-              autoFocus={false}
-              showFloatingToolbar={true}
-              className={cn("h-full text-sm", getTileTextColor())}
-            />
-          </div>
-        );
+        return null; // Note tiles render their own content in the special branch below
 
       case "tile-code":
         return (
@@ -301,6 +287,69 @@ export function TileRenderer({
         return null;
     }
   };
+
+  // Note tiles have a special sticky-note design without header
+  const isNoteTile = element.tileType === "tile-note";
+
+  if (isNoteTile) {
+    const content = element.tileContent;
+    return (
+      <g>
+        <foreignObject
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          style={{
+            transform: element.rotation
+              ? `rotate(${element.rotation}deg)`
+              : undefined,
+            transformOrigin: "center",
+            overflow: "visible",
+          }}
+        >
+          <div
+            data-tile-header="true"
+            data-element-id={element.id}
+            className={cn(
+              "relative w-full h-full select-none group",
+              isSelected && !isEditing ? "cursor-move" : "cursor-text",
+            )}
+            style={{
+              opacity: (element.opacity || 100) / 100,
+              pointerEvents: "auto",
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setIsEditing(true);
+            }}
+          >
+            <div className="absolute inset-0 pointer-events-auto">
+              <NoteTileRenderer
+                content={content?.noteText || ""}
+                color={(content?.noteColor as NoteColor) || "butter"}
+                onChange={(text) =>
+                  onUpdate?.({
+                    tileContent: { ...content, noteText: text },
+                  })
+                }
+                onColorChange={(newColor) =>
+                  onUpdate?.({
+                    tileContent: { ...content, noteColor: newColor },
+                  })
+                }
+                onDelete={onDelete}
+                readOnly={false}
+                isSelected={isSelected}
+                isEditing={isEditing}
+                onRequestEdit={() => setIsEditing(true)}
+              />
+            </div>
+          </div>
+        </foreignObject>
+      </g>
+    );
+  }
 
   return (
     <g>
