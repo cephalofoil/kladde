@@ -18,6 +18,35 @@ export interface SnapTarget {
 }
 
 /**
+ * Find the closest point on a line segment to a given point
+ */
+function closestPointOnLineSegment(
+    point: Point,
+    lineStart: Point,
+    lineEnd: Point,
+): Point {
+    const dx = lineEnd.x - lineStart.x;
+    const dy = lineEnd.y - lineStart.y;
+    const lengthSquared = dx * dx + dy * dy;
+
+    if (lengthSquared === 0) {
+        // Line segment is a point
+        return lineStart;
+    }
+
+    // Project point onto line, clamping to segment
+    let t =
+        ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) /
+        lengthSquared;
+    t = Math.max(0, Math.min(1, t));
+
+    return {
+        x: lineStart.x + t * dx,
+        y: lineStart.y + t * dy,
+    };
+}
+
+/**
  * Check if a line segment intersects with a bounding box
  */
 function lineIntersectsBox(
@@ -165,6 +194,7 @@ function hasLineOfSight(
 
 /**
  * Calculate all snap points for an element (corners + edge midpoints)
+ * For diamonds and ellipses, snap points are on the actual shape outline
  */
 export function getElementSnapPoints(element: BoardElement): SnapPoint[] {
     // Only snap to shapes and tiles, not lines/arrows/pen/laser
@@ -183,56 +213,178 @@ export function getElementSnapPoints(element: BoardElement): SnapPoint[] {
     const rotationDeg = element.rotation ?? 0;
     const center = getBoundsCenter(bounds);
 
-    const localPoints: SnapPoint[] = [
-        // Corners
-        {
-            point: { x: bounds.x, y: bounds.y },
-            type: "corner",
-            position: "nw",
-        },
-        {
-            point: { x: bounds.x + bounds.width, y: bounds.y },
-            type: "corner",
-            position: "ne",
-        },
-        {
-            point: { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-            type: "corner",
-            position: "se",
-        },
-        {
-            point: { x: bounds.x, y: bounds.y + bounds.height },
-            type: "corner",
-            position: "sw",
-        },
-        // Edge midpoints
-        {
-            point: { x: bounds.x + bounds.width / 2, y: bounds.y },
-            type: "edge-mid",
-            position: "n",
-        },
-        {
-            point: {
-                x: bounds.x + bounds.width,
-                y: bounds.y + bounds.height / 2,
+    let localPoints: SnapPoint[];
+
+    if (element.type === "ellipse") {
+        // For ellipse/circle, snap points are on the ellipse outline at cardinal directions
+        const rx = bounds.width / 2;
+        const ry = bounds.height / 2;
+        const cx = bounds.x + rx;
+        const cy = bounds.y + ry;
+
+        localPoints = [
+            // Cardinal points on ellipse outline
+            {
+                point: { x: cx, y: cy - ry }, // top
+                type: "edge-mid",
+                position: "n",
             },
-            type: "edge-mid",
-            position: "e",
-        },
-        {
-            point: {
-                x: bounds.x + bounds.width / 2,
-                y: bounds.y + bounds.height,
+            {
+                point: { x: cx + rx, y: cy }, // right
+                type: "edge-mid",
+                position: "e",
             },
-            type: "edge-mid",
-            position: "s",
-        },
-        {
-            point: { x: bounds.x, y: bounds.y + bounds.height / 2 },
-            type: "edge-mid",
-            position: "w",
-        },
-    ];
+            {
+                point: { x: cx, y: cy + ry }, // bottom
+                type: "edge-mid",
+                position: "s",
+            },
+            {
+                point: { x: cx - rx, y: cy }, // left
+                type: "edge-mid",
+                position: "w",
+            },
+            // Diagonal points on ellipse outline (at 45 degree angles)
+            {
+                point: {
+                    x: cx + rx * Math.cos(-Math.PI / 4),
+                    y: cy + ry * Math.sin(-Math.PI / 4),
+                },
+                type: "corner",
+                position: "ne",
+            },
+            {
+                point: {
+                    x: cx + rx * Math.cos(Math.PI / 4),
+                    y: cy + ry * Math.sin(Math.PI / 4),
+                },
+                type: "corner",
+                position: "se",
+            },
+            {
+                point: {
+                    x: cx + rx * Math.cos((3 * Math.PI) / 4),
+                    y: cy + ry * Math.sin((3 * Math.PI) / 4),
+                },
+                type: "corner",
+                position: "sw",
+            },
+            {
+                point: {
+                    x: cx + rx * Math.cos((-3 * Math.PI) / 4),
+                    y: cy + ry * Math.sin((-3 * Math.PI) / 4),
+                },
+                type: "corner",
+                position: "nw",
+            },
+        ];
+    } else if (element.type === "diamond") {
+        // For diamond, snap points are at the diamond vertices (midpoints of bounding box edges)
+        const cx = bounds.x + bounds.width / 2;
+        const cy = bounds.y + bounds.height / 2;
+        const halfWidth = bounds.width / 2;
+        const halfHeight = bounds.height / 2;
+
+        localPoints = [
+            // Diamond vertices (these ARE the corners of the diamond shape)
+            {
+                point: { x: cx, y: cy - halfHeight }, // top vertex
+                type: "corner",
+                position: "n",
+            },
+            {
+                point: { x: cx + halfWidth, y: cy }, // right vertex
+                type: "corner",
+                position: "e",
+            },
+            {
+                point: { x: cx, y: cy + halfHeight }, // bottom vertex
+                type: "corner",
+                position: "s",
+            },
+            {
+                point: { x: cx - halfWidth, y: cy }, // left vertex
+                type: "corner",
+                position: "w",
+            },
+            // Edge midpoints (midpoints of diamond edges)
+            {
+                point: { x: cx + halfWidth / 2, y: cy - halfHeight / 2 }, // NE edge mid
+                type: "edge-mid",
+                position: "ne",
+            },
+            {
+                point: { x: cx + halfWidth / 2, y: cy + halfHeight / 2 }, // SE edge mid
+                type: "edge-mid",
+                position: "se",
+            },
+            {
+                point: { x: cx - halfWidth / 2, y: cy + halfHeight / 2 }, // SW edge mid
+                type: "edge-mid",
+                position: "sw",
+            },
+            {
+                point: { x: cx - halfWidth / 2, y: cy - halfHeight / 2 }, // NW edge mid
+                type: "edge-mid",
+                position: "nw",
+            },
+        ];
+    } else {
+        // Default: rectangle-like shapes (rectangle, tile, frame, text, etc.)
+        localPoints = [
+            // Corners
+            {
+                point: { x: bounds.x, y: bounds.y },
+                type: "corner",
+                position: "nw",
+            },
+            {
+                point: { x: bounds.x + bounds.width, y: bounds.y },
+                type: "corner",
+                position: "ne",
+            },
+            {
+                point: {
+                    x: bounds.x + bounds.width,
+                    y: bounds.y + bounds.height,
+                },
+                type: "corner",
+                position: "se",
+            },
+            {
+                point: { x: bounds.x, y: bounds.y + bounds.height },
+                type: "corner",
+                position: "sw",
+            },
+            // Edge midpoints
+            {
+                point: { x: bounds.x + bounds.width / 2, y: bounds.y },
+                type: "edge-mid",
+                position: "n",
+            },
+            {
+                point: {
+                    x: bounds.x + bounds.width,
+                    y: bounds.y + bounds.height / 2,
+                },
+                type: "edge-mid",
+                position: "e",
+            },
+            {
+                point: {
+                    x: bounds.x + bounds.width / 2,
+                    y: bounds.y + bounds.height,
+                },
+                type: "edge-mid",
+                position: "s",
+            },
+            {
+                point: { x: bounds.x, y: bounds.y + bounds.height / 2 },
+                type: "edge-mid",
+                position: "w",
+            },
+        ];
+    }
 
     // Apply rotation if element is rotated
     if (rotationDeg) {
@@ -247,6 +399,7 @@ export function getElementSnapPoints(element: BoardElement): SnapPoint[] {
 
 /**
  * Calculate snap point on an element's edge at the nearest position to a given point
+ * For diamonds and ellipses, finds the closest point on the actual shape outline
  */
 export function getEdgeSnapPoint(
     element: BoardElement,
@@ -263,50 +416,128 @@ export function getEdgeSnapPoint(
         ? rotatePoint(targetPoint, center, -rotationDeg)
         : targetPoint;
 
-    // Find closest point on bounding box edges
     const { x, y, width, height } = bounds;
-    const right = x + width;
-    const bottom = y + height;
-
-    // Calculate distance to each edge
-    const distToTop = Math.abs(localTarget.y - y);
-    const distToBottom = Math.abs(localTarget.y - bottom);
-    const distToLeft = Math.abs(localTarget.x - x);
-    const distToRight = Math.abs(localTarget.x - right);
-
-    const minDist = Math.min(distToTop, distToBottom, distToLeft, distToRight);
+    const cx = x + width / 2;
+    const cy = y + height / 2;
 
     let edgePoint: Point;
     let position: SnapPoint["position"];
 
-    if (minDist === distToTop && localTarget.y <= center.y) {
-        // Top edge
+    if (element.type === "ellipse") {
+        // Find closest point on ellipse outline
+        const rx = width / 2;
+        const ry = height / 2;
+
+        // Vector from center to target
+        const dx = localTarget.x - cx;
+        const dy = localTarget.y - cy;
+
+        // Angle to target point
+        const angle = Math.atan2(dy, dx);
+
+        // Point on ellipse at this angle
         edgePoint = {
-            x: Math.max(x, Math.min(right, localTarget.x)),
-            y: y,
+            x: cx + rx * Math.cos(angle),
+            y: cy + ry * Math.sin(angle),
         };
+
+        // Determine position based on angle
+        if (angle >= -Math.PI / 4 && angle < Math.PI / 4) {
+            position = "e";
+        } else if (angle >= Math.PI / 4 && angle < (3 * Math.PI) / 4) {
+            position = "s";
+        } else if (angle >= (-3 * Math.PI) / 4 && angle < -Math.PI / 4) {
+            position = "n";
+        } else {
+            position = "w";
+        }
+    } else if (element.type === "diamond") {
+        // Find closest point on diamond outline
+        const halfWidth = width / 2;
+        const halfHeight = height / 2;
+
+        // Diamond vertices
+        const top = { x: cx, y: cy - halfHeight };
+        const right = { x: cx + halfWidth, y: cy };
+        const bottom = { x: cx, y: cy + halfHeight };
+        const left = { x: cx - halfWidth, y: cy };
+
+        // Diamond edges
+        const edges = [
+            { p1: top, p2: right, pos: "ne" as const },
+            { p1: right, p2: bottom, pos: "se" as const },
+            { p1: bottom, p2: left, pos: "sw" as const },
+            { p1: left, p2: top, pos: "nw" as const },
+        ];
+
+        // Find closest point on any edge
+        let minDist = Infinity;
+        edgePoint = top;
         position = "n";
-    } else if (minDist === distToBottom && localTarget.y > center.y) {
-        // Bottom edge
-        edgePoint = {
-            x: Math.max(x, Math.min(right, localTarget.x)),
-            y: bottom,
-        };
-        position = "s";
-    } else if (minDist === distToLeft && localTarget.x <= center.x) {
-        // Left edge
-        edgePoint = {
-            x: x,
-            y: Math.max(y, Math.min(bottom, localTarget.y)),
-        };
-        position = "w";
+
+        for (const edge of edges) {
+            const closest = closestPointOnLineSegment(
+                localTarget,
+                edge.p1,
+                edge.p2,
+            );
+            const dist = Math.hypot(
+                closest.x - localTarget.x,
+                closest.y - localTarget.y,
+            );
+            if (dist < minDist) {
+                minDist = dist;
+                edgePoint = closest;
+                position = edge.pos;
+            }
+        }
     } else {
-        // Right edge
-        edgePoint = {
-            x: right,
-            y: Math.max(y, Math.min(bottom, localTarget.y)),
-        };
-        position = "e";
+        // Default: rectangle-like shapes
+        const right = x + width;
+        const bottom = y + height;
+
+        // Calculate distance to each edge
+        const distToTop = Math.abs(localTarget.y - y);
+        const distToBottom = Math.abs(localTarget.y - bottom);
+        const distToLeft = Math.abs(localTarget.x - x);
+        const distToRight = Math.abs(localTarget.x - right);
+
+        const minDist = Math.min(
+            distToTop,
+            distToBottom,
+            distToLeft,
+            distToRight,
+        );
+
+        if (minDist === distToTop && localTarget.y <= center.y) {
+            // Top edge
+            edgePoint = {
+                x: Math.max(x, Math.min(right, localTarget.x)),
+                y: y,
+            };
+            position = "n";
+        } else if (minDist === distToBottom && localTarget.y > center.y) {
+            // Bottom edge
+            edgePoint = {
+                x: Math.max(x, Math.min(right, localTarget.x)),
+                y: bottom,
+            };
+            position = "s";
+        } else if (minDist === distToLeft && localTarget.x <= center.x) {
+            // Left edge
+            edgePoint = {
+                x: x,
+                y: Math.max(y, Math.min(bottom, localTarget.y)),
+            };
+            position = "w";
+        } else {
+            // Right edge
+            edgePoint = {
+                x: right,
+                y: Math.max(y, Math.min(bottom, localTarget.y)),
+            };
+            position = "e";
+        }
     }
 
     // Rotate back to world space if needed
@@ -1524,6 +1755,7 @@ export function generateCurvedRouteAroundObstacles(
 
 /**
  * Get the snap point position for an element based on its bounds.
+ * For diamonds and ellipses, returns points on the actual shape outline.
  */
 export function getSnapPointFromPosition(
     element: BoardElement,
@@ -1534,44 +1766,126 @@ export function getSnapPointFromPosition(
 
     const rotationDeg = element.rotation ?? 0;
     const center = getBoundsCenter(bounds);
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
 
     let localPoint: Point;
-    switch (position) {
-        case "nw":
-            localPoint = { x: bounds.x, y: bounds.y };
-            break;
-        case "n":
-            localPoint = { x: bounds.x + bounds.width / 2, y: bounds.y };
-            break;
-        case "ne":
-            localPoint = { x: bounds.x + bounds.width, y: bounds.y };
-            break;
-        case "e":
-            localPoint = {
-                x: bounds.x + bounds.width,
-                y: bounds.y + bounds.height / 2,
-            };
-            break;
-        case "se":
-            localPoint = {
-                x: bounds.x + bounds.width,
-                y: bounds.y + bounds.height,
-            };
-            break;
-        case "s":
-            localPoint = {
-                x: bounds.x + bounds.width / 2,
-                y: bounds.y + bounds.height,
-            };
-            break;
-        case "sw":
-            localPoint = { x: bounds.x, y: bounds.y + bounds.height };
-            break;
-        case "w":
-            localPoint = { x: bounds.x, y: bounds.y + bounds.height / 2 };
-            break;
-        default:
-            return null;
+
+    if (element.type === "ellipse") {
+        const rx = bounds.width / 2;
+        const ry = bounds.height / 2;
+
+        switch (position) {
+            case "n":
+                localPoint = { x: cx, y: cy - ry };
+                break;
+            case "e":
+                localPoint = { x: cx + rx, y: cy };
+                break;
+            case "s":
+                localPoint = { x: cx, y: cy + ry };
+                break;
+            case "w":
+                localPoint = { x: cx - rx, y: cy };
+                break;
+            case "ne":
+                localPoint = {
+                    x: cx + rx * Math.cos(-Math.PI / 4),
+                    y: cy + ry * Math.sin(-Math.PI / 4),
+                };
+                break;
+            case "se":
+                localPoint = {
+                    x: cx + rx * Math.cos(Math.PI / 4),
+                    y: cy + ry * Math.sin(Math.PI / 4),
+                };
+                break;
+            case "sw":
+                localPoint = {
+                    x: cx + rx * Math.cos((3 * Math.PI) / 4),
+                    y: cy + ry * Math.sin((3 * Math.PI) / 4),
+                };
+                break;
+            case "nw":
+                localPoint = {
+                    x: cx + rx * Math.cos((-3 * Math.PI) / 4),
+                    y: cy + ry * Math.sin((-3 * Math.PI) / 4),
+                };
+                break;
+            default:
+                return null;
+        }
+    } else if (element.type === "diamond") {
+        const halfWidth = bounds.width / 2;
+        const halfHeight = bounds.height / 2;
+
+        switch (position) {
+            case "n":
+                localPoint = { x: cx, y: cy - halfHeight };
+                break;
+            case "e":
+                localPoint = { x: cx + halfWidth, y: cy };
+                break;
+            case "s":
+                localPoint = { x: cx, y: cy + halfHeight };
+                break;
+            case "w":
+                localPoint = { x: cx - halfWidth, y: cy };
+                break;
+            case "ne":
+                localPoint = { x: cx + halfWidth / 2, y: cy - halfHeight / 2 };
+                break;
+            case "se":
+                localPoint = { x: cx + halfWidth / 2, y: cy + halfHeight / 2 };
+                break;
+            case "sw":
+                localPoint = { x: cx - halfWidth / 2, y: cy + halfHeight / 2 };
+                break;
+            case "nw":
+                localPoint = { x: cx - halfWidth / 2, y: cy - halfHeight / 2 };
+                break;
+            default:
+                return null;
+        }
+    } else {
+        // Default: rectangle-like shapes
+        switch (position) {
+            case "nw":
+                localPoint = { x: bounds.x, y: bounds.y };
+                break;
+            case "n":
+                localPoint = { x: bounds.x + bounds.width / 2, y: bounds.y };
+                break;
+            case "ne":
+                localPoint = { x: bounds.x + bounds.width, y: bounds.y };
+                break;
+            case "e":
+                localPoint = {
+                    x: bounds.x + bounds.width,
+                    y: bounds.y + bounds.height / 2,
+                };
+                break;
+            case "se":
+                localPoint = {
+                    x: bounds.x + bounds.width,
+                    y: bounds.y + bounds.height,
+                };
+                break;
+            case "s":
+                localPoint = {
+                    x: bounds.x + bounds.width / 2,
+                    y: bounds.y + bounds.height,
+                };
+                break;
+            case "sw":
+                localPoint = { x: bounds.x, y: bounds.y + bounds.height };
+                break;
+            case "w":
+                localPoint = { x: bounds.x, y: bounds.y + bounds.height / 2 };
+                break;
+            default:
+                return null;
+        }
     }
 
     if (rotationDeg) {

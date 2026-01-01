@@ -3568,10 +3568,57 @@ export function useCanvasRenderers({
         if (!bounds) return null;
 
         const padding = 4 / zoom;
+        const strokeWidth = 3 / zoom;
+        const rotationDeg = element.rotation ?? 0;
+        const centerX = bounds.x + bounds.width / 2;
+        const centerY = bounds.y + bounds.height / 2;
 
-        return (
-            <g>
-                {/* Highlight frame around the snap target */}
+        // Render shape-specific highlight
+        let shapeHighlight: React.ReactNode;
+
+        if (element.type === "ellipse") {
+            // Ellipse highlight
+            const rx = bounds.width / 2 + padding;
+            const ry = bounds.height / 2 + padding;
+            shapeHighlight = (
+                <ellipse
+                    cx={centerX}
+                    cy={centerY}
+                    rx={rx}
+                    ry={ry}
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth={strokeWidth}
+                    pointerEvents="none"
+                    transform={
+                        rotationDeg
+                            ? `rotate(${rotationDeg} ${centerX} ${centerY})`
+                            : undefined
+                    }
+                />
+            );
+        } else if (element.type === "diamond") {
+            // Diamond highlight - rotated rectangle
+            const halfWidth = bounds.width / 2 + padding;
+            const halfHeight = bounds.height / 2 + padding;
+            const diamondPoints = `${centerX},${centerY - halfHeight} ${centerX + halfWidth},${centerY} ${centerX},${centerY + halfHeight} ${centerX - halfWidth},${centerY}`;
+            shapeHighlight = (
+                <polygon
+                    points={diamondPoints}
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth={strokeWidth}
+                    pointerEvents="none"
+                    transform={
+                        rotationDeg
+                            ? `rotate(${rotationDeg} ${centerX} ${centerY})`
+                            : undefined
+                    }
+                />
+            );
+        } else {
+            // Default rectangle highlight for other shapes
+            shapeHighlight = (
                 <rect
                     x={bounds.x - padding}
                     y={bounds.y - padding}
@@ -3579,10 +3626,22 @@ export function useCanvasRenderers({
                     height={bounds.height + padding * 2}
                     fill="none"
                     stroke="var(--accent)"
-                    strokeWidth={3 / zoom}
+                    strokeWidth={strokeWidth}
                     pointerEvents="none"
                     rx={4 / zoom}
+                    transform={
+                        rotationDeg
+                            ? `rotate(${rotationDeg} ${centerX} ${centerY})`
+                            : undefined
+                    }
                 />
+            );
+        }
+
+        return (
+            <g>
+                {/* Highlight frame around the snap target */}
+                {shapeHighlight}
                 {/* Small circle at the snap point */}
                 <circle
                     cx={snapTarget.point.x}
