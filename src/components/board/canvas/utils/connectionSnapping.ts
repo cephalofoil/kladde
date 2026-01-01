@@ -707,20 +707,57 @@ export function generateElbowRouteAroundObstacles(
         };
 
         // For DUAL-connection (both startBounds and targetBounds exist),
-        // skip simple L-paths and use proper exit-point routing to avoid edge-riding
+        // ALWAYS start orthogonal to the connected edge and use dynamic spacing
+        // based on the available space between shapes
         if (targetBounds && startBounds) {
-            const margin = 40; // Enough spacing to avoid edge-riding
             const candidates: Point[][] = [];
 
             // Determine exit directions from start and end points
             const startSide = getSnapSide(start, startBounds);
             const endSide = getSnapSide(end, targetBounds);
 
-            // Calculate exit points - move away from the shape first
-            const getExitPoint = (
+            // Calculate dynamic margin based on available space between shapes
+            // Use at least 20px but adapt to the space available
+            const MIN_MARGIN = 20;
+            const PREFERRED_MARGIN = 40;
+
+            // Calculate the gap between shapes in relevant directions
+            const horizontalGap = (() => {
+                // Gap between right edge of left shape and left edge of right shape
+                const leftShape =
+                    startBounds.x < targetBounds.x ? startBounds : targetBounds;
+                const rightShape =
+                    startBounds.x < targetBounds.x ? targetBounds : startBounds;
+                return rightShape.x - (leftShape.x + leftShape.width);
+            })();
+
+            const verticalGap = (() => {
+                // Gap between bottom edge of top shape and top edge of bottom shape
+                const topShape =
+                    startBounds.y < targetBounds.y ? startBounds : targetBounds;
+                const bottomShape =
+                    startBounds.y < targetBounds.y ? targetBounds : startBounds;
+                return bottomShape.y - (topShape.y + topShape.height);
+            })();
+
+            // Dynamic margin calculation - use available space proportionally
+            const getMarginForGap = (gap: number): number => {
+                if (gap <= 0) return PREFERRED_MARGIN; // Shapes overlap - use full margin outside
+                if (gap < MIN_MARGIN * 2) return gap / 2; // Very tight - split the gap
+                if (gap < PREFERRED_MARGIN * 2) return gap / 2; // Moderate - use half
+                return PREFERRED_MARGIN; // Plenty of space - use preferred
+            };
+
+            const hMargin = getMarginForGap(horizontalGap);
+            const vMargin = getMarginForGap(verticalGap);
+
+            // Calculate ORTHOGONAL exit points - the first segment MUST be perpendicular to the edge
+            // This ensures the arrow starts cleanly away from the shape, not riding along the edge
+            const getOrthogonalExit = (
                 pt: Point,
                 side: string | null,
                 bounds: BoundingBox,
+                margin: number,
             ): Point => {
                 switch (side) {
                     case "left":
@@ -735,47 +772,134 @@ export function generateElbowRouteAroundObstacles(
                             y: bounds.y + bounds.height + margin,
                         };
                     default:
-                        return pt;
+                        // Fallback: determine side based on point position
+                        const cx = bounds.x + bounds.width / 2;
+                        const cy = bounds.y + bounds.height / 2;
+                        if (Math.abs(pt.x - bounds.x) < 2)
+                            return { x: bounds.x - margin, y: pt.y };
+                        if (Math.abs(pt.x - (bounds.x + bounds.width)) < 2)
+                            return {
+                                x: bounds.x + bounds.width + margin,
+                                y: pt.y,
+                            };
+                        if (Math.abs(pt.y - bounds.y) < 2)
+                            return { x: pt.x, y: bounds.y - margin };
+                        if (Math.abs(pt.y - (bounds.y + bounds.height)) < 2)
+                            return {
+                                x: pt.x,
+                                y: bounds.y + bounds.height + margin,
+                            };
+                        // Last resort
+                        return pt.x < cx
+                            ? { x: bounds.x - margin, y: pt.y }
+                            : { x: bounds.x + bounds.width + margin, y: pt.y };
                 }
             };
 
-            const startExit = getExitPoint(start, startSide, startBounds);
-            const endExit = getExitPoint(end, endSide, targetBounds);
+            // Determine which margin to use based on exit direction
+            const startMargin =
+                startSide === "left" || startSide === "right"
+                    ? hMargin
+                    : vMargin;
+            const endMargin =
+                endSide === "left" || endSide === "right" ? hMargin : vMargin;
 
-            // Try direct path through exit points
-            candidates.push([start, startExit, endExit, end]);
-
-            // Try L-path variants through exit points
-            candidates.push([
+            const startExit = getOrthogonalExit(
                 start,
-                startExit,
-                { x: startExit.x, y: endExit.y },
-                endExit,
+                startSide,
+                startBounds,
+                startMargin,
+            );
+            const endExit = getOrthogonalExit(
                 end,
-            ]);
-            candidates.push([
-                start,
-                startExit,
-                { x: endExit.x, y: startExit.y },
-                endExit,
-                end,
-            ]);
+                endSide,
+                targetBounds,
+                endMargin,
+            );
 
-            // Calculate outer bounds for routing around both shapes
-            const outerLeft = Math.min(startBounds.x, targetBounds.x) - margin;
+            // Helper to check if two sides are on same axis (both horizontal or both vertical)
+            const sameAxis =
+                ((startSide === "left" || startSide === "right") &&
+                    (endSide === "left" || endSide === "right")) ||
+                ((startSide === "top" || startSide === "bottom") &&
+                    (endSide === "top" || endSide === "bottom"));
+
+            // Helper to check if exits can connect directly (on same line)
+            const exitsAligned =
+                Math.abs(startExit.x - endExit.x) < 2 ||
+                Math.abs(startExit.y - endExit.y) < 2;
+
+            // Build candidate paths - all starting orthogonally from both ends
+
+            // Direct connection through aligned exits (if they line up)
+            if (exitsAligned) {
+                candidates.push([start, startExit, endExit, end]);
+            }
+
+            // Standard L-path through exits with corner at intersection
+            if (sameAxis) {
+                // Same axis exits (e.g., both left/right or both top/bottom)
+                // Need to go around - use midpoint between exits
+                if (startSide === "left" || startSide === "right") {
+                    // Horizontal exits - find vertical midpoint
+                    const midY = (startExit.y + endExit.y) / 2;
+                    candidates.push([
+                        start,
+                        startExit,
+                        { x: startExit.x, y: midY },
+                        { x: endExit.x, y: midY },
+                        endExit,
+                        end,
+                    ]);
+                } else {
+                    // Vertical exits - find horizontal midpoint
+                    const midX = (startExit.x + endExit.x) / 2;
+                    candidates.push([
+                        start,
+                        startExit,
+                        { x: midX, y: startExit.y },
+                        { x: midX, y: endExit.y },
+                        endExit,
+                        end,
+                    ]);
+                }
+            } else {
+                // Different axis exits - can use simple corner connection
+                // Two options for the corner point
+                candidates.push([
+                    start,
+                    startExit,
+                    { x: startExit.x, y: endExit.y },
+                    endExit,
+                    end,
+                ]);
+                candidates.push([
+                    start,
+                    startExit,
+                    { x: endExit.x, y: startExit.y },
+                    endExit,
+                    end,
+                ]);
+            }
+
+            // Calculate outer bounds for routing around both shapes (for tight situations)
+            const outerMargin = Math.max(hMargin, vMargin, MIN_MARGIN);
+            const outerLeft =
+                Math.min(startBounds.x, targetBounds.x) - outerMargin;
             const outerRight =
                 Math.max(
                     startBounds.x + startBounds.width,
                     targetBounds.x + targetBounds.width,
-                ) + margin;
-            const outerTop = Math.min(startBounds.y, targetBounds.y) - margin;
+                ) + outerMargin;
+            const outerTop =
+                Math.min(startBounds.y, targetBounds.y) - outerMargin;
             const outerBottom =
                 Math.max(
                     startBounds.y + startBounds.height,
                     targetBounds.y + targetBounds.height,
-                ) + margin;
+                ) + outerMargin;
 
-            // Routes that go around via outer edges (with proper exit from shapes)
+            // Routes that go around via outer edges (with proper orthogonal start)
             candidates.push([
                 start,
                 startExit,
@@ -836,8 +960,12 @@ export function generateElbowRouteAroundObstacles(
                     const curr = bestPath[i];
                     const next = bestPath[i + 1];
                     // Keep point if direction changes
-                    const sameX = prev.x === curr.x && curr.x === next.x;
-                    const sameY = prev.y === curr.y && curr.y === next.y;
+                    const sameX =
+                        Math.abs(prev.x - curr.x) < 1 &&
+                        Math.abs(curr.x - next.x) < 1;
+                    const sameY =
+                        Math.abs(prev.y - curr.y) < 1 &&
+                        Math.abs(curr.y - next.y) < 1;
                     if (!sameX && !sameY) {
                         simplified.push(curr);
                     }
@@ -846,8 +974,15 @@ export function generateElbowRouteAroundObstacles(
                 return simplified;
             }
 
-            // Fallback: just use whichever simple path is shorter
-            return dx > dy ? hFirstPath : vFirstPath;
+            // Fallback: create a simple orthogonal path
+            // Always start orthogonal, then route
+            if (startSide === "left" || startSide === "right") {
+                // Horizontal start - go horizontal first, then vertical
+                return [start, startExit, { x: startExit.x, y: end.y }, end];
+            } else {
+                // Vertical start - go vertical first, then horizontal
+                return [start, startExit, { x: end.x, y: startExit.y }, end];
+            }
         }
 
         // Single-connection: use the existing routing logic
