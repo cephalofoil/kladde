@@ -246,39 +246,91 @@ export function useCanvasRenderers({
                     };
                 }
 
-                // For elbow mode OR arrows with existing connection (from handle creation),
-                // show elbow preview during drag
+                // For arrows with existing connection (from handle creation),
+                // show simple L-path preview during drag (no snap target)
                 const hasExistingConnection =
                     originalElement.startConnection ||
                     originalElement.endConnection;
-                if (
-                    (style === "elbow" || hasExistingConnection) &&
-                    isEndpoint
-                ) {
+                if (hasExistingConnection && isEndpoint && !snapTarget) {
+                    const otherEndpointIndex =
+                        index === 0 ? originalPoints.length - 1 : 0;
+                    const connectedPoint = originalPoints[otherEndpointIndex];
+                    const freePoint = localPoint;
+
+                    // Get the connection position to determine exit direction
+                    const connectedPosition =
+                        index === 0
+                            ? originalElement.endConnection?.position
+                            : originalElement.startConnection?.position;
+
+                    const isHorizontalExit =
+                        connectedPosition === "e" || connectedPosition === "w";
+                    const isVerticalExit =
+                        connectedPosition === "n" || connectedPosition === "s";
+
+                    let routedPoints: Point[];
+                    if (isHorizontalExit) {
+                        routedPoints = [
+                            connectedPoint,
+                            { x: freePoint.x, y: connectedPoint.y },
+                            freePoint,
+                        ];
+                    } else if (isVerticalExit) {
+                        routedPoints = [
+                            connectedPoint,
+                            { x: connectedPoint.x, y: freePoint.y },
+                            freePoint,
+                        ];
+                    } else {
+                        const dx = Math.abs(freePoint.x - connectedPoint.x);
+                        const dy = Math.abs(freePoint.y - connectedPoint.y);
+                        if (dx > dy) {
+                            routedPoints = [
+                                connectedPoint,
+                                { x: freePoint.x, y: connectedPoint.y },
+                                freePoint,
+                            ];
+                        } else {
+                            routedPoints = [
+                                connectedPoint,
+                                { x: connectedPoint.x, y: freePoint.y },
+                                freePoint,
+                            ];
+                        }
+                    }
+
+                    // Reverse if dragging start point
+                    const finalPoints =
+                        index === 0 ? routedPoints.reverse() : routedPoints;
+
+                    return {
+                        ...element,
+                        points: finalPoints,
+                        connectorStyle: "elbow",
+                        elbowRoute: undefined,
+                    };
+                }
+
+                // For elbow mode with snap target, use full routing
+                if (style === "elbow" && isEndpoint && snapTarget) {
                     const otherEndpointIndex =
                         index === 0 ? originalPoints.length - 1 : 0;
                     const otherEndpoint = originalPoints[otherEndpointIndex];
 
-                    // Get existing connection on the other end
                     const otherConnection =
                         index === 0
                             ? originalElement.endConnection?.elementId
                             : originalElement.startConnection?.elementId;
 
-                    // Use snap target point if available, otherwise use mouse position
-                    const targetPoint = snapTarget?.point ?? localPoint;
-                    const targetElementId = snapTarget?.elementId ?? null;
-
                     const routedPoints = generateElbowRouteAroundObstacles(
                         otherEndpoint,
-                        targetPoint,
+                        snapTarget.point,
                         elements,
                         originalElement.id,
-                        targetElementId,
+                        snapTarget.elementId,
                         otherConnection ?? null,
                     );
 
-                    // Reverse if dragging start point
                     const finalPoints =
                         index === 0 ? routedPoints.reverse() : routedPoints;
 
@@ -3283,9 +3335,9 @@ export function useCanvasRenderers({
                     selectedElement.type !== "pen" &&
                     selectedElement.type !== "laser" &&
                     (() => {
-                        const arrowHandleDistance = 22 / zoom;
-                        const arrowHandleSize = 18 / zoom;
-                        const arrowIconSize = 12 / zoom;
+                        const arrowHandleDistance = 24 / zoom;
+                        const arrowHandleSize = 22 / zoom;
+                        const arrowIconSize = 16 / zoom;
 
                         // Edge midpoints with outward directions
                         const edgeHandles: Array<{

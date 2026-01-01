@@ -1122,11 +1122,101 @@ export function useCanvasHandlers({
                                     originalElement.startConnection ||
                                     originalElement.endConnection;
 
-                                // For arrows with existing connections, use elbow routing even without snap
-                                if (
-                                    hasExistingConnection ||
-                                    style === "elbow"
-                                ) {
+                                // For arrows with existing connections, use simple orthogonal routing
+                                // without a snap target (just a clean L-path from connection to cursor)
+                                if (hasExistingConnection) {
+                                    // Get the connected element's bounds to determine exit direction
+                                    const connectedElementId =
+                                        index === 0
+                                            ? originalElement.endConnection
+                                                  ?.elementId
+                                            : originalElement.startConnection
+                                                  ?.elementId;
+                                    const connectedPosition =
+                                        index === 0
+                                            ? originalElement.endConnection
+                                                  ?.position
+                                            : originalElement.startConnection
+                                                  ?.position;
+
+                                    // Generate a simple L-path based on the connection side
+                                    let routedPoints: Point[];
+                                    const connectedPoint = otherEndpoint;
+                                    const freePoint = finalPoint;
+
+                                    // Determine if we should go horizontal or vertical first
+                                    // based on the connection position
+                                    const isHorizontalExit =
+                                        connectedPosition === "e" ||
+                                        connectedPosition === "w";
+                                    const isVerticalExit =
+                                        connectedPosition === "n" ||
+                                        connectedPosition === "s";
+
+                                    if (isHorizontalExit) {
+                                        // Exit horizontally first, then go vertical
+                                        routedPoints = [
+                                            connectedPoint,
+                                            {
+                                                x: freePoint.x,
+                                                y: connectedPoint.y,
+                                            },
+                                            freePoint,
+                                        ];
+                                    } else if (isVerticalExit) {
+                                        // Exit vertically first, then go horizontal
+                                        routedPoints = [
+                                            connectedPoint,
+                                            {
+                                                x: connectedPoint.x,
+                                                y: freePoint.y,
+                                            },
+                                            freePoint,
+                                        ];
+                                    } else {
+                                        // Corner connection - choose based on direction
+                                        const dx = Math.abs(
+                                            freePoint.x - connectedPoint.x,
+                                        );
+                                        const dy = Math.abs(
+                                            freePoint.y - connectedPoint.y,
+                                        );
+                                        if (dx > dy) {
+                                            routedPoints = [
+                                                connectedPoint,
+                                                {
+                                                    x: freePoint.x,
+                                                    y: connectedPoint.y,
+                                                },
+                                                freePoint,
+                                            ];
+                                        } else {
+                                            routedPoints = [
+                                                connectedPoint,
+                                                {
+                                                    x: connectedPoint.x,
+                                                    y: freePoint.y,
+                                                },
+                                                freePoint,
+                                            ];
+                                        }
+                                    }
+
+                                    // If dragging start point, we need to reverse
+                                    if (index === 0) {
+                                        routedPoints = routedPoints.reverse();
+                                    }
+
+                                    onUpdateElement(originalElement.id, {
+                                        points: routedPoints,
+                                        connectorStyle: "elbow",
+                                        elbowRoute: undefined,
+                                    });
+                                    return;
+                                }
+
+                                // For elbow mode without connection, use full routing
+                                if (style === "elbow") {
                                     const otherConnection =
                                         index === 0
                                             ? originalElement.endConnection
