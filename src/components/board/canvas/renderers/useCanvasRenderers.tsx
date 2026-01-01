@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { v4 as uuid } from "uuid";
 import getStroke from "perfect-freehand";
 import type {
     Dispatch,
@@ -77,6 +78,7 @@ interface UseCanvasRenderersProps {
     onStartTransform?: () => void;
     onUpdateElement: (id: string, updates: Partial<BoardElement>) => void;
     onDeleteElement: (id: string) => void;
+    onAddElement: (element: BoardElement) => void;
     setOriginalElements: Dispatch<SetStateAction<BoardElement[]>>;
     setDraggingConnectorPoint: Dispatch<
         SetStateAction<{
@@ -89,7 +91,15 @@ interface UseCanvasRenderersProps {
             anchor?: Point;
         } | null>
     >;
+    setSelectedIds: Dispatch<SetStateAction<string[]>>;
     getMousePosition: (e: ReactMouseEvent) => Point;
+    // Arrow style props for creating arrows from handles
+    strokeColor: string;
+    strokeWidth: number;
+    opacity: number;
+    strokeStyle: "solid" | "dashed" | "dotted";
+    arrowStart: NonNullable<BoardElement["arrowStart"]>;
+    arrowEnd: NonNullable<BoardElement["arrowEnd"]>;
 }
 
 export function useCanvasRenderers({
@@ -116,9 +126,17 @@ export function useCanvasRenderers({
     onStartTransform,
     onUpdateElement,
     onDeleteElement,
+    onAddElement,
     setOriginalElements,
     setDraggingConnectorPoint,
+    setSelectedIds,
     getMousePosition,
+    strokeColor,
+    strokeWidth,
+    opacity,
+    strokeStyle,
+    arrowStart,
+    arrowEnd,
 }: UseCanvasRenderersProps) {
     const getConnectorDragPreviewElement = useCallback(
         (element: BoardElement): BoardElement => {
@@ -3213,6 +3231,192 @@ export function useCanvasRenderers({
                         style={{ cursor: handle.cursor }}
                     />
                 ))}
+
+                {/* Arrow creation handles on edge midpoints */}
+                {selectedElement &&
+                    selectedElement.type !== "line" &&
+                    selectedElement.type !== "arrow" &&
+                    selectedElement.type !== "pen" &&
+                    selectedElement.type !== "laser" &&
+                    (() => {
+                        const arrowHandleDistance = 20 / zoom;
+                        const arrowHandleSize = 14 / zoom;
+                        const arrowIconSize = 8 / zoom;
+
+                        // Edge midpoints with outward directions
+                        const edgeHandles: Array<{
+                            position: "n" | "e" | "s" | "w";
+                            localPoint: Point;
+                            outward: Point;
+                        }> = [
+                            {
+                                position: "n",
+                                localPoint: {
+                                    x: visualBounds.x + visualBounds.width / 2,
+                                    y: visualBounds.y,
+                                },
+                                outward: { x: 0, y: -1 },
+                            },
+                            {
+                                position: "e",
+                                localPoint: {
+                                    x: visualBounds.x + visualBounds.width,
+                                    y: visualBounds.y + visualBounds.height / 2,
+                                },
+                                outward: { x: 1, y: 0 },
+                            },
+                            {
+                                position: "s",
+                                localPoint: {
+                                    x: visualBounds.x + visualBounds.width / 2,
+                                    y: visualBounds.y + visualBounds.height,
+                                },
+                                outward: { x: 0, y: 1 },
+                            },
+                            {
+                                position: "w",
+                                localPoint: {
+                                    x: visualBounds.x,
+                                    y: visualBounds.y + visualBounds.height / 2,
+                                },
+                                outward: { x: -1, y: 0 },
+                            },
+                        ];
+
+                        return edgeHandles.map((edge) => {
+                            // Calculate handle position (outside the frame)
+                            const localHandlePos = {
+                                x:
+                                    edge.localPoint.x +
+                                    edge.outward.x * arrowHandleDistance,
+                                y:
+                                    edge.localPoint.y +
+                                    edge.outward.y * arrowHandleDistance,
+                            };
+
+                            // Apply rotation if element is rotated
+                            const handlePos = rotationDeg
+                                ? rotatePoint(
+                                      localHandlePos,
+                                      center,
+                                      rotationDeg,
+                                  )
+                                : localHandlePos;
+
+                            // Calculate the snap point on the element edge (where arrow will connect)
+                            const snapPoint = rotationDeg
+                                ? rotatePoint(
+                                      edge.localPoint,
+                                      center,
+                                      rotationDeg,
+                                  )
+                                : edge.localPoint;
+
+                            // Calculate arrow icon rotation based on edge direction + element rotation
+                            const baseRotation =
+                                edge.position === "n"
+                                    ? -90
+                                    : edge.position === "e"
+                                      ? 0
+                                      : edge.position === "s"
+                                        ? 90
+                                        : 180;
+                            const iconRotation = baseRotation + rotationDeg;
+
+                            const handleArrowCreate = (e: ReactMouseEvent) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+
+                                // Create a new arrow element connected to this edge
+                                const newArrow: BoardElement = {
+                                    id: uuid(),
+                                    type: "arrow",
+                                    points: [snapPoint, snapPoint], // Start with both points at snap point
+                                    strokeColor,
+                                    strokeWidth,
+                                    opacity,
+                                    strokeStyle,
+                                    connectorStyle,
+                                    arrowStart: "none",
+                                    arrowEnd,
+                                    startConnection: {
+                                        elementId: selectedElement.id,
+                                        position: edge.position,
+                                    },
+                                };
+
+                                // Add the arrow to elements
+                                onAddElement(newArrow);
+
+                                // Select the new arrow
+                                setSelectedIds([newArrow.id]);
+
+                                // Store original element for dragging
+                                setOriginalElements([newArrow]);
+
+                                // Start dragging the end point (index 1)
+                                setDraggingConnectorPoint({
+                                    index: 1,
+                                    kind: "normal",
+                                });
+
+                                // Trigger transform start for undo tracking
+                                onStartTransform?.();
+                            };
+
+                            return (
+                                <g
+                                    key={edge.position}
+                                    style={{ cursor: "crosshair" }}
+                                    onMouseDown={handleArrowCreate}
+                                >
+                                    {/* Invisible larger hit area */}
+                                    <circle
+                                        cx={handlePos.x}
+                                        cy={handlePos.y}
+                                        r={arrowHandleSize}
+                                        fill="transparent"
+                                        pointerEvents="auto"
+                                    />
+                                    {/* Visible handle circle */}
+                                    <circle
+                                        cx={handlePos.x}
+                                        cy={handlePos.y}
+                                        r={arrowHandleSize / 2}
+                                        fill="var(--background)"
+                                        stroke="var(--accent)"
+                                        strokeWidth={2 / zoom}
+                                        pointerEvents="none"
+                                    />
+                                    {/* Arrow icon pointing outward */}
+                                    <g
+                                        transform={`translate(${handlePos.x}, ${handlePos.y}) rotate(${iconRotation})`}
+                                        pointerEvents="none"
+                                    >
+                                        {/* Arrow line */}
+                                        <line
+                                            x1={-arrowIconSize / 3}
+                                            y1={0}
+                                            x2={arrowIconSize / 3}
+                                            y2={0}
+                                            stroke="var(--accent)"
+                                            strokeWidth={1.5 / zoom}
+                                            strokeLinecap="round"
+                                        />
+                                        {/* Arrow head */}
+                                        <path
+                                            d={`M ${arrowIconSize / 6} ${-arrowIconSize / 4} L ${arrowIconSize / 2.5} 0 L ${arrowIconSize / 6} ${arrowIconSize / 4}`}
+                                            fill="none"
+                                            stroke="var(--accent)"
+                                            strokeWidth={1.5 / zoom}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        />
+                                    </g>
+                                </g>
+                            );
+                        });
+                    })()}
             </g>
         );
     };
