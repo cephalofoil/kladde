@@ -161,7 +161,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [currentHighlightId, setCurrentHighlightId] = useState<string | null>(
     null,
   );
-  const [hideLogoBar, setHideLogoBar] = useState(false);
   const effectiveTool = isReadOnly ? "hand" : tool;
 
   // Undo/Redo stacks - store snapshots
@@ -1359,15 +1358,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     collaboration.updateSelectedElements(selectedIds);
   }, [collaboration, selectedIdsKey]);
 
-  // Hide the logo bar in smaller windows (match ToolSidebar condensed thresholds).
-  useEffect(() => {
-    const update = () => {
-      setHideLogoBar(window.innerHeight < 920 || window.innerWidth < 1100);
-    };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
 
   // Show loading while connecting
   if (!isReady) {
@@ -1405,8 +1395,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             onHandDrawnModeChange={setHandDrawnMode}
             isReadOnly={isReadOnly}
           />
-          {!hideLogoBar && <CanvasTitleBar boardId={boardId} />}
-          {false && !hideLogoBar && (
+          <CanvasTitleBar boardId={boardId} />
+          {false && (
             <a
               href="/dashboard"
               className="h-10 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
