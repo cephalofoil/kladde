@@ -36,7 +36,12 @@ export function BoardCard({
   const updateBoard = useBoardStore((s) => s.updateBoard);
   const deleteBoard = useBoardStore((s) => s.deleteBoard);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Ctrl/Cmd + Click opens in new tab
+    if (e.ctrlKey || e.metaKey) {
+      window.open(`/board/${board.id}`, '_blank');
+      return;
+    }
     router.push(`/board/${board.id}`);
   };
 
@@ -89,7 +94,7 @@ export function BoardCard({
 
   return (
     <div
-      onClick={isRenaming ? undefined : handleClick}
+      onClick={isRenaming ? undefined : (e) => handleClick(e)}
       className="group relative flex cursor-pointer flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-accent-foreground/30 hover:shadow-lg"
     >
       <div className="mb-4 flex items-start justify-between">
