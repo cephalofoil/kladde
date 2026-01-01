@@ -1117,6 +1117,48 @@ export function useCanvasHandlers({
                             } else {
                                 setSnapTarget(null);
 
+                                // Check if arrow has an existing connection (from handle creation)
+                                const hasExistingConnection =
+                                    originalElement.startConnection ||
+                                    originalElement.endConnection;
+
+                                // For arrows with existing connections, use elbow routing even without snap
+                                if (
+                                    hasExistingConnection ||
+                                    style === "elbow"
+                                ) {
+                                    const otherConnection =
+                                        index === 0
+                                            ? originalElement.endConnection
+                                                  ?.elementId
+                                            : originalElement.startConnection
+                                                  ?.elementId;
+
+                                    const routedPoints =
+                                        generateElbowRouteAroundObstacles(
+                                            otherEndpoint,
+                                            finalPoint,
+                                            elements,
+                                            originalElement.id,
+                                            null, // No snap target
+                                            otherConnection ?? null,
+                                        );
+
+                                    // Update all points with the routed path
+                                    if (index === 0) {
+                                        newPoints = routedPoints.reverse();
+                                    } else {
+                                        newPoints = routedPoints;
+                                    }
+
+                                    onUpdateElement(originalElement.id, {
+                                        points: newPoints,
+                                        connectorStyle: "elbow",
+                                        elbowRoute: undefined,
+                                    });
+                                    return;
+                                }
+
                                 // No snap - reset to the toolbar's connector style
                                 // This handles switching back to sharp when moving away from
                                 // an out-of-sight snap point

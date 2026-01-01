@@ -184,3 +184,33 @@
 .kladde-text-caret {
     animation: kladde-caret-blink 1.05s ease-in-out infinite;
 }
+
+/* Arrow creation handle hover effects */
+.arrow-create-handle .arrow-handle-bg {
+    transition: opacity 0.15s ease-out;
+}
+
+.arrow-create-handle .arrow-handle-icon line,
+.arrow-create-handle .arrow-handle-icon path {
+    transition:
+        stroke 0.15s ease-out,
+        stroke-width 0.15s ease-out;
+}
+
+.arrow-create-handle:hover .arrow-handle-bg {
+    opacity: 0.2 !important;
+}
+
+.arrow-create-handle:hover .arrow-handle-icon line,
+.arrow-create-handle:hover .arrow-handle-icon path {
+    stroke: var(--accent);
+    stroke-width: 2px;
+}
+
+.arrow-create-handle:active {
+    cursor: crosshair !important;
+}
+
+.arrow-create-handle:active .arrow-handle-bg {
+    opacity: 0.3 !important;
+}

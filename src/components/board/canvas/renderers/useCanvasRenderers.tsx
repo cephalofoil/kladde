@@ -246,6 +246,50 @@ export function useCanvasRenderers({
                     };
                 }
 
+                // For elbow mode OR arrows with existing connection (from handle creation),
+                // show elbow preview during drag
+                const hasExistingConnection =
+                    originalElement.startConnection ||
+                    originalElement.endConnection;
+                if (
+                    (style === "elbow" || hasExistingConnection) &&
+                    isEndpoint
+                ) {
+                    const otherEndpointIndex =
+                        index === 0 ? originalPoints.length - 1 : 0;
+                    const otherEndpoint = originalPoints[otherEndpointIndex];
+
+                    // Get existing connection on the other end
+                    const otherConnection =
+                        index === 0
+                            ? originalElement.endConnection?.elementId
+                            : originalElement.startConnection?.elementId;
+
+                    // Use snap target point if available, otherwise use mouse position
+                    const targetPoint = snapTarget?.point ?? localPoint;
+                    const targetElementId = snapTarget?.elementId ?? null;
+
+                    const routedPoints = generateElbowRouteAroundObstacles(
+                        otherEndpoint,
+                        targetPoint,
+                        elements,
+                        originalElement.id,
+                        targetElementId,
+                        otherConnection ?? null,
+                    );
+
+                    // Reverse if dragging start point
+                    const finalPoints =
+                        index === 0 ? routedPoints.reverse() : routedPoints;
+
+                    return {
+                        ...element,
+                        points: finalPoints,
+                        connectorStyle: "elbow",
+                        elbowRoute: undefined,
+                    };
+                }
+
                 const nextPoints = originalPoints.map((p) => ({ ...p }));
                 nextPoints[index] = localPoint;
                 return { ...element, points: nextPoints };
@@ -3239,9 +3283,9 @@ export function useCanvasRenderers({
                     selectedElement.type !== "pen" &&
                     selectedElement.type !== "laser" &&
                     (() => {
-                        const arrowHandleDistance = 20 / zoom;
-                        const arrowHandleSize = 14 / zoom;
-                        const arrowIconSize = 8 / zoom;
+                        const arrowHandleDistance = 22 / zoom;
+                        const arrowHandleSize = 18 / zoom;
+                        const arrowIconSize = 12 / zoom;
 
                         // Edge midpoints with outward directions
                         const edgeHandles: Array<{
@@ -3367,7 +3411,8 @@ export function useCanvasRenderers({
                             return (
                                 <g
                                     key={edge.position}
-                                    style={{ cursor: "crosshair" }}
+                                    className="arrow-create-handle"
+                                    style={{ cursor: "pointer" }}
                                     onMouseDown={handleArrowCreate}
                                 >
                                     {/* Invisible larger hit area */}
@@ -3378,18 +3423,19 @@ export function useCanvasRenderers({
                                         fill="transparent"
                                         pointerEvents="auto"
                                     />
-                                    {/* Visible handle circle */}
+                                    {/* Hover background circle (visible on hover) */}
                                     <circle
+                                        className="arrow-handle-bg"
                                         cx={handlePos.x}
                                         cy={handlePos.y}
-                                        r={arrowHandleSize / 2}
-                                        fill="var(--background)"
-                                        stroke="var(--accent)"
-                                        strokeWidth={2 / zoom}
+                                        r={arrowHandleSize / 2 + 2 / zoom}
+                                        fill="var(--accent)"
+                                        opacity={0}
                                         pointerEvents="none"
                                     />
                                     {/* Arrow icon pointing outward */}
                                     <g
+                                        className="arrow-handle-icon"
                                         transform={`translate(${handlePos.x}, ${handlePos.y}) rotate(${iconRotation})`}
                                         pointerEvents="none"
                                     >
