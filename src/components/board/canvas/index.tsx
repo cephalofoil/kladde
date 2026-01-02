@@ -216,6 +216,16 @@ export function Canvas({
         editingTileIdRef.current = editingTileId;
     }, [editingTextElementId, editingTileId]);
 
+    // Stable reference for delete function to avoid useEffect dependency array size changes
+    const handleDeleteSelectedRef = useRef<(ids: string[]) => void>(() => {});
+    handleDeleteSelectedRef.current = (ids: string[]) => {
+        if (onDeleteMultiple) {
+            onDeleteMultiple(ids);
+        } else {
+            ids.forEach((id) => onDeleteElement(id));
+        }
+    };
+
     // Track shift key and other shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -242,7 +252,7 @@ export function Canvas({
                     !editingTileIdRef.current
                 ) {
                     e.preventDefault(); // Prevent browser back navigation on Backspace
-                    selectedIds.forEach((id) => onDeleteElement(id));
+                    handleDeleteSelectedRef.current(selectedIds);
                     setSelectedIds([]);
                 }
             }
@@ -264,7 +274,7 @@ export function Canvas({
             window.removeEventListener("keydown", handleKeyDown);
             window.removeEventListener("keyup", handleKeyUp);
         };
-    }, [selectedIds, onDeleteElement, isReadOnly]);
+    }, [selectedIds, isReadOnly]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
