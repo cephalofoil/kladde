@@ -937,7 +937,228 @@ export function generateElbowRouteAroundObstacles(
             return true;
         };
 
-        // For DUAL-connection (both startBounds and targetBounds exist),
+        // For SELF-connection (arrow connects to the same shape at both ends),
+        // route around the shape with orthogonal exits
+        if (targetBounds && startBounds && startElementId === targetElementId) {
+            const bounds = startBounds; // Same as targetBounds
+            const SELF_MARGIN = 40; // Margin for self-connection routing
+
+            // Determine exit directions from start and end points
+            const startSide = getSnapSide(start, bounds);
+            const endSide = getSnapSide(end, bounds);
+
+            // Calculate ORTHOGONAL exit points
+            const getOrthogonalExit = (
+                pt: Point,
+                side: string | null,
+            ): Point => {
+                switch (side) {
+                    case "left":
+                        return { x: bounds.x - SELF_MARGIN, y: pt.y };
+                    case "right":
+                        return {
+                            x: bounds.x + bounds.width + SELF_MARGIN,
+                            y: pt.y,
+                        };
+                    case "top":
+                        return { x: pt.x, y: bounds.y - SELF_MARGIN };
+                    case "bottom":
+                        return {
+                            x: pt.x,
+                            y: bounds.y + bounds.height + SELF_MARGIN,
+                        };
+                    default:
+                        return { x: pt.x, y: bounds.y - SELF_MARGIN };
+                }
+            };
+
+            const startExit = getOrthogonalExit(start, startSide);
+            const endExit = getOrthogonalExit(end, endSide);
+
+            // Calculate outer corners for routing around the shape
+            const outerLeft = bounds.x - SELF_MARGIN;
+            const outerRight = bounds.x + bounds.width + SELF_MARGIN;
+            const outerTop = bounds.y - SELF_MARGIN;
+            const outerBottom = bounds.y + bounds.height + SELF_MARGIN;
+
+            const candidates: Point[][] = [];
+
+            // Helper to check if two sides are adjacent (share a corner)
+            const areAdjacent = (
+                s1: string | null,
+                s2: string | null,
+            ): boolean => {
+                if (!s1 || !s2) return false;
+                const adjacencies: Record<string, string[]> = {
+                    top: ["left", "right"],
+                    bottom: ["left", "right"],
+                    left: ["top", "bottom"],
+                    right: ["top", "bottom"],
+                };
+                return adjacencies[s1]?.includes(s2) ?? false;
+            };
+
+            // Helper to check if two sides are opposite
+            const areOpposite = (
+                s1: string | null,
+                s2: string | null,
+            ): boolean => {
+                if (!s1 || !s2) return false;
+                return (
+                    (s1 === "top" && s2 === "bottom") ||
+                    (s1 === "bottom" && s2 === "top") ||
+                    (s1 === "left" && s2 === "right") ||
+                    (s1 === "right" && s2 === "left")
+                );
+            };
+
+            if (startSide === endSide) {
+                // Same side: route out and around via adjacent corner
+                if (startSide === "top" || startSide === "bottom") {
+                    // Horizontal - decide which corner based on positions
+                    const goLeft =
+                        start.x + end.x < bounds.x * 2 + bounds.width;
+                    const cornerX = goLeft ? outerLeft : outerRight;
+                    const cornerY =
+                        startSide === "top" ? outerTop : outerBottom;
+                    candidates.push([
+                        start,
+                        startExit,
+                        { x: cornerX, y: cornerY },
+                        { x: cornerX, y: endExit.y },
+                        endExit,
+                        end,
+                    ]);
+                } else {
+                    // Vertical - decide which corner based on positions
+                    const goUp = start.y + end.y < bounds.y * 2 + bounds.height;
+                    const cornerY = goUp ? outerTop : outerBottom;
+                    const cornerX =
+                        startSide === "left" ? outerLeft : outerRight;
+                    candidates.push([
+                        start,
+                        startExit,
+                        { x: cornerX, y: cornerY },
+                        { x: endExit.x, y: cornerY },
+                        endExit,
+                        end,
+                    ]);
+                }
+            } else if (areAdjacent(startSide, endSide)) {
+                // Adjacent sides: route via the shared corner
+                const cornerX =
+                    startSide === "left" || endSide === "left"
+                        ? outerLeft
+                        : outerRight;
+                const cornerY =
+                    startSide === "top" || endSide === "top"
+                        ? outerTop
+                        : outerBottom;
+                candidates.push([
+                    start,
+                    startExit,
+                    { x: cornerX, y: startExit.y },
+                    { x: cornerX, y: cornerY },
+                    { x: endExit.x, y: cornerY },
+                    endExit,
+                    end,
+                ]);
+                // Simpler path if exits align with corner
+                candidates.push([
+                    start,
+                    startExit,
+                    { x: startExit.x, y: endExit.y },
+                    endExit,
+                    end,
+                ]);
+                candidates.push([
+                    start,
+                    startExit,
+                    { x: endExit.x, y: startExit.y },
+                    endExit,
+                    end,
+                ]);
+            } else if (areOpposite(startSide, endSide)) {
+                // Opposite sides: route around via either left or right (or top/bottom)
+                if (startSide === "top" || startSide === "bottom") {
+                    // Top-bottom: go around left or right
+                    const goLeft =
+                        start.x + end.x < bounds.x * 2 + bounds.width;
+                    const cornerX = goLeft ? outerLeft : outerRight;
+                    candidates.push([
+                        start,
+                        startExit,
+                        { x: cornerX, y: startExit.y },
+                        { x: cornerX, y: endExit.y },
+                        endExit,
+                        end,
+                    ]);
+                } else {
+                    // Left-right: go around top or bottom
+                    const goUp = start.y + end.y < bounds.y * 2 + bounds.height;
+                    const cornerY = goUp ? outerTop : outerBottom;
+                    candidates.push([
+                        start,
+                        startExit,
+                        { x: startExit.x, y: cornerY },
+                        { x: endExit.x, y: cornerY },
+                        endExit,
+                        end,
+                    ]);
+                }
+            }
+
+            // Fallback: simple corner routing
+            if (candidates.length === 0) {
+                candidates.push([
+                    start,
+                    startExit,
+                    { x: startExit.x, y: endExit.y },
+                    endExit,
+                    end,
+                ]);
+            }
+
+            // Find shortest valid path
+            let bestPath: Point[] | null = null;
+            let bestLen = Infinity;
+
+            for (const path of candidates) {
+                let len = 0;
+                for (let i = 0; i < path.length - 1; i++) {
+                    len +=
+                        Math.abs(path[i + 1].x - path[i].x) +
+                        Math.abs(path[i + 1].y - path[i].y);
+                }
+                if (len < bestLen) {
+                    bestLen = len;
+                    bestPath = path;
+                }
+            }
+
+            if (bestPath) {
+                // Simplify the path by removing collinear points
+                const simplified: Point[] = [bestPath[0]];
+                for (let i = 1; i < bestPath.length - 1; i++) {
+                    const prev = simplified[simplified.length - 1];
+                    const curr = bestPath[i];
+                    const next = bestPath[i + 1];
+                    const sameX =
+                        Math.abs(prev.x - curr.x) < 1 &&
+                        Math.abs(curr.x - next.x) < 1;
+                    const sameY =
+                        Math.abs(prev.y - curr.y) < 1 &&
+                        Math.abs(curr.y - next.y) < 1;
+                    if (!sameX && !sameY) {
+                        simplified.push(curr);
+                    }
+                }
+                simplified.push(bestPath[bestPath.length - 1]);
+                return simplified;
+            }
+        }
+
+        // For DUAL-connection (both startBounds and targetBounds exist, different shapes),
         // ALWAYS start orthogonal to the connected edge and use dynamic spacing
         // based on the available space between shapes
         if (targetBounds && startBounds) {
