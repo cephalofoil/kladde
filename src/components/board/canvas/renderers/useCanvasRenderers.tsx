@@ -3379,7 +3379,15 @@ export function useCanvasRenderers({
                             },
                         ];
 
-                        return edgeHandles.map((edge) => {
+                        // Filter out the edge where the rotate handle is positioned
+                        // to avoid overlap between rotate handle and arrow handle
+                        const filteredEdgeHandles = hasRotateHandle
+                            ? edgeHandles.filter(
+                                  (edge) => edge.position !== rotateHandleSide,
+                              )
+                            : edgeHandles;
+
+                        return filteredEdgeHandles.map((edge) => {
                             // Calculate handle position (outside the frame)
                             const localHandlePos = {
                                 x:
