@@ -152,7 +152,7 @@ export function ToolSidebar({
   onCornerRadiusChange,
   connectorStyle = "sharp",
   onConnectorStyleChange,
-  arrowStart = "arrow",
+  arrowStart = "none",
   onArrowStartChange,
   arrowEnd = "arrow",
   onArrowEndChange,

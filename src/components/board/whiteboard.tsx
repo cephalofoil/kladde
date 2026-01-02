@@ -67,7 +67,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     "sharp" | "curved" | "elbow"
   >("sharp");
   const [arrowStart, setArrowStart] =
-    useState<NonNullable<BoardElement["arrowStart"]>>("arrow");
+    useState<NonNullable<BoardElement["arrowStart"]>>("none");
   const [arrowEnd, setArrowEnd] =
     useState<NonNullable<BoardElement["arrowEnd"]>>("arrow");
   const [cornerRadius, setCornerRadius] = useState(0);

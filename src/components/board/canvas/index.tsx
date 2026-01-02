@@ -70,7 +70,7 @@ export function Canvas({
     strokeStyle = "solid",
     lineCap = "round",
     connectorStyle = "sharp",
-    arrowStart = "arrow",
+    arrowStart = "none",
     arrowEnd = "arrow",
     cornerRadius = 0,
     fontFamily = "var(--font-inter)",
