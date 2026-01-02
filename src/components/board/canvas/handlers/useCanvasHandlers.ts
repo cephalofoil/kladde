@@ -137,6 +137,8 @@ export function useCanvasHandlers({
     const {
         isDragging,
         setIsDragging,
+        hasDragMoved,
+        setHasDragMoved,
         isResizing,
         setIsResizing,
         isRotating,
@@ -1308,6 +1310,11 @@ export function useCanvasHandlers({
             if (isDragging && dragStart && originalElements.length > 0) {
                 const dx = point.x - dragStart.x;
                 const dy = point.y - dragStart.y;
+
+                // Set hasDragMoved once user has moved beyond a small threshold
+                if (!hasDragMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                    setHasDragMoved(true);
+                }
 
                 // Collect IDs of shapes/tiles being moved (not arrows/lines/pen)
                 const movedShapeIds: string[] = [];
@@ -3096,6 +3103,7 @@ export function useCanvasHandlers({
 
         if (isDragging) {
             setIsDragging(false);
+            setHasDragMoved(false);
             setDragStart(null);
             setOriginalElements([]);
             return;

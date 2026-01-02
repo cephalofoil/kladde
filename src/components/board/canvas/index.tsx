@@ -150,6 +150,7 @@ export function Canvas({
         },
         transform: {
             isDragging,
+            hasDragMoved,
             isResizing,
             isRotating,
             resizeHandle,
@@ -1729,7 +1730,7 @@ export function Canvas({
 
             {/* Trash Drop Zone */}
             <TrashDropZone
-                isVisible={selectedIds.length > 0 && isDragging}
+                isVisible={selectedIds.length > 0 && isDragging && hasDragMoved}
                 isHovered={isOverTrash}
                 onDrop={() => {
                     selectedIds.forEach((id) => onDeleteElement(id));
