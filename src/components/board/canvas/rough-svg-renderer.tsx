@@ -37,6 +37,20 @@ function renderDrawableToSVG(drawable: Drawable, key?: string) {
                     fill={drawable.options.fill || "none"}
                 />,
             );
+        } else if (set.type === "fillSketch") {
+            // Hachure/cross-hatch fill patterns
+            const pathData = opsToPath(set);
+            paths.push(
+                <path
+                    key={`${key || "fillSketch"}-${index}`}
+                    d={pathData}
+                    stroke={drawable.options.fill || "none"}
+                    strokeWidth={drawable.options.fillWeight || 1}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />,
+            );
         }
     });
 

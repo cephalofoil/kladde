@@ -116,7 +116,7 @@ export function generateElementShape(
                     const radius = Math.min(r, maxRadius);
 
                     // Build path using quadratic curves (Q) at corners
-                    // M = move, L = line, Q = quadratic bezier
+                    // M = move, L = line, Q = quadratic bezier, Z = close path
                     const path =
                         `M ${radius} 0 ` +
                         `L ${w - radius} 0 ` +
@@ -126,7 +126,8 @@ export function generateElementShape(
                         `L ${radius} ${h} ` +
                         `Q 0 ${h}, 0 ${h - radius} ` +
                         `L 0 ${radius} ` +
-                        `Q 0 0, ${radius} 0`;
+                        `Q 0 0, ${radius} 0 ` +
+                        `Z`;
 
                     // preserveVertices ensures smooth connections between path segments
                     shape = generator.path(path, {
