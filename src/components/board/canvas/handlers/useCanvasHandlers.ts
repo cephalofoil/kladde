@@ -566,9 +566,36 @@ export function useCanvasHandlers({
                     nextRotationDeg = Math.round(nextRotationDeg / snap) * snap;
                 }
 
-                onUpdateElement(rotateStart.elementId, {
-                    rotation: nextRotationDeg,
+                // Create a temporary elements array with the updated rotation
+                const tempElements = elements.map((el) => {
+                    if (el.id === rotateStart.elementId) {
+                        return { ...el, rotation: nextRotationDeg };
+                    }
+                    return el;
                 });
+
+                // Get updates for connected arrows
+                const arrowUpdates = getConnectedArrowUpdates(
+                    [rotateStart.elementId],
+                    tempElements,
+                );
+
+                // Batch update the rotated element and its connected arrows
+                const batchUpdates = [
+                    {
+                        id: rotateStart.elementId,
+                        updates: { rotation: nextRotationDeg },
+                    },
+                    ...arrowUpdates,
+                ];
+
+                if (onBatchUpdateElements) {
+                    onBatchUpdateElements(batchUpdates);
+                } else {
+                    batchUpdates.forEach(({ id, updates }) => {
+                        onUpdateElement(id, updates);
+                    });
+                }
                 return;
             }
 
