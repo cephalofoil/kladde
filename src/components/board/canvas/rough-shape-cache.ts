@@ -107,7 +107,35 @@ export function generateElementShape(
             case "rectangle": {
                 const w = element.width ?? 0;
                 const h = element.height ?? 0;
-                shape = generator.rectangle(0, 0, w, h, options);
+                const r = element.cornerRadius ?? 0;
+
+                if (r > 0) {
+                    // Use SVG path with quadratic Bézier curves for smooth corners
+                    // This is the same approach Excalidraw uses
+                    const maxRadius = Math.min(w / 2, h / 2);
+                    const radius = Math.min(r, maxRadius);
+
+                    // Build path using quadratic curves (Q) at corners
+                    // M = move, L = line, Q = quadratic bezier
+                    const path =
+                        `M ${radius} 0 ` +
+                        `L ${w - radius} 0 ` +
+                        `Q ${w} 0, ${w} ${radius} ` +
+                        `L ${w} ${h - radius} ` +
+                        `Q ${w} ${h}, ${w - radius} ${h} ` +
+                        `L ${radius} ${h} ` +
+                        `Q 0 ${h}, 0 ${h - radius} ` +
+                        `L 0 ${radius} ` +
+                        `Q 0 0, ${radius} 0`;
+
+                    // preserveVertices ensures smooth connections between path segments
+                    shape = generator.path(path, {
+                        ...options,
+                        preserveVertices: true,
+                    });
+                } else {
+                    shape = generator.rectangle(0, 0, w, h, options);
+                }
                 break;
             }
 
