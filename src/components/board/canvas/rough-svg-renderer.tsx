@@ -5,18 +5,32 @@ import { generateElementShape } from "./rough-shape-cache";
 
 /**
  * Render a rough.js Drawable to SVG path elements
+ * Returns { strokePaths, fillPaths, outlinePath } for clipping support
  */
-function renderDrawableToSVG(drawable: Drawable, key?: string) {
-    const paths: React.JSX.Element[] = [];
+function renderDrawableToSVG(
+    drawable: Drawable,
+    key?: string,
+): {
+    strokePaths: React.JSX.Element[];
+    fillPaths: React.JSX.Element[];
+    outlinePath: string | null;
+} {
+    const strokePaths: React.JSX.Element[] = [];
+    const fillPaths: React.JSX.Element[] = [];
+    let outlinePath: string | null = null;
 
     if (!drawable || !drawable.sets) {
-        return null;
+        return { strokePaths, fillPaths, outlinePath };
     }
 
     drawable.sets.forEach((set: any, index: number) => {
         if (set.type === "path") {
             const pathData = opsToPath(set);
-            paths.push(
+            // Save the first path as the outline for clipping
+            if (outlinePath === null) {
+                outlinePath = pathData;
+            }
+            strokePaths.push(
                 <path
                     key={`${key || "path"}-${index}`}
                     d={pathData}
@@ -29,7 +43,7 @@ function renderDrawableToSVG(drawable: Drawable, key?: string) {
             );
         } else if (set.type === "fillPath") {
             const pathData = opsToPath(set);
-            paths.push(
+            fillPaths.push(
                 <path
                     key={`${key || "fill"}-${index}`}
                     d={pathData}
@@ -40,7 +54,7 @@ function renderDrawableToSVG(drawable: Drawable, key?: string) {
         } else if (set.type === "fillSketch") {
             // Hachure/cross-hatch fill patterns
             const pathData = opsToPath(set);
-            paths.push(
+            fillPaths.push(
                 <path
                     key={`${key || "fillSketch"}-${index}`}
                     d={pathData}
@@ -54,7 +68,7 @@ function renderDrawableToSVG(drawable: Drawable, key?: string) {
         }
     });
 
-    return paths;
+    return { strokePaths, fillPaths, outlinePath };
 }
 
 /**
@@ -87,6 +101,50 @@ function opsToPath(set: any): string {
 }
 
 /**
+ * Generate a clean geometric clip path based on element type
+ */
+function getClipPath(element: BoardElement): string | null {
+    const w = element.width ?? 0;
+    const h = element.height ?? 0;
+
+    switch (element.type) {
+        case "rectangle": {
+            const r = element.cornerRadius ?? 0;
+            if (r > 0) {
+                const maxRadius = Math.min(w / 2, h / 2);
+                const radius = Math.min(r, maxRadius);
+                return (
+                    `M ${radius} 0 ` +
+                    `L ${w - radius} 0 ` +
+                    `Q ${w} 0, ${w} ${radius} ` +
+                    `L ${w} ${h - radius} ` +
+                    `Q ${w} ${h}, ${w - radius} ${h} ` +
+                    `L ${radius} ${h} ` +
+                    `Q 0 ${h}, 0 ${h - radius} ` +
+                    `L 0 ${radius} ` +
+                    `Q 0 0, ${radius} 0 Z`
+                );
+            }
+            return `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`;
+        }
+        case "ellipse": {
+            const cx = w / 2;
+            const cy = h / 2;
+            const rx = w / 2;
+            const ry = h / 2;
+            return `M ${cx - rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx - rx} ${cy} Z`;
+        }
+        case "diamond": {
+            const cx = w / 2;
+            const cy = h / 2;
+            return `M ${cx} 0 L ${w} ${cy} L ${cx} ${h} L 0 ${cy} Z`;
+        }
+        default:
+            return null;
+    }
+}
+
+/**
  * Render a rough.js element to SVG
  */
 export function renderRoughElement(
@@ -108,18 +166,25 @@ export function renderRoughElement(
     const finalOpacity = isMarkedForDeletion ? elOpacity * 0.3 : elOpacity;
 
     const shapes = Array.isArray(shape) ? shape : [shape];
-    const allPaths: React.JSX.Element[] = [];
+    const allStrokePaths: React.JSX.Element[] = [];
+    const allFillPaths: React.JSX.Element[] = [];
 
     shapes.forEach((drawable, index) => {
-        const paths = renderDrawableToSVG(drawable, `shape-${index}`);
-        if (paths) {
-            allPaths.push(...paths);
-        }
+        const { strokePaths, fillPaths } = renderDrawableToSVG(
+            drawable,
+            `shape-${index}`,
+        );
+        allStrokePaths.push(...strokePaths);
+        allFillPaths.push(...fillPaths);
     });
 
-    if (allPaths.length === 0) {
+    if (allStrokePaths.length === 0 && allFillPaths.length === 0) {
         return null;
     }
+
+    const clipId = `clip-${element.id}`;
+    const clipPath = getClipPath(element);
+    const hasFill = allFillPaths.length > 0 && clipPath;
 
     return (
         <g
@@ -129,7 +194,18 @@ export function renderRoughElement(
             opacity={finalOpacity}
             style={{ pointerEvents: "auto" }}
         >
-            {allPaths}
+            {/* Define clip path for fill */}
+            {hasFill && (
+                <defs>
+                    <clipPath id={clipId}>
+                        <path d={clipPath} />
+                    </clipPath>
+                </defs>
+            )}
+            {/* Render fill paths clipped to shape outline */}
+            {hasFill && <g clipPath={`url(#${clipId})`}>{allFillPaths}</g>}
+            {/* Render stroke paths on top */}
+            {allStrokePaths}
         </g>
     );
 }
