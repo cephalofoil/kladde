@@ -210,9 +210,9 @@ export function BurgerMenu({
       }
 
       // Ctrl+F - Find on canvas
-      if (ctrlKey && e.key === "f") {
+      if (ctrlKey && e.key === "f" && onFindOnCanvas) {
         e.preventDefault();
-        onFindOnCanvas?.();
+        onFindOnCanvas();
       }
 
       // ? - Help
