@@ -184,7 +184,7 @@ function ToolSubmenu({
     return (
         <div
             ref={menuRef}
-            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1 z-50 flex flex-col gap-0.5"
+            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-card border border-border rounded-lg shadow-2xl p-1 z-50 flex flex-col gap-0.5"
         >
             {tools.map((tool) => (
                 <button

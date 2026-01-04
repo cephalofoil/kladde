@@ -71,6 +71,7 @@ interface UseCanvasHandlersProps {
         updates: Array<{ id: string; updates: Partial<BoardElement> }>,
     ) => void;
     onDeleteElement: (id: string) => void;
+    onDeleteMultiple?: (ids: string[]) => void;
     onStartTransform?: () => void;
     onToolChange?: (tool: Tool) => void;
     onManualViewportChange?: () => void;
@@ -107,6 +108,7 @@ export function useCanvasHandlers({
     onUpdateElement,
     onBatchUpdateElements,
     onDeleteElement,
+    onDeleteMultiple,
     onStartTransform,
     onToolChange,
     onManualViewportChange,
@@ -2931,7 +2933,12 @@ export function useCanvasHandlers({
                 eraserTrailRef.current.endPath();
             }
             if (eraserMarkedIds.size > 0) {
-                eraserMarkedIds.forEach((id) => onDeleteElement(id));
+                const idsToDelete = Array.from(eraserMarkedIds);
+                if (onDeleteMultiple) {
+                    onDeleteMultiple(idsToDelete);
+                } else {
+                    idsToDelete.forEach((id) => onDeleteElement(id));
+                }
             }
             setEraserMarkedIds(new Set());
             setIsDrawing(false);
@@ -3266,6 +3273,7 @@ export function useCanvasHandlers({
         elements,
         tool,
         onDeleteElement,
+        onDeleteMultiple,
         onUpdateElement,
         onToolChange,
         lastMousePos,

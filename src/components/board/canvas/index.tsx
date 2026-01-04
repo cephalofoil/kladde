@@ -627,6 +627,7 @@ export function Canvas({
         onUpdateElement,
         onBatchUpdateElements,
         onDeleteElement,
+        onDeleteMultiple,
         onStartTransform,
         onToolChange,
         onManualViewportChange,
