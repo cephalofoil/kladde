@@ -1004,13 +1004,13 @@ export function Canvas({
             {/* Canvas Background */}
             {canvasBackground !== "none" && (
                 <div
-                    className="absolute inset-0 pointer-events-none text-foreground opacity-[0.08] dark:opacity-[0.05]"
-                    style={{ ...backgroundStyle, zIndex: 0 }}
+                    className="absolute inset-0 pointer-events-none text-foreground opacity-[0.08] dark:opacity-[0.05] z-0"
+                    style={backgroundStyle}
                 />
             )}
 
             {/* Main SVG Canvas */}
-            <svg ref={svgRef} className="w-full h-full" style={{ zIndex: 1 }}>
+            <svg ref={svgRef} className="relative z-10 w-full h-full">
                 <defs>
                     <filter
                         id="laser-glow"
@@ -1187,10 +1187,7 @@ export function Canvas({
             </svg>
 
             {/* Tile Layer (DOM, supports rich editors) */}
-            <div
-                className="absolute inset-0 pointer-events-none"
-                style={{ zIndex: 2 }}
-            >
+            <div className="absolute inset-0 pointer-events-none z-20">
                 <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
@@ -1226,10 +1223,7 @@ export function Canvas({
             </div>
 
             {/* Canvas Overlay (selection, in-progress drawings, cursors) */}
-            <svg
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{ zIndex: 3 }}
-            >
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
                 <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
                     {/* Render remote users' in-progress drawings */}
                     {remoteDrawingElements.map(({ id, color, element }) => (

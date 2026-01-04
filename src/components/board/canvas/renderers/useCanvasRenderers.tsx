@@ -648,7 +648,7 @@ export function useCanvasRenderers({
                 const elFillColor = isHighlighter
                     ? effectiveElement.fillColor || effectiveElement.strokeColor
                     : effectiveElement.fillColor || "#d1d5db";
-                const fillOpacity = isHighlighter ? elOpacity : elOpacity * 0.7;
+                const fillOpacity = isHighlighter ? elOpacity : 1;
                 const shouldFill =
                     effectiveElement.isClosed &&
                     (isHighlighter || elFillPattern === "solid") &&
