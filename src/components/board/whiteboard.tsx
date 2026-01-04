@@ -1588,6 +1588,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 {!isReadOnly && (
                     <ToolSidebar
                         selectedTool={tool}
+                        currentTool={tool}
                         strokeColor={strokeColor}
                         onStrokeColorChange={handleStrokeColorChange}
                         strokeWidth={strokeWidth}

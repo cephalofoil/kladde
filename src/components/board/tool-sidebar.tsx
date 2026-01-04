@@ -98,6 +98,8 @@ interface ToolSidebarProps {
     lineCap?: "butt" | "round";
     onLineCapChange?: (cap: "butt" | "round") => void;
     selectedElements?: BoardElement[];
+    currentTool?: Tool;
+    currentTool?: Tool;
     onBringToFront?: () => void;
     onSendToBack?: () => void;
     onMoveForward?: () => void;
@@ -176,6 +178,7 @@ export function ToolSidebar({
     lineCap = "round",
     onLineCapChange,
     selectedElements = [],
+    currentTool,
     onBringToFront,
     onSendToBack,
     onMoveForward,
@@ -580,6 +583,7 @@ export function ToolSidebar({
         !!onAlignBottom;
     const showActions =
         hasSelectedElements &&
+        currentTool === "select" &&
         (!!onCopySelected || !!onDeleteSelected || !!onToggleGroupSelection);
     const canEditArrow =
         selectedElements.length === 1 &&
