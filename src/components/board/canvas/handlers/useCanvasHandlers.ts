@@ -2842,6 +2842,7 @@ export function useCanvasHandlers({
                 }
             }
 
+            const isHighlighter = tool === "highlighter";
             const newElement: BoardElement = {
                 id: uuid(),
                 type: elementType,
@@ -2851,7 +2852,7 @@ export function useCanvasHandlers({
                 strokeColor,
                 strokeWidth,
                 opacity,
-                strokeStyle,
+                strokeStyle: isHighlighter ? "solid" : strokeStyle,
                 lineCap,
                 cornerRadius,
                 ...(elementType === "line" || elementType === "arrow"
@@ -2860,11 +2861,15 @@ export function useCanvasHandlers({
                 ...(elementType === "arrow" ? { arrowStart, arrowEnd } : {}),
             };
 
-            if (tool === "pen" || tool === "highlighter") {
+            if (tool === "pen") {
                 newElement.fillPattern = fillPattern;
                 if (fillPattern === "solid") {
                     newElement.fillColor = fillColor;
                 }
+            } else if (isHighlighter) {
+                newElement.penMode = "highlighter";
+                newElement.fillPattern = "solid";
+                newElement.fillColor = strokeColor;
             }
 
             if (

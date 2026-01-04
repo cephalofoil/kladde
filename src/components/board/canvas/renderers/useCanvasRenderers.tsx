@@ -639,20 +639,27 @@ export function useCanvasRenderers({
         switch (effectiveElement.type) {
             case "pen": {
                 const elOpacity = (effectiveElement.opacity ?? 100) / 100;
-                const elStrokeStyle = effectiveElement.strokeStyle || "solid";
+                const isHighlighter =
+                    effectiveElement.penMode === "highlighter";
+                const elStrokeStyle = isHighlighter
+                    ? "solid"
+                    : effectiveElement.strokeStyle || "solid";
                 const elFillPattern = effectiveElement.fillPattern || "none";
-                const elFillColor = effectiveElement.fillColor || "#d1d5db";
+                const elFillColor = isHighlighter
+                    ? effectiveElement.fillColor || effectiveElement.strokeColor
+                    : effectiveElement.fillColor || "#d1d5db";
+                const fillOpacity = isHighlighter ? elOpacity : elOpacity * 0.7;
                 const shouldFill =
                     effectiveElement.isClosed &&
-                    elFillPattern === "solid" &&
+                    (isHighlighter || elFillPattern === "solid") &&
                     elFillColor !== "transparent" &&
                     elFillColor !== "none";
                 const roughFill =
-                    handDrawnMode && shouldFill
+                    handDrawnMode && shouldFill && !isHighlighter
                         ? renderRoughElement(
                               { ...effectiveElement, fillColor: elFillColor },
                               {
-                                  opacity: 0.7,
+                                  opacity: fillOpacity,
                                   isMarkedForDeletion,
                                   transform: rotationTransform,
                                   fillOnly: true,
@@ -662,10 +669,12 @@ export function useCanvasRenderers({
 
                 // For solid strokes, use the filled path approach
                 if (elStrokeStyle === "solid") {
+                    const strokeSize =
+                        effectiveElement.strokeWidth * (isHighlighter ? 3 : 2);
                     const stroke = getStroke(
                         effectiveElement.points.map((p) => [p.x, p.y]),
                         {
-                            size: effectiveElement.strokeWidth * 2,
+                            size: strokeSize,
                             thinning: 0.5,
                             smoothing: 0.5,
                             streamline: 0.5,
@@ -691,7 +700,7 @@ export function useCanvasRenderers({
                                     <path
                                         d={fillPath}
                                         fill={elFillColor}
-                                        opacity={elOpacity * 0.7}
+                                        opacity={fillOpacity}
                                         pointerEvents="none"
                                     />
                                 )
@@ -700,7 +709,11 @@ export function useCanvasRenderers({
                             <path
                                 data-element-id={effectiveElement.id}
                                 d={pathData}
-                                fill={effectiveElement.strokeColor}
+                                fill={
+                                    isHighlighter
+                                        ? elFillColor
+                                        : effectiveElement.strokeColor
+                                }
                                 opacity={
                                     isMarkedForDeletion
                                         ? elOpacity * 0.3
@@ -745,7 +758,7 @@ export function useCanvasRenderers({
                                 <polygon
                                     points={points}
                                     fill={elFillColor}
-                                    opacity={elOpacity * 0.7}
+                                    opacity={fillOpacity}
                                     pointerEvents="none"
                                 />
                             )

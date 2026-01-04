@@ -82,6 +82,7 @@ export interface BoardElement {
         | "web-embed"
         | "laser"
         | "tile";
+    penMode?: "pen" | "highlighter";
     groupId?: string;
     points: Point[];
     /**

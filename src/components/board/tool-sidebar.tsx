@@ -73,8 +73,6 @@ interface ToolSidebarProps {
     onStrokeWidthChange: (width: number) => void;
     fillColor?: string;
     onFillColorChange?: (color: string) => void;
-    opacity: number;
-    onOpacityChange: (opacity: number) => void;
     strokeStyle: "solid" | "dashed" | "dotted";
     onStrokeStyleChange: (style: "solid" | "dashed" | "dotted") => void;
     cornerRadius: number;
@@ -130,6 +128,14 @@ const ADJUSTABLE_TOOLS: Tool[] = [
 ];
 
 const SIDEBAR_HIDDEN_COLORS = new Set(["#a78bfa", "#c084fc", "#e879f9"]);
+const HIGHLIGHT_COLORS = [
+    "#fde047",
+    "#fbbf24",
+    "#fdba74",
+    "#86efac",
+    "#93c5fd",
+    "#f9a8d4",
+];
 
 const CONTROL_BUTTON =
     "rounded-md border border-input bg-background/50 shadow-xs transition-all duration-200 hover:bg-muted/60 hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
@@ -145,8 +151,6 @@ export function ToolSidebar({
     onStrokeWidthChange,
     fillColor = "transparent",
     onFillColorChange,
-    opacity,
-    onOpacityChange,
     strokeStyle,
     onStrokeStyleChange,
     cornerRadius,
@@ -604,6 +608,14 @@ export function ToolSidebar({
     const sidebarColors = orderedColors.filter(
         (color) => !SIDEBAR_HIDDEN_COLORS.has(color),
     );
+    const isHighlighterElement = (el: BoardElement) =>
+        el.type === "pen" && el.penMode === "highlighter";
+    const useHighlightPalette =
+        selectedTool === "highlighter" ||
+        (hasSelectedElements && selectedElements.every(isHighlighterElement));
+    const paletteColors = useHighlightPalette
+        ? HIGHLIGHT_COLORS
+        : sidebarColors;
 
     // Determine what controls to show based on selected elements or current tool
     const showFill = hasSelectedElements
@@ -613,12 +625,21 @@ export function ToolSidebar({
                   el.type === "diamond" ||
                   el.type === "ellipse" ||
                   el.type === "frame" ||
-                  (el.type === "pen" && el.isClosed && fillPattern !== "none"),
+                  (el.type === "pen" &&
+                      !isHighlighterElement(el) &&
+                      el.isClosed &&
+                      fillPattern !== "none"),
           )
         : selectedTool === "rectangle" ||
           selectedTool === "diamond" ||
           selectedTool === "ellipse" ||
           (selectedTool === "pen" && fillPattern !== "none");
+
+    const showFillPatternControls = hasSelectedElements
+        ? selectedElements.some(
+              (el) => el.type === "pen" && !isHighlighterElement(el),
+          )
+        : selectedTool === "pen";
 
     const showCornerRadius = hasSelectedElements
         ? selectedElements.some(
@@ -841,66 +862,6 @@ export function ToolSidebar({
                                 </div>
                             </ToggleGroupItem>
                         ))}
-                    </ToggleGroup>
-                </div>
-            )}
-
-            {showStrokeWidthAndStyle && (
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Stroke Style
-                        </label>
-                        <span className="text-xs text-muted-foreground capitalize">
-                            {strokeStyle}
-                        </span>
-                    </div>
-                    <ToggleGroup
-                        type="single"
-                        value={strokeStyle}
-                        onValueChange={(value) => {
-                            if (!value) return;
-                            onStrokeStyleChange(
-                                value as "solid" | "dashed" | "dotted",
-                            );
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-between gap-2"
-                    >
-                        <ToggleGroupItem
-                            value="solid"
-                            aria-label="Solid stroke"
-                            className={cn(
-                                "flex-1 h-10 min-w-0 px-0",
-                                CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
-                            )}
-                        >
-                            <div className="w-full h-0.5 bg-foreground mx-2" />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem
-                            value="dashed"
-                            aria-label="Dashed stroke"
-                            className={cn(
-                                "flex-1 h-10 min-w-0 px-0",
-                                CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
-                            )}
-                        >
-                            <div className="w-full h-0.5 border-t-2 border-dashed border-foreground mx-2" />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem
-                            value="dotted"
-                            aria-label="Dotted stroke"
-                            className={cn(
-                                "flex-1 h-10 min-w-0 px-0",
-                                CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
-                            )}
-                        >
-                            <div className="w-full h-0.5 border-t-2 border-dotted border-foreground mx-2" />
-                        </ToggleGroupItem>
                     </ToggleGroup>
                 </div>
             )}
@@ -1153,8 +1114,7 @@ export function ToolSidebar({
                 </div>
             )}
 
-            {(selectedTool === "pen" ||
-                selectedElements.some((el) => el.type === "pen")) && (
+            {showFillPatternControls && (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -1215,19 +1175,6 @@ export function ToolSidebar({
                     />
                 </div>
             )}
-
-            <div className="space-y-2">
-                <Slider
-                    label="Opacity"
-                    showValue
-                    unit="%"
-                    value={[opacity]}
-                    onValueChange={([v]) => onOpacityChange(v)}
-                    min={0}
-                    max={100}
-                    step={5}
-                />
-            </div>
         </>
     );
 
@@ -1253,7 +1200,7 @@ export function ToolSidebar({
                     >
                         <DropdownMenuLabel>Stroke</DropdownMenuLabel>
                         <div className="mt-2 grid grid-cols-7 gap-1">
-                            {sidebarColors.map((color) => (
+                            {paletteColors.map((color) => (
                                 <button
                                     key={`stroke-${color}`}
                                     type="button"
@@ -1331,7 +1278,7 @@ export function ToolSidebar({
                                 </button>
                             </div>
                             <div className="mt-2 grid grid-cols-7 gap-1">
-                                {sidebarColors.map((color) => (
+                                {paletteColors.map((color) => (
                                     <button
                                         key={`fill-${color}`}
                                         type="button"
@@ -1358,7 +1305,7 @@ export function ToolSidebar({
                                     className={cn(
                                         "h-6 w-6 rounded-md border border-input overflow-hidden",
                                         fillColor !== "transparent" &&
-                                            !sidebarColors.includes(fillColor)
+                                            !paletteColors.includes(fillColor)
                                             ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
                                             : undefined,
                                     )}
@@ -1722,7 +1669,7 @@ export function ToolSidebar({
                             Stroke Color
                         </label>
                         <div className="flex flex-wrap gap-1">
-                            {sidebarColors.map((color) => (
+                            {paletteColors.map((color) => (
                                 <button
                                     key={color}
                                     onClick={() => onStrokeColorChange(color)}
@@ -1788,7 +1735,7 @@ export function ToolSidebar({
                                     </button>
                                 </div>
                                 <div className="flex flex-wrap gap-1">
-                                    {sidebarColors.map((color) => (
+                                    {paletteColors.map((color) => (
                                         <button
                                             key={`fill-${color}`}
                                             onClick={() =>
@@ -1823,7 +1770,7 @@ export function ToolSidebar({
                                             SWATCH_BASE,
                                             "cursor-pointer overflow-hidden",
                                             fillColor !== "transparent" &&
-                                                !sidebarColors.includes(
+                                                !paletteColors.includes(
                                                     fillColor,
                                                 )
                                                 ? "scale-105"

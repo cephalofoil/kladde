@@ -89,6 +89,15 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [letterSpacing, setLetterSpacing] = useState(0);
     const [lineHeight, setLineHeight] = useState(1.5);
     const [fillPattern, setFillPattern] = useState<"none" | "solid">("none");
+    const handleToolChange = useCallback((nextTool: Tool) => {
+        setTool(nextTool);
+        if (nextTool === "highlighter") {
+            setStrokeColor("#fde047");
+            setOpacity(60);
+        } else {
+            setOpacity(100);
+        }
+    }, []);
 
     // Collaboration state
     const [collaboration, setCollaboration] =
@@ -741,6 +750,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             if (selectedElements.length > 0) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
+                    if (el.type === "pen" && el.penMode === "highlighter") {
+                        handleUpdateElement(el.id, {
+                            strokeColor: color,
+                            fillColor: color,
+                            fillPattern: "solid",
+                        });
+                        return;
+                    }
                     handleUpdateElement(el.id, { strokeColor: color });
                 });
             }
@@ -773,6 +790,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         el.type === "ellipse" ||
                         el.type === "frame" ||
                         (el.type === "pen" &&
+                            el.penMode !== "highlighter" &&
                             el.isClosed &&
                             el.fillPattern !== "none")
                     ) {
@@ -910,7 +928,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             if (selectedElements.length > 0) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
-                    if (el.type === "pen") {
+                    if (el.type === "pen" && el.penMode !== "highlighter") {
                         // Check if the stroke is closed (in case it wasn't detected before)
                         const isClosed =
                             el.isClosed ?? isClosedShape(el.points);
@@ -1558,7 +1576,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 {!isReadOnly && (
                     <Toolbar
                         currentTool={tool}
-                        onToolChange={setTool}
+                        onToolChange={handleToolChange}
                         onTileTypeSelect={setSelectedTileType}
                         selectedTileType={selectedTileType}
                         toolLock={isToolLocked}
@@ -1576,8 +1594,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onStrokeWidthChange={handleStrokeWidthChange}
                         fillColor={fillColor}
                         onFillColorChange={handleFillColorChange}
-                        opacity={opacity}
-                        onOpacityChange={handleOpacityChange}
                         strokeStyle={strokeStyle}
                         onStrokeStyleChange={handleStrokeStyleChange}
                         lineCap={lineCap}
@@ -1651,7 +1667,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onStartTransform={handleStartTransform}
                     onUndo={handleUndo}
                     onRedo={handleRedo}
-                    onToolChange={isReadOnly ? undefined : setTool}
+                    onToolChange={isReadOnly ? undefined : handleToolChange}
                     onSetViewport={(setter) => {
                         setViewportRef.current = setter;
                     }}
