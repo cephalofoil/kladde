@@ -135,7 +135,7 @@ const CONTROL_BUTTON =
   "rounded-md border border-input bg-background/50 shadow-xs transition-all duration-200 hover:bg-muted/60 hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 const CONTROL_BUTTON_SELECTED = "bg-muted/70 border-foreground/20 shadow-sm";
 const SWATCH_BASE =
-  "w-7 h-7 rounded-md border border-input bg-background shadow-xs transition-all duration-200 hover:scale-110 hover:bg-muted/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
+  "w-6 h-6 rounded-md border border-input/50 transition-all duration-200 hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 
 export function ToolSidebar({
   selectedTool,
@@ -652,7 +652,7 @@ export function ToolSidebar({
   const iconButton = cn(
     CONTROL_BUTTON,
     // Match toolbar tool button corners/sizing.
-    "h-10 w-10 p-0 flex items-center justify-center rounded-sm bg-background/70 hover:bg-muted/60",
+    "h-8 w-8 p-0 flex items-center justify-center rounded-sm bg-background/70 hover:bg-muted/60",
   );
 
   const optionsControls = (
@@ -808,14 +808,14 @@ export function ToolSidebar({
                 value={width.toString()}
                 aria-label={`Stroke width ${width}px`}
                 className={cn(
-                  "flex-1 h-10 min-w-0 px-0",
+                  "flex-1 aspect-square min-w-0 px-0",
                   CONTROL_BUTTON,
                   "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
                 )}
               >
                 <div className="flex flex-col items-center justify-center gap-1 w-full">
                   <div
-                    className="w-[calc(100%-1.25rem)] bg-foreground/90 rounded-full"
+                    className="w-[70%] bg-foreground/90 rounded-full"
                     style={{ height: width }}
                   />
                 </div>
@@ -1252,7 +1252,7 @@ export function ToolSidebar({
 
   const condensedSidebar = (
     <div className="fixed right-4 top-1/2 -translate-y-1/2 z-40 select-none">
-      <div className="bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl py-3 px-2 flex flex-col items-center gap-3">
+      <div className="bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2">
         <DropdownMenu open={openStrokeMenu} onOpenChange={setOpenStrokeMenu}>
           <DropdownMenuTrigger asChild>
             <button
@@ -1274,7 +1274,7 @@ export function ToolSidebar({
                     setOpenStrokeMenu(false);
                   }}
                   className={cn(
-                    "h-7 w-7 rounded-sm border border-input transition-transform hover:scale-110",
+                    "h-6 w-6 rounded-md border border-input transition-transform hover:scale-110",
                     strokeColor === color ? "scale-105" : undefined,
                   )}
                   style={{ backgroundColor: color }}
@@ -1287,7 +1287,7 @@ export function ToolSidebar({
                   setShowStrokeColorPicker(true);
                   setOpenStrokeMenu(false);
                 }}
-                className="h-7 w-7 rounded-sm border border-input overflow-hidden"
+                className="h-6 w-6 rounded-md border border-input overflow-hidden"
                 title="Custom color"
               >
                 <div
@@ -1347,7 +1347,7 @@ export function ToolSidebar({
                       setOpenFillMenu(false);
                     }}
                     className={cn(
-                      "h-7 w-7 rounded-sm border border-input transition-transform hover:scale-110",
+                      "h-6 w-6 rounded-md border border-input transition-transform hover:scale-110",
                       fillColor === color ? "scale-105" : undefined,
                     )}
                     style={{ backgroundColor: color }}
@@ -1361,7 +1361,7 @@ export function ToolSidebar({
                     setOpenFillMenu(false);
                   }}
                   className={cn(
-                    "h-7 w-7 rounded-sm border border-input overflow-hidden",
+                    "h-6 w-6 rounded-md border border-input overflow-hidden",
                     fillColor !== "transparent" &&
                       !sidebarColors.includes(fillColor)
                       ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
@@ -1668,7 +1668,7 @@ export function ToolSidebar({
         {/* Sidebar Content */}
         <div
           className={cn(
-            "w-64 p-4 space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain",
+            "w-56 p-3 space-y-3 max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain",
             isCollapsed && "opacity-0 pointer-events-none",
           )}
         >
