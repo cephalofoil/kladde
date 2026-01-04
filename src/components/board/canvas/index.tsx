@@ -36,7 +36,7 @@ interface CanvasProps {
     fontSize?: number;
     letterSpacing?: number;
     lineHeight?: number;
-    fillPattern?: "none" | "solid" | "criss-cross";
+    fillPattern?: "none" | "solid";
     selectedTileType?: TileType | null;
     handDrawnMode?: boolean;
     collaboration: CollaborationManager | null;
@@ -1060,118 +1060,6 @@ export function Canvas({
                             <feMergeNode in="SourceGraphic" />
                         </feMerge>
                     </filter>
-
-                    {/* Pattern definitions for pen fill */}
-                    {/* Criss-cross pattern - diagonal lines both ways with organic spacing */}
-                    <pattern
-                        id="fill-pattern-criss-cross"
-                        width="24"
-                        height="24"
-                        patternUnits="userSpaceOnUse"
-                    >
-                        {/* Diagonal lines going one way */}
-                        <line
-                            x1="0"
-                            y1="0"
-                            x2="24"
-                            y2="24"
-                            stroke="currentColor"
-                            strokeWidth="1"
-                            opacity="0.6"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="-6"
-                            y1="0"
-                            x2="18"
-                            y2="24"
-                            stroke="currentColor"
-                            strokeWidth="0.8"
-                            opacity="0.5"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="6"
-                            y1="0"
-                            x2="30"
-                            y2="24"
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            opacity="0.5"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="-12"
-                            y1="0"
-                            x2="12"
-                            y2="24"
-                            stroke="currentColor"
-                            strokeWidth="0.9"
-                            opacity="0.4"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="12"
-                            y1="0"
-                            x2="36"
-                            y2="24"
-                            stroke="currentColor"
-                            strokeWidth="0.9"
-                            opacity="0.4"
-                            strokeLinecap="round"
-                        />
-                        {/* Diagonal lines going the other way */}
-                        <line
-                            x1="0"
-                            y1="24"
-                            x2="24"
-                            y2="0"
-                            stroke="currentColor"
-                            strokeWidth="1"
-                            opacity="0.6"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="-6"
-                            y1="24"
-                            x2="18"
-                            y2="0"
-                            stroke="currentColor"
-                            strokeWidth="0.9"
-                            opacity="0.5"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="6"
-                            y1="24"
-                            x2="30"
-                            y2="0"
-                            stroke="currentColor"
-                            strokeWidth="1.1"
-                            opacity="0.5"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="-12"
-                            y1="24"
-                            x2="12"
-                            y2="0"
-                            stroke="currentColor"
-                            strokeWidth="0.8"
-                            opacity="0.4"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="12"
-                            y1="24"
-                            x2="36"
-                            y2="0"
-                            stroke="currentColor"
-                            strokeWidth="1"
-                            opacity="0.4"
-                            strokeLinecap="round"
-                        />
-                    </pattern>
                 </defs>
                 <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
                     {/* Render all elements sorted by zIndex */}

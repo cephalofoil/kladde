@@ -31,8 +31,7 @@ export function getRoughPath(element: BoardElement): string | null {
         strokeWidth: element.strokeWidth,
         fill:
             element.fillColor !== "transparent" ? element.fillColor : undefined,
-        fillStyle:
-            element.fillPattern === "criss-cross" ? "cross-hatch" : "hachure",
+        fillStyle: "hachure",
         fillWeight: element.strokeWidth / 2,
         hachureGap: element.strokeWidth * 2,
         seed: seed,

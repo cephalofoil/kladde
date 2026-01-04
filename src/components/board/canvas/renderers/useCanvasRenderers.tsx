@@ -643,7 +643,22 @@ export function useCanvasRenderers({
                 const elFillPattern = effectiveElement.fillPattern || "none";
                 const elFillColor = effectiveElement.fillColor || "#d1d5db";
                 const shouldFill =
-                    effectiveElement.isClosed && elFillPattern !== "none";
+                    effectiveElement.isClosed &&
+                    elFillPattern === "solid" &&
+                    elFillColor !== "transparent" &&
+                    elFillColor !== "none";
+                const roughFill =
+                    handDrawnMode && shouldFill
+                        ? renderRoughElement(
+                              { ...effectiveElement, fillColor: elFillColor },
+                              {
+                                  opacity: 0.7,
+                                  isMarkedForDeletion,
+                                  transform: rotationTransform,
+                                  fillOnly: true,
+                              },
+                          )
+                        : null;
 
                 // For solid strokes, use the filled path approach
                 if (elStrokeStyle === "solid") {
@@ -669,18 +684,17 @@ export function useCanvasRenderers({
                             transform={rotationTransform}
                         >
                             {/* Fill layer - renders under stroke using original points */}
-                            {shouldFill && (
-                                <path
-                                    d={fillPath}
-                                    fill={
-                                        elFillPattern === "solid"
-                                            ? elFillColor
-                                            : `url(#fill-pattern-${elFillPattern})`
-                                    }
-                                    style={{ color: elFillColor }}
-                                    opacity={elOpacity * 0.7}
-                                    pointerEvents="none"
-                                />
+                            {handDrawnMode && roughFill ? (
+                                <g pointerEvents="none">{roughFill}</g>
+                            ) : (
+                                shouldFill && (
+                                    <path
+                                        d={fillPath}
+                                        fill={elFillColor}
+                                        opacity={elOpacity * 0.7}
+                                        pointerEvents="none"
+                                    />
+                                )
                             )}
                             {/* Stroke layer */}
                             <path
@@ -724,18 +738,17 @@ export function useCanvasRenderers({
                 return (
                     <g key={effectiveElement.id} transform={rotationTransform}>
                         {/* Fill layer for dashed/dotted strokes */}
-                        {shouldFill && (
-                            <polygon
-                                points={points}
-                                fill={
-                                    elFillPattern === "solid"
-                                        ? elFillColor
-                                        : `url(#fill-pattern-${elFillPattern})`
-                                }
-                                style={{ color: elFillColor }}
-                                opacity={elOpacity * 0.7}
-                                pointerEvents="none"
-                            />
+                        {handDrawnMode && roughFill ? (
+                            <g pointerEvents="none">{roughFill}</g>
+                        ) : (
+                            shouldFill && (
+                                <polygon
+                                    points={points}
+                                    fill={elFillColor}
+                                    opacity={elOpacity * 0.7}
+                                    pointerEvents="none"
+                                />
+                            )
                         )}
                         {/* Invisible wider hitbox for easier clicking */}
                         <polyline

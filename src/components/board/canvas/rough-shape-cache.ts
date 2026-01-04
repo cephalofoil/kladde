@@ -39,10 +39,7 @@ function generateRoughOptions(element: BoardElement) {
             element.fillColor && element.fillColor !== "transparent"
                 ? element.fillColor
                 : undefined,
-        fillStyle:
-            element.fillPattern === "criss-cross"
-                ? ("cross-hatch" as const)
-                : ("hachure" as const),
+        fillStyle: "hachure" as const,
         fillWeight: strokeWidth / 2,
         hachureGap: strokeWidth * 4,
         roughness: 2, // Increased from 1 to 2 for more sketchiness
@@ -345,10 +342,23 @@ export function generateElementShape(
                 break;
             }
 
-            case "pen":
-                // Pen strokes don't use rough.js
-                shape = null;
+            case "pen": {
+                if (
+                    !element.isClosed ||
+                    element.points.length < 3 ||
+                    element.fillPattern === "none" ||
+                    element.fillColor === "transparent" ||
+                    element.fillColor === undefined
+                ) {
+                    shape = null;
+                    break;
+                }
+                const points = element.points.map(
+                    (p) => [p.x, p.y] as [number, number],
+                );
+                shape = generator.polygon(points, options);
                 break;
+            }
 
             default:
                 shape = null;

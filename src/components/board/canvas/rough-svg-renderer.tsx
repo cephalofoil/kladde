@@ -188,6 +188,18 @@ function getClipPath(element: BoardElement): string | null {
             }
             return `M ${cx} 0 L ${w} ${cy} L ${cx} ${h} L 0 ${cy} Z`;
         }
+        case "pen": {
+            if (
+                !element.isClosed ||
+                !element.points ||
+                element.points.length < 3
+            )
+                return null;
+            const points = element.points
+                .map((p) => `${p.x} ${p.y}`)
+                .join(" L ");
+            return `M ${points} Z`;
+        }
         default:
             return null;
     }
@@ -202,6 +214,8 @@ export function renderRoughElement(
         opacity?: number;
         isMarkedForDeletion?: boolean;
         transform?: string;
+        fillOnly?: boolean;
+        strokeOnly?: boolean;
     } = {},
 ): React.JSX.Element | null {
     const shape = generateElementShape(element);
@@ -210,7 +224,13 @@ export function renderRoughElement(
         return null;
     }
 
-    const { opacity = 1, isMarkedForDeletion = false, transform } = options;
+    const {
+        opacity = 1,
+        isMarkedForDeletion = false,
+        transform,
+        fillOnly = false,
+        strokeOnly = false,
+    } = options;
     const elOpacity = ((element.opacity ?? 100) / 100) * opacity;
     const finalOpacity = isMarkedForDeletion ? elOpacity * 0.3 : elOpacity;
 
@@ -223,8 +243,12 @@ export function renderRoughElement(
             drawable,
             `shape-${index}`,
         );
-        allStrokePaths.push(...strokePaths);
-        allFillPaths.push(...fillPaths);
+        if (!fillOnly) {
+            allStrokePaths.push(...strokePaths);
+        }
+        if (!strokeOnly) {
+            allFillPaths.push(...fillPaths);
+        }
     });
 
     if (allStrokePaths.length === 0 && allFillPaths.length === 0) {
@@ -233,7 +257,8 @@ export function renderRoughElement(
 
     const clipId = `clip-${element.id}`;
     const clipPath = getClipPath(element);
-    const hasFill = allFillPaths.length > 0 && clipPath;
+    const hasFill = allFillPaths.length > 0;
+    const useClipPath = hasFill && clipPath;
 
     return (
         <g
@@ -244,7 +269,7 @@ export function renderRoughElement(
             style={{ pointerEvents: "auto" }}
         >
             {/* Define clip path for fill */}
-            {hasFill && (
+            {useClipPath && (
                 <defs>
                     <clipPath id={clipId}>
                         <path d={clipPath} />
@@ -252,7 +277,11 @@ export function renderRoughElement(
                 </defs>
             )}
             {/* Render fill paths clipped to shape outline */}
-            {hasFill && <g clipPath={`url(#${clipId})`}>{allFillPaths}</g>}
+            {useClipPath ? (
+                <g clipPath={`url(#${clipId})`}>{allFillPaths}</g>
+            ) : (
+                hasFill && allFillPaths
+            )}
             {/* Render stroke paths on top */}
             {allStrokePaths}
         </g>
