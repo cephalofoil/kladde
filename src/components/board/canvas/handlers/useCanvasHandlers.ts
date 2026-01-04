@@ -3226,14 +3226,17 @@ export function useCanvasHandlers({
                 elementAdded = true;
             }
 
-            // Switch back to select tool and select the new element (except for pen tool)
+            if (elementAdded) {
+                setSelectedIds([currentElement.id]);
+            }
+
+            // Switch back to select tool (except for pen tool)
             // Only auto-switch if tool is not locked
             if (
                 elementAdded &&
                 currentElement.type !== "pen" &&
                 !isToolLocked
             ) {
-                setSelectedIds([currentElement.id]);
                 if (onToolChange) {
                     onToolChange("select");
                 }
