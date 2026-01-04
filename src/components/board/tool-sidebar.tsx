@@ -99,7 +99,6 @@ interface ToolSidebarProps {
     onLineCapChange?: (cap: "butt" | "round") => void;
     selectedElements?: BoardElement[];
     currentTool?: Tool;
-    currentTool?: Tool;
     onBringToFront?: () => void;
     onSendToBack?: () => void;
     onMoveForward?: () => void;
