@@ -2,6 +2,7 @@ export type Tool =
   | "hand"
   | "select"
   | "pen"
+  | "highlighter"
   | "line"
   | "arrow"
   | "rectangle"
@@ -18,8 +19,6 @@ export type TileType =
   | "tile-code"
   | "tile-mermaid"
   | "tile-image";
-
-export type ToolbarMode = "tiles" | "draw";
 
 export interface Point {
   x: number;

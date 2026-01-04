@@ -1,162 +1,555 @@
 "use client";
 
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
+  StickyNote,
+  Code,
+  GitBranch,
+  Image as ImageIcon,
+  Hand,
   MousePointer2,
-  Pencil,
+  Pen,
   Minus,
-  ArrowRight,
-  Square,
+  MoveRight,
+  RectangleHorizontal,
   Diamond,
   Circle,
   Eraser,
-  Type,
-  Trash2,
   Pointer,
   Lock,
   Unlock,
-  Hand,
+  Highlighter,
+  Shapes,
+  Plus,
+  Type,
+  LetterText,
 } from "lucide-react";
-import { Tool } from "@/lib/board-types";
+import type { Tool, TileType } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
-import { useEffect } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/animate-ui/components/radix/tooltip";
 
 interface ToolbarProps {
-  selectedTool: Tool;
+  currentTool: Tool;
   onToolChange: (tool: Tool) => void;
-  strokeColor: string;
-  onStrokeColorChange: (color: string) => void;
-  strokeWidth: number;
-  onStrokeWidthChange: (width: number) => void;
-  onClear: () => void;
-  isToolLocked: boolean;
+  onTileTypeSelect: (tileType: TileType) => void;
+  selectedTileType?: TileType | null;
+  toolLock: boolean;
   onToggleToolLock: () => void;
+  isCollabMode?: boolean;
 }
 
-const tools: {
-  id: Tool;
-  icon: React.ElementType;
+interface TileTypeInfo {
+  type: TileType;
+  icon: React.ReactNode;
   label: string;
-  hotkey: number | string;
-}[] = [
-  { id: "hand", icon: Hand, label: "Hand", hotkey: "H" },
-  { id: "select", icon: MousePointer2, label: "Select", hotkey: "V" },
-  { id: "pen", icon: Pencil, label: "Pen", hotkey: 1 },
-  { id: "line", icon: Minus, label: "Line", hotkey: 2 },
-  { id: "arrow", icon: ArrowRight, label: "Arrow", hotkey: 3 },
-  { id: "rectangle", icon: Square, label: "Rectangle", hotkey: 4 },
-  { id: "diamond", icon: Diamond, label: "Diamond", hotkey: 5 },
-  { id: "ellipse", icon: Circle, label: "Ellipse", hotkey: 6 },
-  { id: "text", icon: Type, label: "Text", hotkey: 7 },
-  { id: "eraser", icon: Eraser, label: "Eraser", hotkey: 8 },
-  { id: "laser", icon: Pointer, label: "Laser Pointer", hotkey: 9 },
+  hotkey: string;
+}
+
+interface ToolInfo {
+  tool: Tool;
+  icon: React.ReactNode;
+  label: string;
+}
+
+// Tool groups for submenus
+const PEN_GROUP: ToolInfo[] = [
+  { tool: "pen", icon: <Pen className="h-4 w-4" />, label: "Pen" },
+  {
+    tool: "highlighter",
+    icon: <Highlighter className="h-4 w-4" />,
+    label: "Highlighter",
+  },
+  { tool: "eraser", icon: <Eraser className="h-4 w-4" />, label: "Eraser" },
 ];
 
-export function Toolbar({
-  selectedTool,
+const LINE_GROUP: ToolInfo[] = [
+  { tool: "line", icon: <Minus className="h-4 w-4" />, label: "Line" },
+  { tool: "arrow", icon: <MoveRight className="h-4 w-4" />, label: "Arrow" },
+];
+
+const SHAPE_GROUP: ToolInfo[] = [
+  {
+    tool: "rectangle",
+    icon: <RectangleHorizontal className="h-4 w-4" />,
+    label: "Rectangle",
+  },
+  { tool: "diamond", icon: <Diamond className="h-4 w-4" />, label: "Diamond" },
+  { tool: "ellipse", icon: <Circle className="h-4 w-4" />, label: "Ellipse" },
+];
+
+const TILE_TYPES: TileTypeInfo[] = [
+  {
+    type: "tile-text",
+    icon: <LetterText className="h-4 w-4" />,
+    label: "Text",
+    hotkey: "5",
+  },
+  {
+    type: "tile-note",
+    icon: <StickyNote className="h-4 w-4" />,
+    label: "Note",
+    hotkey: "6",
+  },
+  {
+    type: "tile-code",
+    icon: <Code className="h-4 w-4" />,
+    label: "Code",
+    hotkey: "7",
+  },
+  {
+    type: "tile-mermaid",
+    icon: <GitBranch className="h-4 w-4" />,
+    label: "Diagram",
+    hotkey: "8",
+  },
+  {
+    type: "tile-image",
+    icon: <ImageIcon className="h-4 w-4" />,
+    label: "Image",
+    hotkey: "9",
+  },
+];
+
+// Get icon for a tool
+function getToolIcon(tool: Tool): React.ReactNode {
+  switch (tool) {
+    case "pen":
+      return <Pen className="h-4 w-4" />;
+    case "highlighter":
+      return <Highlighter className="h-4 w-4" />;
+    case "eraser":
+      return <Eraser className="h-4 w-4" />;
+    case "line":
+      return <Minus className="h-4 w-4" />;
+    case "arrow":
+      return <MoveRight className="h-4 w-4" />;
+    case "rectangle":
+      return <RectangleHorizontal className="h-4 w-4" />;
+    case "diamond":
+      return <Diamond className="h-4 w-4" />;
+    case "ellipse":
+      return <Circle className="h-4 w-4" />;
+    default:
+      return null;
+  }
+}
+
+// Submenu component - icons only
+function ToolSubmenu({
+  tools,
+  currentTool,
   onToolChange,
-  strokeColor,
-  onStrokeColorChange,
-  strokeWidth,
-  onStrokeWidthChange,
-  onClear,
-  isToolLocked,
+  isOpen,
+  onClose,
+  buttonRef,
+}: {
+  tools: ToolInfo[];
+  currentTool: Tool;
+  onToolChange: (tool: Tool) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  buttonRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen, onClose, buttonRef]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      ref={menuRef}
+      className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1 z-50 flex flex-row gap-0.5"
+    >
+      {tools.map((tool) => (
+        <button
+          key={tool.tool}
+          onClick={() => {
+            onToolChange(tool.tool);
+            onClose();
+          }}
+          className={cn(
+            "flex items-center justify-center w-8 h-8 rounded-md transition-all",
+            currentTool === tool.tool
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+          )}
+          title={tool.label}
+        >
+          {tool.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Tool button with submenu
+function ToolButton({
+  tools,
+  currentTool,
+  onToolChange,
+  hotkey,
+  lastUsedTool,
+  showStackedIcon = false,
+}: {
+  tools: ToolInfo[];
+  currentTool: Tool;
+  onToolChange: (tool: Tool) => void;
+  hotkey: string;
+  lastUsedTool: Tool;
+  showStackedIcon?: boolean;
+}) {
+  const [isSubmenuOpen, setIsSubmenuOpen] = useState(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
+
+  const isActive = tools.some((t) => t.tool === currentTool);
+  const displayTool = tools.find((t) => t.tool === lastUsedTool) || tools[0];
+
+  // For shapes, show the actual selected shape icon when active, otherwise show stacked icon
+  const displayIcon =
+    showStackedIcon && !isActive ? (
+      <Shapes className="h-4 w-4" />
+    ) : (
+      displayTool.icon
+    );
+
+  return (
+    <div ref={buttonRef} className="relative">
+      <button
+        onClick={() => setIsSubmenuOpen(!isSubmenuOpen)}
+        className={cn(
+          "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
+          isActive
+            ? "bg-accent text-accent-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+        )}
+        title={`${displayTool.label} (${hotkey})`}
+      >
+        {displayIcon}
+        <span
+          className={cn(
+            "text-[9px] font-mono absolute right-1 bottom-0.5",
+            isActive ? "opacity-70" : "opacity-40",
+          )}
+        >
+          {hotkey}
+        </span>
+      </button>
+      <ToolSubmenu
+        tools={tools}
+        currentTool={currentTool}
+        onToolChange={onToolChange}
+        isOpen={isSubmenuOpen}
+        onClose={() => setIsSubmenuOpen(false)}
+        buttonRef={buttonRef}
+      />
+    </div>
+  );
+}
+
+// Simple tool button (no submenu)
+function SimpleToolButton({
+  tool,
+  icon,
+  activeIcon,
+  label,
+  hotkey,
+  currentTool,
+  onToolChange,
+}: {
+  tool: Tool;
+  icon: React.ReactNode;
+  activeIcon?: React.ReactNode;
+  label: string;
+  hotkey?: string;
+  currentTool: Tool;
+  onToolChange: (tool: Tool) => void;
+}) {
+  const isActive = currentTool === tool;
+  return (
+    <button
+      onClick={() => onToolChange(tool)}
+      className={cn(
+        "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
+        isActive
+          ? "bg-accent text-accent-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+      )}
+      title={`${label}${hotkey ? ` (${hotkey})` : ""}`}
+    >
+      {isActive && activeIcon ? activeIcon : icon}
+      {hotkey && (
+        <span
+          className={cn(
+            "text-[9px] font-mono absolute right-1 bottom-0.5",
+            isActive ? "opacity-70" : "opacity-40",
+          )}
+        >
+          {hotkey}
+        </span>
+      )}
+    </button>
+  );
+}
+
+export function Toolbar({
+  currentTool,
+  onToolChange,
+  onTileTypeSelect,
+  selectedTileType,
+  toolLock,
   onToggleToolLock,
+  isCollabMode = false,
 }: ToolbarProps) {
-  // Keyboard shortcuts for tools
+  // Track last used tool in each group
+  const [lastPenTool, setLastPenTool] = useState<Tool>("pen");
+  const [lastLineTool, setLastLineTool] = useState<Tool>("line");
+  const [lastShapeTool, setLastShapeTool] = useState<Tool>("rectangle");
+
+  // Update last used tool when tool changes
+  useEffect(() => {
+    if (PEN_GROUP.some((t) => t.tool === currentTool)) {
+      setLastPenTool(currentTool);
+    } else if (LINE_GROUP.some((t) => t.tool === currentTool)) {
+      setLastLineTool(currentTool);
+    } else if (SHAPE_GROUP.some((t) => t.tool === currentTool)) {
+      setLastShapeTool(currentTool);
+    }
+  }, [currentTool]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
       ) {
         return;
       }
 
-      // Letter keys for tools
-      if (e.key === "h" || e.key === "H") {
-        onToolChange("hand");
-        return;
-      }
-      if (e.key === "v" || e.key === "V") {
-        onToolChange("select");
-        return;
+      const key = e.key.toUpperCase();
+
+      switch (key) {
+        case "H":
+          e.preventDefault();
+          onToolChange("hand");
+          break;
+        case "V":
+          e.preventDefault();
+          onToolChange("select");
+          break;
+        case "1":
+          e.preventDefault();
+          onToolChange(lastPenTool);
+          break;
+        case "2":
+          e.preventDefault();
+          onToolChange(lastLineTool);
+          break;
+        case "3":
+          e.preventDefault();
+          onToolChange(lastShapeTool);
+          break;
+        case "4":
+          e.preventDefault();
+          onToolChange("text");
+          break;
       }
 
-      // Number keys 1-9 for tools
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= 9) {
-        const matchedTool = tools.find((t) => t.hotkey === num);
-        if (matchedTool) onToolChange(matchedTool.id);
+      const matchedTile = TILE_TYPES.find((t) => t.hotkey === key);
+      if (matchedTile) {
+        e.preventDefault();
+        onTileTypeSelect(matchedTile.type);
+        onToolChange("tile");
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onToolChange]);
+  }, [
+    onToolChange,
+    onTileTypeSelect,
+    lastPenTool,
+    lastLineTool,
+    lastShapeTool,
+  ]);
+
+  const handleTileTypeClick = useCallback(
+    (tileType: TileType) => {
+      onTileTypeSelect(tileType);
+      onToolChange("tile");
+    },
+    [onTileTypeSelect, onToolChange],
+  );
 
   return (
-    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-stretch gap-2 select-none">
-      {/* Lock Button */}
-      <div className="flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border rounded-md p-1.5 shadow-2xl">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onToggleToolLock}
-              className={cn(
-                "relative h-10 w-10 rounded-sm transition-all duration-200 flex items-center justify-center",
-                "hover:bg-secondary/80",
-                isToolLocked
-                  ? "bg-accent text-accent-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {isToolLocked ? (
-                <Lock className="w-[18px] h-[18px]" />
-              ) : (
-                <Unlock className="w-[18px] h-[18px]" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="flex flex-col gap-1">
-              <span>{isToolLocked ? "Tool Locked" : "Tool Unlocked"}</span>
-              <span className="text-xs text-muted-foreground">
-                {isToolLocked
-                  ? "Tool will not switch after drawing"
-                  : "Tool will switch to select after drawing"}
-              </span>
-            </div>
-          </TooltipContent>
-        </Tooltip>
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+      {/* Lock Button - Separate box */}
+      <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
+        <button
+          onClick={onToggleToolLock}
+          className={cn(
+            "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
+            toolLock
+              ? "bg-accent text-accent-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+          )}
+          title={toolLock ? "Tool locked" : "Tool unlocked"}
+        >
+          {toolLock ? (
+            <Lock className="w-4 h-4" />
+          ) : (
+            <Unlock className="w-4 h-4" />
+          )}
+        </button>
       </div>
 
-      {/* Main Tools */}
-      <div className="flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border rounded-md p-1.5 shadow-2xl">
-        {tools.map((tool) => (
+      {/* Main Toolbar */}
+      <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
+        <div className="flex flex-row items-center gap-0.5">
+          {/* Hand Tool */}
+          <SimpleToolButton
+            tool="hand"
+            icon={<Hand className="h-4 w-4" />}
+            label="Hand"
+            hotkey="H"
+            currentTool={currentTool}
+            onToolChange={onToolChange}
+          />
+
+          {/* Select Tool */}
+          <SimpleToolButton
+            tool="select"
+            icon={<MousePointer2 className="h-4 w-4" />}
+            activeIcon={
+              <MousePointer2 className="h-4 w-4" fill="currentColor" />
+            }
+            label="Select"
+            hotkey="V"
+            currentTool={currentTool}
+            onToolChange={onToolChange}
+          />
+
+          <div className="w-px h-6 bg-border mx-1" />
+
+          {/* Pen Group */}
+          <ToolButton
+            tools={PEN_GROUP}
+            currentTool={currentTool}
+            onToolChange={onToolChange}
+            hotkey="1"
+            lastUsedTool={lastPenTool}
+          />
+
+          {/* Line/Arrow Group */}
+          <ToolButton
+            tools={LINE_GROUP}
+            currentTool={currentTool}
+            onToolChange={onToolChange}
+            hotkey="2"
+            lastUsedTool={lastLineTool}
+          />
+
+          {/* Shape Group - with stacked icon when not active */}
+          <ToolButton
+            tools={SHAPE_GROUP}
+            currentTool={currentTool}
+            onToolChange={onToolChange}
+            hotkey="3"
+            lastUsedTool={lastShapeTool}
+            showStackedIcon={true}
+          />
+
+          {/* Text Tool */}
+          <SimpleToolButton
+            tool="text"
+            icon={<Type className="h-4 w-4" />}
+            label="Text"
+            hotkey="4"
+            currentTool={currentTool}
+            onToolChange={onToolChange}
+          />
+
+          <div className="w-px h-6 bg-border mx-1" />
+
+          {/* Tiles */}
+          {TILE_TYPES.map((tileType) => (
+            <button
+              key={tileType.type}
+              onClick={() => handleTileTypeClick(tileType.type)}
+              className={cn(
+                "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
+                selectedTileType === tileType.type && currentTool === "tile"
+                  ? "bg-accent text-accent-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+              )}
+              title={`${tileType.label} (${tileType.hotkey})`}
+            >
+              {tileType.icon}
+              <span
+                className={cn(
+                  "text-[9px] font-mono absolute right-1 bottom-0.5",
+                  selectedTileType === tileType.type && currentTool === "tile"
+                    ? "opacity-70"
+                    : "opacity-40",
+                )}
+              >
+                {tileType.hotkey}
+              </span>
+            </button>
+          ))}
+
+          <div className="w-px h-6 bg-border mx-1" />
+
+          {/* More Tools */}
           <button
-            key={tool.id}
-            onClick={() => onToolChange(tool.id)}
-            className={cn(
-              "relative h-10 w-10 rounded-sm transition-all duration-200 flex items-center justify-center",
-              "hover:bg-secondary/80",
-              selectedTool === tool.id
-                ? "bg-accent text-accent-foreground shadow-lg"
-                : "text-muted-foreground hover:text-foreground",
-            )}
+            className="flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            title="More tools"
           >
-            <tool.icon className="w-[18px] h-[18px]" />
-            <span className="absolute bottom-1 right-1 text-[9px] font-medium opacity-60 leading-none">
-              {tool.hotkey}
-            </span>
+            <Plus className="h-4 w-4" />
           </button>
-        ))}
+        </div>
       </div>
+
+      {/* Laser Pointer - Separate box, only in collab mode */}
+      {isCollabMode && (
+        <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
+          <button
+            onClick={() => onToolChange("laser")}
+            className={cn(
+              "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
+              currentTool === "laser"
+                ? "bg-accent text-accent-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+            )}
+            title="Laser Pointer"
+          >
+            <Pointer className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

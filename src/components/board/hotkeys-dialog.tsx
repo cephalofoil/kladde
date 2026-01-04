@@ -25,23 +25,18 @@ export function HotkeysDialog({ open, onOpenChange }: HotkeysDialogProps) {
   const shortcuts = useMemo(
     () => [
       {
-        category: "Draw Tools",
+        category: "Tools",
         items: [
           { keys: ["H"], description: "Hand tool" },
           { keys: ["V"], description: "Select tool" },
-          { keys: ["1"], description: "Pen tool" },
-          { keys: ["2"], description: "Line tool" },
-          { keys: ["3"], description: "Arrow tool" },
-          { keys: ["4"], description: "Rectangle tool" },
-          { keys: ["5"], description: "Diamond tool" },
-          { keys: ["6"], description: "Ellipse tool" },
-          { keys: ["7"], description: "Text tool" },
-          { keys: ["8"], description: "Eraser tool" },
-          { keys: ["9"], description: "Laser pointer tool" },
+          { keys: ["1"], description: "Pen / Highlighter / Eraser" },
+          { keys: ["2"], description: "Line / Arrow" },
+          { keys: ["3"], description: "Rectangle / Diamond / Ellipse" },
+          { keys: ["4"], description: "Text tool" },
         ],
       },
       {
-        category: "Tiles (in Tile Mode)",
+        category: "Tiles",
         items: [
           { keys: ["M"], description: "Text tile" },
           { keys: ["N"], description: "Note tile" },
