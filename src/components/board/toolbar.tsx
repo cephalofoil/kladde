@@ -180,7 +180,7 @@ function ToolSubmenu({
   return (
     <div
       ref={menuRef}
-      className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1 z-50 flex flex-row gap-0.5"
+      className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1 z-50 flex flex-col gap-0.5"
     >
       {tools.map((tool) => (
         <button
@@ -405,7 +405,7 @@ export function Toolbar({
   );
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+    <div className="fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1.5">
       {/* Lock Button - Separate box */}
       <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
         <button
@@ -428,7 +428,7 @@ export function Toolbar({
 
       {/* Main Toolbar */}
       <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
-        <div className="flex flex-row items-center gap-0.5">
+        <div className="flex flex-col items-center gap-0.5">
           {/* Hand Tool */}
           <SimpleToolButton
             tool="hand"
@@ -452,7 +452,7 @@ export function Toolbar({
             onToolChange={onToolChange}
           />
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="h-px w-6 bg-border my-1" />
 
           {/* Pen Group */}
           <ToolButton
@@ -492,7 +492,7 @@ export function Toolbar({
             onToolChange={onToolChange}
           />
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="h-px w-6 bg-border my-1" />
 
           {/* Tiles */}
           {TILE_TYPES.map((tileType) => (
@@ -521,7 +521,7 @@ export function Toolbar({
             </button>
           ))}
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="h-px w-6 bg-border my-1" />
 
           {/* More Tools */}
           <button
