@@ -137,6 +137,55 @@ function getClipPath(element: BoardElement): string | null {
         case "diamond": {
             const cx = w / 2;
             const cy = h / 2;
+            const r = element.cornerRadius ?? 0;
+            if (r > 0) {
+                const edgeLength = Math.hypot(w - cx, cy);
+                const maxRadius = edgeLength / 3;
+                const radius = Math.min(r, maxRadius);
+                const top = { x: cx, y: 0 };
+                const right = { x: w, y: cy };
+                const bottom = { x: cx, y: h };
+                const left = { x: 0, y: cy };
+
+                const getPointAlongEdge = (
+                    from: { x: number; y: number },
+                    to: { x: number; y: number },
+                    dist: number,
+                ) => {
+                    const len = Math.hypot(to.x - from.x, to.y - from.y);
+                    const t = len === 0 ? 0 : dist / len;
+                    return {
+                        x: from.x + (to.x - from.x) * t,
+                        y: from.y + (to.y - from.y) * t,
+                    };
+                };
+
+                const topToRight = getPointAlongEdge(top, right, radius);
+                const rightFromTop = getPointAlongEdge(right, top, radius);
+                const rightToBottom = getPointAlongEdge(right, bottom, radius);
+                const bottomFromRight = getPointAlongEdge(
+                    bottom,
+                    right,
+                    radius,
+                );
+                const bottomToLeft = getPointAlongEdge(bottom, left, radius);
+                const leftFromBottom = getPointAlongEdge(left, bottom, radius);
+                const leftToTop = getPointAlongEdge(left, top, radius);
+                const topFromLeft = getPointAlongEdge(top, left, radius);
+
+                return (
+                    `M ${topToRight.x} ${topToRight.y} ` +
+                    `L ${rightFromTop.x} ${rightFromTop.y} ` +
+                    `Q ${right.x} ${right.y}, ${rightToBottom.x} ${rightToBottom.y} ` +
+                    `L ${bottomFromRight.x} ${bottomFromRight.y} ` +
+                    `Q ${bottom.x} ${bottom.y}, ${bottomToLeft.x} ${bottomToLeft.y} ` +
+                    `L ${leftFromBottom.x} ${leftFromBottom.y} ` +
+                    `Q ${left.x} ${left.y}, ${leftToTop.x} ${leftToTop.y} ` +
+                    `L ${topFromLeft.x} ${topFromLeft.y} ` +
+                    `Q ${top.x} ${top.y}, ${topToRight.x} ${topToRight.y} ` +
+                    `Z`
+                );
+            }
             return `M ${cx} 0 L ${w} ${cy} L ${cx} ${h} L 0 ${cy} Z`;
         }
         default:

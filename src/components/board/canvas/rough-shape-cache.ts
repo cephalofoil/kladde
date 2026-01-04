@@ -65,6 +65,58 @@ function getDiamondPoints(width: number, height: number): [number, number][] {
     ];
 }
 
+function getRoundedDiamondPath(
+    width: number,
+    height: number,
+    cornerRadius: number,
+): string {
+    const cx = width / 2;
+    const cy = height / 2;
+    const top = { x: cx, y: 0 };
+    const right = { x: width, y: cy };
+    const bottom = { x: cx, y: height };
+    const left = { x: 0, y: cy };
+
+    const edgeLength = Math.hypot(right.x - top.x, right.y - top.y);
+    const maxRadius = edgeLength / 3;
+    const r = Math.min(cornerRadius, maxRadius);
+
+    const getPointAlongEdge = (
+        from: { x: number; y: number },
+        to: { x: number; y: number },
+        dist: number,
+    ) => {
+        const len = Math.hypot(to.x - from.x, to.y - from.y);
+        const t = len === 0 ? 0 : dist / len;
+        return {
+            x: from.x + (to.x - from.x) * t,
+            y: from.y + (to.y - from.y) * t,
+        };
+    };
+
+    const topToRight = getPointAlongEdge(top, right, r);
+    const rightFromTop = getPointAlongEdge(right, top, r);
+    const rightToBottom = getPointAlongEdge(right, bottom, r);
+    const bottomFromRight = getPointAlongEdge(bottom, right, r);
+    const bottomToLeft = getPointAlongEdge(bottom, left, r);
+    const leftFromBottom = getPointAlongEdge(left, bottom, r);
+    const leftToTop = getPointAlongEdge(left, top, r);
+    const topFromLeft = getPointAlongEdge(top, left, r);
+
+    return (
+        `M ${topToRight.x} ${topToRight.y} ` +
+        `L ${rightFromTop.x} ${rightFromTop.y} ` +
+        `Q ${right.x} ${right.y}, ${rightToBottom.x} ${rightToBottom.y} ` +
+        `L ${bottomFromRight.x} ${bottomFromRight.y} ` +
+        `Q ${bottom.x} ${bottom.y}, ${bottomToLeft.x} ${bottomToLeft.y} ` +
+        `L ${leftFromBottom.x} ${leftFromBottom.y} ` +
+        `Q ${left.x} ${left.y}, ${leftToTop.x} ${leftToTop.y} ` +
+        `L ${topFromLeft.x} ${topFromLeft.y} ` +
+        `Q ${top.x} ${top.y}, ${topToRight.x} ${topToRight.y} ` +
+        `Z`
+    );
+}
+
 /**
  * Get arrowhead points
  */
@@ -143,8 +195,17 @@ export function generateElementShape(
             case "diamond": {
                 const w = element.width ?? 0;
                 const h = element.height ?? 0;
-                const points = getDiamondPoints(w, h);
-                shape = generator.polygon(points, options);
+                const r = element.cornerRadius ?? 0;
+                if (r > 0) {
+                    const path = getRoundedDiamondPath(w, h, r);
+                    shape = generator.path(path, {
+                        ...options,
+                        preserveVertices: true,
+                    });
+                } else {
+                    const points = getDiamondPoints(w, h);
+                    shape = generator.polygon(points, options);
+                }
                 break;
             }
 
