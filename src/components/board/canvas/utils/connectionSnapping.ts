@@ -2250,24 +2250,16 @@ export function getConnectedArrowUpdates(
             // Sharp mode
             const isSimpleStraightLine = currentPoints.length === 2;
 
+            // Check for self-connection (both ends connect to the same element)
+            const isSelfConnection =
+                startConn &&
+                endConn &&
+                startConn.elementId === endConn.elementId;
+
             if (isSimpleStraightLine) {
-                // Straight arrow: check if we need to switch to elbow mode
-                const excludeIds = [arrow.id];
-                if (startConn) excludeIds.push(startConn.elementId);
-                if (endConn) excludeIds.push(endConn.elementId);
-
-                const hasLineOfSight = hasLineOfSightBetweenPoints(
-                    startPoint,
-                    endPoint,
-                    elements,
-                    excludeIds,
-                );
-
-                if (hasLineOfSight) {
-                    // Simple case: just update the points
-                    newPoints = [startPoint, endPoint];
-                } else {
-                    // Would be inside a shape: switch to elbow mode
+                // For self-connections, always use elbow routing since a straight
+                // line would pass through the shape
+                if (isSelfConnection) {
                     const targetElementId = endConn?.elementId ?? null;
                     const startElementId = startConn?.elementId ?? null;
                     newPoints = generateElbowRouteAroundObstacles(
@@ -2279,38 +2271,24 @@ export function getConnectedArrowUpdates(
                         startElementId,
                     );
                     newConnectorStyle = "elbow";
-                }
-            } else {
-                // Sharp arrow with bend(s): only move the connected part
-                newPoints = [...currentPoints];
+                } else {
+                    // Straight arrow: check if we need to switch to elbow mode
+                    const excludeIds = [arrow.id];
+                    if (startConn) excludeIds.push(startConn.elementId);
+                    if (endConn) excludeIds.push(endConn.elementId);
 
-                if (startMoved && newStartPoint) {
-                    // Move just the start point, keep the bend
-                    newPoints[0] = newStartPoint;
-                }
+                    const hasLineOfSight = hasLineOfSightBetweenPoints(
+                        startPoint,
+                        endPoint,
+                        elements,
+                        excludeIds,
+                    );
 
-                if (endMoved && newEndPoint) {
-                    // Move just the end point, keep the bend
-                    newPoints[newPoints.length - 1] = newEndPoint;
-                }
-
-                // Check if any segment now passes through an obstacle
-                const excludeIds = [arrow.id];
-                if (startConn) excludeIds.push(startConn.elementId);
-                if (endConn) excludeIds.push(endConn.elementId);
-
-                // Check first segment (start to first bend)
-                if (startMoved && newPoints.length > 2) {
-                    const firstBend = newPoints[1];
-                    if (
-                        !hasLineOfSightBetweenPoints(
-                            newPoints[0],
-                            firstBend,
-                            elements,
-                            excludeIds,
-                        )
-                    ) {
-                        // Need to re-route: switch to elbow mode
+                    if (hasLineOfSight) {
+                        // Simple case: just update the points
+                        newPoints = [startPoint, endPoint];
+                    } else {
+                        // Would be inside a shape: switch to elbow mode
                         const targetElementId = endConn?.elementId ?? null;
                         const startElementId = startConn?.elementId ?? null;
                         newPoints = generateElbowRouteAroundObstacles(
@@ -2324,30 +2302,94 @@ export function getConnectedArrowUpdates(
                         newConnectorStyle = "elbow";
                     }
                 }
+            } else {
+                // Sharp arrow with bend(s): for self-connections, regenerate the route
+                // For regular connections, only move the connected part
+                if (isSelfConnection) {
+                    // Self-connection with bends: regenerate the entire route
+                    const targetElementId = endConn?.elementId ?? null;
+                    const startElementId = startConn?.elementId ?? null;
+                    newPoints = generateElbowRouteAroundObstacles(
+                        startPoint,
+                        endPoint,
+                        elements,
+                        arrow.id,
+                        targetElementId,
+                        startElementId,
+                    );
+                    newConnectorStyle = "elbow";
+                } else {
+                    newPoints = [...currentPoints];
 
-                // Check last segment (last bend to end)
-                if (endMoved && newPoints.length > 2 && !newConnectorStyle) {
-                    const lastBend = newPoints[newPoints.length - 2];
+                    if (startMoved && newStartPoint) {
+                        // Move just the start point, keep the bend
+                        newPoints[0] = newStartPoint;
+                    }
+
+                    if (endMoved && newEndPoint) {
+                        // Move just the end point, keep the bend
+                        newPoints[newPoints.length - 1] = newEndPoint;
+                    }
+
+                    // Check if any segment now passes through an obstacle
+                    const excludeIds = [arrow.id];
+                    if (startConn) excludeIds.push(startConn.elementId);
+                    if (endConn) excludeIds.push(endConn.elementId);
+
+                    // Check first segment (start to first bend)
+                    if (startMoved && newPoints.length > 2) {
+                        const firstBend = newPoints[1];
+                        if (
+                            !hasLineOfSightBetweenPoints(
+                                newPoints[0],
+                                firstBend,
+                                elements,
+                                excludeIds,
+                            )
+                        ) {
+                            // Need to re-route: switch to elbow mode
+                            const targetElementId = endConn?.elementId ?? null;
+                            const startElementId = startConn?.elementId ?? null;
+                            newPoints = generateElbowRouteAroundObstacles(
+                                startPoint,
+                                endPoint,
+                                elements,
+                                arrow.id,
+                                targetElementId,
+                                startElementId,
+                            );
+                            newConnectorStyle = "elbow";
+                        }
+                    }
+
+                    // Check last segment (last bend to end)
                     if (
-                        !hasLineOfSightBetweenPoints(
-                            lastBend,
-                            newPoints[newPoints.length - 1],
-                            elements,
-                            excludeIds,
-                        )
+                        endMoved &&
+                        newPoints.length > 2 &&
+                        !newConnectorStyle
                     ) {
-                        // Need to re-route: switch to elbow mode
-                        const targetElementId = endConn?.elementId ?? null;
-                        const startElementId = startConn?.elementId ?? null;
-                        newPoints = generateElbowRouteAroundObstacles(
-                            startPoint,
-                            endPoint,
-                            elements,
-                            arrow.id,
-                            targetElementId,
-                            startElementId,
-                        );
-                        newConnectorStyle = "elbow";
+                        const lastBend = newPoints[newPoints.length - 2];
+                        if (
+                            !hasLineOfSightBetweenPoints(
+                                lastBend,
+                                newPoints[newPoints.length - 1],
+                                elements,
+                                excludeIds,
+                            )
+                        ) {
+                            // Need to re-route: switch to elbow mode
+                            const targetElementId = endConn?.elementId ?? null;
+                            const startElementId = startConn?.elementId ?? null;
+                            newPoints = generateElbowRouteAroundObstacles(
+                                startPoint,
+                                endPoint,
+                                elements,
+                                arrow.id,
+                                targetElementId,
+                                startElementId,
+                            );
+                            newConnectorStyle = "elbow";
+                        }
                     }
                 }
             }
