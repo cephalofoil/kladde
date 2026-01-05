@@ -872,8 +872,13 @@ export function generateElbowRouteAroundObstacles(
 
     // FIRST: Check for line of sight - if start and end are roughly aligned,
     // a straight line (2 points) is the most efficient path
+    // BUT: only use straight line if there are NO connections - connected arrows
+    // should always use elbow routing for proper margins
     const straightLine = [start, end];
+    const hasAnyConnection = startBounds || targetBounds;
     const straightLineValid = (): boolean => {
+        // Never use straight line for connected arrows - they need elbow routing
+        if (hasAnyConnection) return false;
         // Check the line doesn't pass through connected shapes
         if (targetBounds && linePassesThrough(start, end, targetBounds))
             return false;
@@ -1437,7 +1442,73 @@ export function generateElbowRouteAroundObstacles(
             }
         }
 
-        // Single-connection: use the existing routing logic
+        // Single-connection FROM a shape (startBounds exists, no targetBounds):
+        // Route orthogonally away from the start shape, then to the free endpoint
+        if (startBounds && !targetBounds) {
+            const startSide = getSnapSide(start, startBounds);
+            const EXIT_MARGIN = 40; // Margin for exiting the shape
+
+            // Calculate orthogonal exit point
+            const getOrthogonalExit = (
+                pt: Point,
+                side: string | null,
+                bounds: BoundingBox,
+            ): Point => {
+                switch (side) {
+                    case "left":
+                        return { x: bounds.x - EXIT_MARGIN, y: pt.y };
+                    case "right":
+                        return {
+                            x: bounds.x + bounds.width + EXIT_MARGIN,
+                            y: pt.y,
+                        };
+                    case "top":
+                        return { x: pt.x, y: bounds.y - EXIT_MARGIN };
+                    case "bottom":
+                        return {
+                            x: pt.x,
+                            y: bounds.y + bounds.height + EXIT_MARGIN,
+                        };
+                    default:
+                        // Fallback based on point position
+                        const cx = bounds.x + bounds.width / 2;
+                        const cy = bounds.y + bounds.height / 2;
+                        if (Math.abs(pt.x - bounds.x) < 5)
+                            return { x: bounds.x - EXIT_MARGIN, y: pt.y };
+                        if (Math.abs(pt.x - (bounds.x + bounds.width)) < 5)
+                            return {
+                                x: bounds.x + bounds.width + EXIT_MARGIN,
+                                y: pt.y,
+                            };
+                        if (Math.abs(pt.y - bounds.y) < 5)
+                            return { x: pt.x, y: bounds.y - EXIT_MARGIN };
+                        if (Math.abs(pt.y - (bounds.y + bounds.height)) < 5)
+                            return {
+                                x: pt.x,
+                                y: bounds.y + bounds.height + EXIT_MARGIN,
+                            };
+                        return pt.x < cx
+                            ? { x: bounds.x - EXIT_MARGIN, y: pt.y }
+                            : {
+                                  x: bounds.x + bounds.width + EXIT_MARGIN,
+                                  y: pt.y,
+                              };
+                }
+            };
+
+            const startExit = getOrthogonalExit(start, startSide, startBounds);
+
+            // Route: start -> orthogonal exit -> corner -> end
+            if (startSide === "left" || startSide === "right") {
+                // Horizontal exit - go horizontal first, then vertical
+                return [start, startExit, { x: startExit.x, y: end.y }, end];
+            } else {
+                // Vertical exit - go vertical first, then horizontal
+                return [start, startExit, { x: end.x, y: startExit.y }, end];
+            }
+        }
+
+        // Single-connection TO a shape (targetBounds exists): use the existing routing logic
         const routingBounds = targetBounds || startBounds;
         if (!routingBounds) {
             return dx > dy ? hFirstPath : vFirstPath;

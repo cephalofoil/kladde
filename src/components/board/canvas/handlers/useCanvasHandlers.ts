@@ -1145,6 +1145,38 @@ export function useCanvasHandlers({
                                     // The snapTarget is already set above with outOfLineOfSight: true
                                     return;
                                 }
+
+                                // For sharp mode with existing connection (from handle creation),
+                                // use elbow routing to avoid edge riding
+                                if (
+                                    style === "sharp" &&
+                                    (originalElement.startConnection ||
+                                        originalElement.endConnection)
+                                ) {
+                                    const routedPoints =
+                                        generateElbowRouteAroundObstacles(
+                                            otherEndpoint,
+                                            finalPoint,
+                                            elements,
+                                            originalElement.id,
+                                            snapResult.elementId,
+                                            otherConnection ?? null,
+                                        );
+
+                                    // Update all points with the routed path
+                                    if (index === 0) {
+                                        newPoints = routedPoints.reverse();
+                                    } else {
+                                        newPoints = routedPoints;
+                                    }
+
+                                    onUpdateElement(originalElement.id, {
+                                        points: newPoints,
+                                        connectorStyle: "elbow",
+                                        elbowRoute: undefined,
+                                    });
+                                    return;
+                                }
                             } else {
                                 setSnapTarget(null);
 
@@ -1153,93 +1185,34 @@ export function useCanvasHandlers({
                                     originalElement.startConnection ||
                                     originalElement.endConnection;
 
-                                // For arrows with existing connections, use simple orthogonal routing
-                                // without a snap target (just a clean L-path from connection to cursor)
+                                // For arrows with existing connections, use generateElbowRouteAroundObstacles
+                                // to ensure proper margins and avoid edge riding
                                 if (hasExistingConnection) {
-                                    // Get the connected element's bounds to determine exit direction
-                                    const connectedElementId =
+                                    const otherConnection =
                                         index === 0
                                             ? originalElement.endConnection
                                                   ?.elementId
                                             : originalElement.startConnection
                                                   ?.elementId;
-                                    const connectedPosition =
-                                        index === 0
-                                            ? originalElement.endConnection
-                                                  ?.position
-                                            : originalElement.startConnection
-                                                  ?.position;
 
-                                    // Generate a simple L-path based on the connection side
-                                    let routedPoints: Point[];
-                                    const connectedPoint = otherEndpoint;
-                                    const freePoint = finalPoint;
-
-                                    // Determine if we should go horizontal or vertical first
-                                    // based on the connection position
-                                    const isHorizontalExit =
-                                        connectedPosition === "e" ||
-                                        connectedPosition === "w";
-                                    const isVerticalExit =
-                                        connectedPosition === "n" ||
-                                        connectedPosition === "s";
-
-                                    if (isHorizontalExit) {
-                                        // Exit horizontally first, then go vertical
-                                        routedPoints = [
-                                            connectedPoint,
-                                            {
-                                                x: freePoint.x,
-                                                y: connectedPoint.y,
-                                            },
-                                            freePoint,
-                                        ];
-                                    } else if (isVerticalExit) {
-                                        // Exit vertically first, then go horizontal
-                                        routedPoints = [
-                                            connectedPoint,
-                                            {
-                                                x: connectedPoint.x,
-                                                y: freePoint.y,
-                                            },
-                                            freePoint,
-                                        ];
-                                    } else {
-                                        // Corner connection - choose based on direction
-                                        const dx = Math.abs(
-                                            freePoint.x - connectedPoint.x,
+                                    const routedPoints =
+                                        generateElbowRouteAroundObstacles(
+                                            otherEndpoint,
+                                            finalPoint,
+                                            elements,
+                                            originalElement.id,
+                                            null, // No snap target
+                                            otherConnection ?? null,
                                         );
-                                        const dy = Math.abs(
-                                            freePoint.y - connectedPoint.y,
-                                        );
-                                        if (dx > dy) {
-                                            routedPoints = [
-                                                connectedPoint,
-                                                {
-                                                    x: freePoint.x,
-                                                    y: connectedPoint.y,
-                                                },
-                                                freePoint,
-                                            ];
-                                        } else {
-                                            routedPoints = [
-                                                connectedPoint,
-                                                {
-                                                    x: connectedPoint.x,
-                                                    y: freePoint.y,
-                                                },
-                                                freePoint,
-                                            ];
-                                        }
-                                    }
 
                                     // If dragging start point, we need to reverse
-                                    if (index === 0) {
-                                        routedPoints = routedPoints.reverse();
-                                    }
+                                    const finalPoints =
+                                        index === 0
+                                            ? routedPoints.reverse()
+                                            : routedPoints;
 
                                     onUpdateElement(originalElement.id, {
-                                        points: routedPoints,
+                                        points: finalPoints,
                                         connectorStyle: "elbow",
                                         elbowRoute: undefined,
                                     });
