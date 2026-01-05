@@ -2641,28 +2641,6 @@ export function useCanvasHandlers({
                 return;
             }
 
-            // For drawing tools, if we clicked on an element, select it instead
-            if (
-                tool !== "eraser" &&
-                tool !== "text" &&
-                selectableClickedElement
-            ) {
-                setSelectedIds(
-                    getGroupSelectionIds(selectableClickedElement, elements),
-                );
-
-                // If in tile mode and clicked on a tile, switch to select tool
-                if (
-                    tool === "tile" &&
-                    selectableClickedElement.type === "tile" &&
-                    onToolChange
-                ) {
-                    onToolChange("select");
-                }
-
-                return;
-            }
-
             if (tool === "text") {
                 // Check if we clicked on an existing text element to edit it
                 // Don't allow editing text elements that are selected by remote users

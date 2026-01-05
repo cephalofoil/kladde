@@ -717,14 +717,20 @@ export function useCanvasRenderers({
                             )}
                             {/* Fill layer - renders under stroke using original points */}
                             {handDrawnMode && roughFill ? (
-                                <g pointerEvents="none">{roughFill}</g>
+                                <g
+                                    pointerEvents="auto"
+                                    data-element-id={effectiveElement.id}
+                                >
+                                    {roughFill}
+                                </g>
                             ) : (
                                 shouldFill && (
                                     <path
+                                        data-element-id={effectiveElement.id}
                                         d={fillPath}
                                         fill={elFillColor}
                                         opacity={fillOpacity}
-                                        pointerEvents="none"
+                                        pointerEvents="auto"
                                         mask={
                                             maskId
                                                 ? `url(#${maskId})`
@@ -776,14 +782,20 @@ export function useCanvasRenderers({
                     <g key={effectiveElement.id} transform={rotationTransform}>
                         {/* Fill layer for dashed/dotted strokes */}
                         {handDrawnMode && roughFill ? (
-                            <g pointerEvents="none">{roughFill}</g>
+                            <g
+                                pointerEvents="auto"
+                                data-element-id={effectiveElement.id}
+                            >
+                                {roughFill}
+                            </g>
                         ) : (
                             shouldFill && (
                                 <polygon
+                                    data-element-id={effectiveElement.id}
                                     points={points}
                                     fill={elFillColor}
                                     opacity={fillOpacity}
-                                    pointerEvents="none"
+                                    pointerEvents="auto"
                                 />
                             )
                         )}
@@ -1347,7 +1359,21 @@ export function useCanvasRenderers({
                     if (roughElement) {
                         return (
                             <g key={element.id}>
-                                {/* Invisible hitbox */}
+                                {/* Invisible hitbox for filled shapes */}
+                                {hasVisibleFill && (
+                                    <rect
+                                        data-element-id={element.id}
+                                        x={element.x}
+                                        y={element.y}
+                                        width={element.width}
+                                        height={element.height}
+                                        fill="transparent"
+                                        rx={elCornerRadius}
+                                        pointerEvents="fill"
+                                        transform={rotationTransform}
+                                    />
+                                )}
+                                {/* Invisible hitbox for stroke-only shapes */}
                                 {!hasVisibleFill && element.strokeWidth > 0 && (
                                     <rect
                                         data-element-id={element.id}
@@ -1549,6 +1575,28 @@ export function useCanvasRenderers({
                     if (roughElement) {
                         return (
                             <g key={element.id}>
+                                {/* Invisible hitbox for filled shapes */}
+                                {hasVisibleFill && (
+                                    <polygon
+                                        data-element-id={element.id}
+                                        points={diamondPoints}
+                                        fill="transparent"
+                                        pointerEvents="fill"
+                                        transform={rotationTransform}
+                                    />
+                                )}
+                                {/* Invisible hitbox for stroke-only shapes */}
+                                {!hasVisibleFill && element.strokeWidth > 0 && (
+                                    <polygon
+                                        data-element-id={element.id}
+                                        points={diamondPoints}
+                                        fill="none"
+                                        stroke="transparent"
+                                        strokeWidth={hitboxStrokeWidth}
+                                        pointerEvents="stroke"
+                                        transform={rotationTransform}
+                                    />
+                                )}
                                 {roughElement}
                                 {isMarkedForDeletion && (
                                     <path
@@ -1655,6 +1703,40 @@ export function useCanvasRenderers({
                     if (roughElement) {
                         return (
                             <g key={element.id}>
+                                {/* Invisible hitbox for filled shapes */}
+                                {hasVisibleFill && (
+                                    <ellipse
+                                        data-element-id={element.id}
+                                        cx={cx}
+                                        cy={cy}
+                                        rx={(element.width || 0) / 2}
+                                        ry={(element.height || 0) / 2}
+                                        fill="transparent"
+                                        pointerEvents="fill"
+                                        transform={rotationTransform}
+                                    />
+                                )}
+                                {/* Invisible hitbox for stroke-only shapes */}
+                                {!hasVisibleFill && element.strokeWidth > 0 && (
+                                    <ellipse
+                                        data-element-id={element.id}
+                                        cx={cx}
+                                        cy={cy}
+                                        rx={
+                                            (element.width || 0) / 2 +
+                                            hitboxOffset
+                                        }
+                                        ry={
+                                            (element.height || 0) / 2 +
+                                            hitboxOffset
+                                        }
+                                        fill="none"
+                                        stroke="transparent"
+                                        strokeWidth={hitboxStrokeWidth}
+                                        pointerEvents="stroke"
+                                        transform={rotationTransform}
+                                    />
+                                )}
                                 {roughElement}
                                 {isMarkedForDeletion && (
                                     <ellipse
