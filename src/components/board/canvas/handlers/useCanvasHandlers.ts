@@ -2234,12 +2234,17 @@ export function useCanvasHandlers({
             const clickedElement = clickedElementId
                 ? elements.find((el) => el.id === clickedElementId)
                 : null;
-            // Don't allow selecting elements that are selected by remote users
+            // Don't allow selecting elements that are selected by remote users or locked/hidden
             const isRemotelySelected = clickedElement
                 ? remotelySelectedIds.has(clickedElement.id)
                 : false;
+            const isLockedOrHidden = clickedElement
+                ? clickedElement.locked || clickedElement.hidden
+                : false;
             const selectableClickedElement =
-                clickedElement?.type === "laser" || isRemotelySelected
+                clickedElement?.type === "laser" ||
+                isRemotelySelected ||
+                isLockedOrHidden
                     ? null
                     : clickedElement;
 

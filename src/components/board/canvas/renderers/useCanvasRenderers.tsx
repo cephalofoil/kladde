@@ -622,6 +622,9 @@ export function useCanvasRenderers({
     );
 
     const renderElement = (element: BoardElement, isPreview = false) => {
+        // Skip rendering hidden elements
+        if (element.hidden) return null;
+
         const effectiveElement = !isPreview
             ? getConnectorDragPreviewElement(element)
             : element;

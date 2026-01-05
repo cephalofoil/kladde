@@ -154,6 +154,9 @@ export interface BoardElement {
     lineHeight?: number;
     // Layer order
     zIndex?: number;
+    // Layer visibility and lock
+    hidden?: boolean;
+    locked?: boolean;
     // Pattern fill properties
     fillPattern?: "none" | "solid";
     isClosed?: boolean;

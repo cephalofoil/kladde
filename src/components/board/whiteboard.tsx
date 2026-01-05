@@ -1315,6 +1315,122 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         [elements, saveToUndoStack, handleUpdateElement],
     );
 
+    const handleMoveToIndex = useCallback(
+        (id: string, newIndex: number) => {
+            const element = elements.find((el) => el.id === id);
+            if (!element) return;
+
+            saveToUndoStack();
+
+            // Sort elements by zIndex (highest first, matching sidebar display)
+            const sortedElements = [...elements].sort((a, b) => {
+                const zIndexA = a.zIndex ?? 0;
+                const zIndexB = b.zIndex ?? 0;
+                return zIndexB - zIndexA;
+            });
+
+            const currentIndex = sortedElements.findIndex((el) => el.id === id);
+            if (currentIndex === -1) return;
+
+            // Remove element from current position
+            const [movedElement] = sortedElements.splice(currentIndex, 1);
+
+            // Insert at new position
+            const insertIndex = Math.max(
+                0,
+                Math.min(newIndex, sortedElements.length),
+            );
+            sortedElements.splice(insertIndex, 0, movedElement);
+
+            // Reassign zIndex values based on new order (higher index = lower zIndex since sorted desc)
+            const maxZIndex = sortedElements.length - 1;
+            sortedElements.forEach((el, idx) => {
+                const newZIndex = maxZIndex - idx;
+                if ((el.zIndex ?? 0) !== newZIndex) {
+                    handleUpdateElement(el.id, { zIndex: newZIndex });
+                }
+            });
+        },
+        [elements, saveToUndoStack, handleUpdateElement],
+    );
+
+    const handleToggleVisibility = useCallback(
+        (id: string) => {
+            const element = elements.find((el) => el.id === id);
+            if (!element) return;
+
+            saveToUndoStack();
+            handleUpdateElement(id, { hidden: !element.hidden });
+        },
+        [elements, saveToUndoStack, handleUpdateElement],
+    );
+
+    const handleToggleLock = useCallback(
+        (id: string) => {
+            const element = elements.find((el) => el.id === id);
+            if (!element) return;
+
+            saveToUndoStack();
+            handleUpdateElement(id, { locked: !element.locked });
+
+            // If locking an element that's selected, deselect it
+            if (
+                !element.locked &&
+                selectedElements.some((el) => el.id === id)
+            ) {
+                setSelectedElements(
+                    selectedElements.filter((el) => el.id !== id),
+                );
+            }
+        },
+        [elements, selectedElements, saveToUndoStack, handleUpdateElement],
+    );
+
+    const handleDuplicateElement = useCallback(
+        (id: string) => {
+            const element = elements.find((el) => el.id === id);
+            if (!element || element.type === "laser") return;
+
+            saveToUndoStack();
+
+            const offset = 12;
+            const newElement: BoardElement = {
+                ...element,
+                id: uuid(),
+                groupId: undefined,
+            };
+
+            // Offset the duplicate
+            if (
+                element.type === "pen" ||
+                element.type === "line" ||
+                element.type === "arrow"
+            ) {
+                newElement.points = element.points.map((p) => ({
+                    x: p.x + offset,
+                    y: p.y + offset,
+                }));
+            } else {
+                newElement.x = (element.x ?? 0) + offset;
+                newElement.y = (element.y ?? 0) + offset;
+            }
+
+            // Give it a higher zIndex
+            const maxZIndex = Math.max(
+                ...elements.map((el) => el.zIndex ?? 0),
+                0,
+            );
+            newElement.zIndex = maxZIndex + 1;
+
+            if (collaboration) {
+                collaboration.addElement(newElement);
+            } else {
+                setElements([...elements, newElement]);
+            }
+        },
+        [elements, collaboration, saveToUndoStack],
+    );
+
     // Sync sidebar properties with selected elements
     useEffect(() => {
         if (selectedElements.length > 0) {
@@ -1635,6 +1751,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onToggleGroupSelection={handleToggleGroupSelection}
                         isEditArrowMode={isEditArrowMode}
                         onToggleEditArrowMode={handleToggleEditArrowMode}
+                        rightOffset={showLayersSidebar ? 320 : 0}
                     />
                 )}
 
@@ -1761,6 +1878,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onSelectElement={handleSelectElementFromLayers}
                     onDeleteElement={handleDeleteElement}
                     onReorderElement={handleReorderElement}
+                    onMoveToIndex={handleMoveToIndex}
+                    onToggleVisibility={handleToggleVisibility}
+                    onToggleLock={handleToggleLock}
+                    onDuplicateElement={handleDuplicateElement}
                 />
             )}
         </div>

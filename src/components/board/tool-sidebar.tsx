@@ -115,6 +115,7 @@ interface ToolSidebarProps {
     onToggleGroupSelection?: () => void;
     isEditArrowMode?: boolean;
     onToggleEditArrowMode?: () => void;
+    rightOffset?: number;
 }
 
 // Tools that have adjustable properties
@@ -194,6 +195,7 @@ export function ToolSidebar({
     onToggleGroupSelection,
     isEditArrowMode = false,
     onToggleEditArrowMode,
+    rightOffset = 0,
 }: ToolSidebarProps) {
     const { theme, resolvedTheme } = useTheme();
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -1190,7 +1192,10 @@ export function ToolSidebar({
     );
 
     const condensedSidebar = (
-        <div className="fixed right-4 top-1/2 -translate-y-1/2 z-40 select-none">
+        <div
+            className="fixed top-1/2 -translate-y-1/2 z-40 select-none transition-all duration-300"
+            style={{ right: `${16 + rightOffset}px` }}
+        >
             <div className="bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2 max-h-[calc(100vh-160px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 <DropdownMenu
                     open={openStrokeMenu}
@@ -1620,9 +1625,10 @@ export function ToolSidebar({
     const fullSidebar = (
         <div
             className={cn(
-                "fixed right-4 top-1/2 -translate-y-1/2 z-40 transition-all duration-300 ease-out select-none",
+                "fixed top-1/2 -translate-y-1/2 z-40 transition-all duration-300 ease-out select-none",
                 isCollapsed ? "translate-x-[calc(100%-3rem)]" : "translate-x-0",
             )}
+            style={{ right: `${16 + rightOffset}px` }}
         >
             <div className="relative bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl overflow-hidden">
                 {/* Collapse/Expand Button */}
