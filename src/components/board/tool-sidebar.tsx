@@ -1191,7 +1191,7 @@ export function ToolSidebar({
 
     const condensedSidebar = (
         <div className="fixed right-4 top-1/2 -translate-y-1/2 z-40 select-none">
-            <div className="bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2">
+            <div className="bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2 max-h-[calc(100vh-160px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 <DropdownMenu
                     open={openStrokeMenu}
                     onOpenChange={setOpenStrokeMenu}
@@ -1643,7 +1643,7 @@ export function ToolSidebar({
                 {/* Sidebar Content */}
                 <div
                     className={cn(
-                        "w-56 p-3 space-y-3 max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain",
+                        "w-56 p-3 space-y-3 max-h-[calc(100vh-160px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent",
                         isCollapsed && "opacity-0 pointer-events-none",
                     )}
                 >
