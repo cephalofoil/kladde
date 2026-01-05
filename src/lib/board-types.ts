@@ -191,6 +191,7 @@ export const COLORS = [
 ];
 
 export const STROKE_WIDTHS = [2, 4, 6, 8, 12];
+export const HIGHLIGHTER_STROKE_WIDTHS = [8, 12, 16, 24, 32];
 
 export const FONTS = [
     { name: "Inter", value: "var(--font-inter)" },

@@ -41,6 +41,7 @@ import {
     Tool,
     COLORS,
     STROKE_WIDTHS,
+    HIGHLIGHTER_STROKE_WIDTHS,
     FONTS,
     FONT_SIZES,
     BoardElement,
@@ -846,7 +847,10 @@ export function ToolSidebar({
                         size="sm"
                         className="w-full justify-between gap-2"
                     >
-                        {STROKE_WIDTHS.map((width) => (
+                        {(useHighlightPalette
+                            ? HIGHLIGHTER_STROKE_WIDTHS
+                            : STROKE_WIDTHS
+                        ).map((width) => (
                             <ToggleGroupItem
                                 key={width}
                                 value={width.toString()}
@@ -860,7 +864,11 @@ export function ToolSidebar({
                                 <div className="flex flex-col items-center justify-center gap-1 w-full">
                                     <div
                                         className="w-[70%] bg-foreground/90 rounded-full"
-                                        style={{ height: width }}
+                                        style={{
+                                            height: useHighlightPalette
+                                                ? Math.min(width / 2, 16)
+                                                : width,
+                                        }}
                                     />
                                 </div>
                             </ToggleGroupItem>

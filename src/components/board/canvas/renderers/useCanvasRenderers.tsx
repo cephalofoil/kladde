@@ -687,11 +687,34 @@ export function useCanvasRenderers({
                         ? `M ${effectiveElement.points.map((p) => `${p.x},${p.y}`).join(" L ")} Z`
                         : "";
 
+                    // For highlighters, use a mask to cut out the stroke area from the fill
+                    // to prevent double opacity where they overlap
+                    const maskId =
+                        isHighlighter && shouldFill
+                            ? `highlighter-mask-${effectiveElement.id}`
+                            : null;
+
                     return (
                         <g
                             key={effectiveElement.id}
                             transform={rotationTransform}
                         >
+                            {/* Mask definition for highlighter fill cutout */}
+                            {maskId && (
+                                <defs>
+                                    <mask id={maskId}>
+                                        {/* White = visible, black = hidden */}
+                                        <rect
+                                            x="-999999"
+                                            y="-999999"
+                                            width="1999998"
+                                            height="1999998"
+                                            fill="white"
+                                        />
+                                        <path d={pathData} fill="black" />
+                                    </mask>
+                                </defs>
+                            )}
                             {/* Fill layer - renders under stroke using original points */}
                             {handDrawnMode && roughFill ? (
                                 <g pointerEvents="none">{roughFill}</g>
@@ -702,6 +725,11 @@ export function useCanvasRenderers({
                                         fill={elFillColor}
                                         opacity={fillOpacity}
                                         pointerEvents="none"
+                                        mask={
+                                            maskId
+                                                ? `url(#${maskId})`
+                                                : undefined
+                                        }
                                     />
                                 )
                             )}
@@ -709,11 +737,7 @@ export function useCanvasRenderers({
                             <path
                                 data-element-id={effectiveElement.id}
                                 d={pathData}
-                                fill={
-                                    isHighlighter
-                                        ? elFillColor
-                                        : effectiveElement.strokeColor
-                                }
+                                fill={effectiveElement.strokeColor}
                                 opacity={
                                     isMarkedForDeletion
                                         ? elOpacity * 0.3
