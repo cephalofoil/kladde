@@ -1282,49 +1282,62 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         [elements, selectedElements],
     );
 
-    const handleReorderElement = useCallback(
-        (id: string, direction: "up" | "down") => {
-            const element = elements.find((el) => el.id === id);
-            if (!element) return;
-
-            saveToUndoStack();
-
-            // Sort elements by zIndex (highest first, matching sidebar display)
-            const sortedElements = [...elements].sort((a, b) => {
-                const zIndexA = a.zIndex ?? 0;
-                const zIndexB = b.zIndex ?? 0;
-                return zIndexB - zIndexA;
-            });
-
-            const currentIndex = sortedElements.findIndex((el) => el.id === id);
-            if (currentIndex === -1) return;
-
-            // In the sidebar, "up" means visually moving up (lower index in sorted array = higher zIndex)
-            // "down" means visually moving down (higher index = lower zIndex)
-            const swapIndex =
-                direction === "up" ? currentIndex - 1 : currentIndex + 1;
-            if (swapIndex < 0 || swapIndex >= sortedElements.length) return;
-
-            const currentElement = sortedElements[currentIndex];
-            const swapElement = sortedElements[swapIndex];
-
-            const currentZIndex = currentElement.zIndex ?? 0;
-            const swapZIndex = swapElement.zIndex ?? 0;
-
-            // Swap the zIndex values
-            handleUpdateElement(currentElement.id, { zIndex: swapZIndex });
-            handleUpdateElement(swapElement.id, { zIndex: currentZIndex });
-        },
-        [elements, saveToUndoStack, handleUpdateElement],
-    );
-
     const handleMoveToIndex = useCallback(
         (id: string, newIndex: number) => {
             const element = elements.find((el) => el.id === id);
             if (!element) return;
 
+            // Sort elements by zIndex (highest first, matching sidebar display)
+            // Index 0 = highest zIndex (top of list), last index = lowest zIndex (bottom)
+            const sortedElements = [...elements].sort((a, b) => {
+                const zIndexA = a.zIndex ?? 0;
+                const zIndexB = b.zIndex ?? 0;
+                return zIndexB - zIndexA;
+            });
+
+            const currentIndex = sortedElements.findIndex((el) => el.id === id);
+            if (currentIndex === -1) return;
+            if (currentIndex === newIndex) return; // No change needed
+
             saveToUndoStack();
 
+            // Get elements excluding the one we're moving
+            const otherElements = sortedElements.filter((el) => el.id !== id);
+
+            // Clamp the target index for the filtered array
+            const targetIndex = Math.max(
+                0,
+                Math.min(newIndex, otherElements.length),
+            );
+
+            let newZIndex: number;
+
+            if (otherElements.length === 0) {
+                // Only element, keep current zIndex
+                return;
+            } else if (targetIndex === 0) {
+                // Moving to top - get zIndex higher than current top
+                newZIndex = (otherElements[0].zIndex ?? 0) + 1;
+            } else if (targetIndex >= otherElements.length) {
+                // Moving to bottom - get zIndex lower than current bottom
+                newZIndex =
+                    (otherElements[otherElements.length - 1].zIndex ?? 0) - 1;
+            } else {
+                // Moving between two elements - calculate midpoint
+                const aboveElement = otherElements[targetIndex - 1];
+                const belowElement = otherElements[targetIndex];
+                const aboveZ = aboveElement.zIndex ?? 0;
+                const belowZ = belowElement.zIndex ?? 0;
+                newZIndex = (aboveZ + belowZ) / 2;
+            }
+
+            handleUpdateElement(id, { zIndex: newZIndex });
+        },
+        [elements, saveToUndoStack, handleUpdateElement],
+    );
+
+    const handleReorderElement = useCallback(
+        (id: string, direction: "up" | "down") => {
             // Sort elements by zIndex (highest first, matching sidebar display)
             const sortedElements = [...elements].sort((a, b) => {
                 const zIndexA = a.zIndex ?? 0;
@@ -1335,26 +1348,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             const currentIndex = sortedElements.findIndex((el) => el.id === id);
             if (currentIndex === -1) return;
 
-            // Remove element from current position
-            const [movedElement] = sortedElements.splice(currentIndex, 1);
+            const targetIndex =
+                direction === "up" ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= sortedElements.length) return;
 
-            // Insert at new position
-            const insertIndex = Math.max(
-                0,
-                Math.min(newIndex, sortedElements.length),
-            );
-            sortedElements.splice(insertIndex, 0, movedElement);
-
-            // Reassign zIndex values based on new order (higher index = lower zIndex since sorted desc)
-            const maxZIndex = sortedElements.length - 1;
-            sortedElements.forEach((el, idx) => {
-                const newZIndex = maxZIndex - idx;
-                if ((el.zIndex ?? 0) !== newZIndex) {
-                    handleUpdateElement(el.id, { zIndex: newZIndex });
-                }
-            });
+            // Delegate to handleMoveToIndex
+            handleMoveToIndex(id, targetIndex);
         },
-        [elements, saveToUndoStack, handleUpdateElement],
+        [elements, handleMoveToIndex],
     );
 
     const handleToggleVisibility = useCallback(
@@ -1398,11 +1399,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         selectedElements.forEach((el) => {
             handleUpdateElement(el.id, { locked: anyUnlocked });
         });
-
-        // Clear selection when locking
-        if (anyUnlocked) {
-            setSelectedElements([]);
-        }
     }, [selectedElements, saveToUndoStack, handleUpdateElement]);
 
     const handleDuplicateElement = useCallback(

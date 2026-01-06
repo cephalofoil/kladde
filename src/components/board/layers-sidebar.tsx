@@ -15,6 +15,7 @@ import {
     Folder,
     FolderOpen,
     ChevronRight,
+    Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -559,6 +560,17 @@ export function LayersSidebar({
 
                     {/* Folder Actions */}
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingFolder(folder);
+                            }}
+                            className="p-1 rounded hover:bg-muted transition-colors"
+                            aria-label="Rename folder"
+                            title="Rename folder"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                        </button>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
