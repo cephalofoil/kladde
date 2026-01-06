@@ -16,6 +16,22 @@ import {
     FolderOpen,
     ChevronRight,
     Pencil,
+    MousePointer2,
+    Pen,
+    Minus,
+    MoveRight,
+    RectangleHorizontal,
+    Diamond,
+    Circle,
+    Type,
+    Frame,
+    StickyNote,
+    Code,
+    GitBranch,
+    Image as ImageIcon,
+    Globe,
+    Sparkles,
+    LetterText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,43 +54,86 @@ interface LayersSidebarProps {
     onMoveToFolder?: (elementId: string, folderId: string | null) => void;
 }
 
-const getElementIcon = (type: BoardElement["type"]) => {
-    switch (type) {
+const getElementIcon = (element: BoardElement) => {
+    const iconClass = "w-4 h-4";
+
+    switch (element.type) {
         case "rectangle":
-            return "▢";
+            return <RectangleHorizontal className={iconClass} />;
         case "ellipse":
-            return "○";
+            return <Circle className={iconClass} />;
         case "diamond":
-            return "◇";
+            return <Diamond className={iconClass} />;
         case "line":
-            return "─";
+            return <Minus className={iconClass} />;
         case "arrow":
-            return "→";
+            return <MoveRight className={iconClass} />;
         case "pen":
-            return "✎";
+            return <Pen className={iconClass} />;
         case "text":
-            return "T";
+            return <Type className={iconClass} />;
         case "frame":
-            return "⬚";
+            return <Frame className={iconClass} />;
         case "tile":
-            return "⊞";
+            // Use specific icons for tile types
+            switch (element.tileType) {
+                case "tile-note":
+                    return <StickyNote className={iconClass} />;
+                case "tile-code":
+                    return <Code className={iconClass} />;
+                case "tile-mermaid":
+                    return <GitBranch className={iconClass} />;
+                case "tile-image":
+                    return <ImageIcon className={iconClass} />;
+                case "tile-text":
+                    return <LetterText className={iconClass} />;
+                default:
+                    return <StickyNote className={iconClass} />;
+            }
         case "web-embed":
-            return "🌐";
+            return <Globe className={iconClass} />;
+        case "laser":
+            return <Sparkles className={iconClass} />;
         default:
-            return "•";
+            return <MousePointer2 className={iconClass} />;
     }
 };
 
 const getElementLabel = (element: BoardElement) => {
+    // For text elements, show the text content
     if (element.type === "text" && element.text) {
-        return (
-            element.text.substring(0, 20) +
-            (element.text.length > 20 ? "..." : "")
-        );
+        const cleanText = element.text.replace(/\n/g, " ").trim();
+        return cleanText || "Text";
     }
+
+    // For frames, show the label
     if (element.type === "frame" && element.label) {
         return element.label;
     }
+
+    // For tiles, show the title if available
+    if (element.type === "tile") {
+        if (element.tileTitle) {
+            return element.tileTitle;
+        }
+        // Fall back to tile type name
+        switch (element.tileType) {
+            case "tile-note":
+                return "Note";
+            case "tile-code":
+                return "Code";
+            case "tile-mermaid":
+                return "Diagram";
+            case "tile-image":
+                return "Image";
+            case "tile-text":
+                return "Text Block";
+            default:
+                return "Tile";
+        }
+    }
+
+    // Default: capitalize the type
     return element.type.charAt(0).toUpperCase() + element.type.slice(1);
 };
 
@@ -317,15 +376,15 @@ export function LayersSidebar({
                 </div>
 
                 {/* Element Icon & Label */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span
+                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+                    <div
                         className={cn(
-                            "text-base flex-shrink-0",
+                            "flex-shrink-0",
                             isHidden && "text-muted-foreground",
                         )}
                     >
-                        {getElementIcon(element.type)}
-                    </span>
+                        {getElementIcon(element)}
+                    </div>
                     <span
                         className={cn(
                             "text-sm truncate",
@@ -360,9 +419,9 @@ export function LayersSidebar({
                             title={isHidden ? "Show layer" : "Hide layer"}
                         >
                             {isHidden ? (
-                                <EyeOff className="w-3.5 h-3.5" />
+                                <EyeOff className="w-4 h-4" />
                             ) : (
-                                <Eye className="w-3.5 h-3.5" />
+                                <Eye className="w-4 h-4" />
                             )}
                         </button>
                     )}
@@ -384,9 +443,9 @@ export function LayersSidebar({
                             title={isLocked ? "Unlock layer" : "Lock layer"}
                         >
                             {isLocked ? (
-                                <Lock className="w-3.5 h-3.5" />
+                                <Lock className="w-4 h-4" />
                             ) : (
-                                <Unlock className="w-3.5 h-3.5" />
+                                <Unlock className="w-4 h-4" />
                             )}
                         </button>
                     )}
@@ -408,7 +467,7 @@ export function LayersSidebar({
                         aria-label="Move layer up"
                         title="Move up (higher z-index)"
                     >
-                        <ChevronUp className="w-3.5 h-3.5" />
+                        <ChevronUp className="w-4 h-4" />
                     </button>
 
                     {/* Move Down */}
@@ -426,7 +485,7 @@ export function LayersSidebar({
                         aria-label="Move layer down"
                         title="Move down (lower z-index)"
                     >
-                        <ChevronDown className="w-3.5 h-3.5" />
+                        <ChevronDown className="w-4 h-4" />
                     </button>
 
                     {/* Duplicate */}
@@ -440,7 +499,7 @@ export function LayersSidebar({
                             aria-label="Duplicate layer"
                             title="Duplicate layer"
                         >
-                            <Copy className="w-3.5 h-3.5" />
+                            <Copy className="w-4 h-4" />
                         </button>
                     )}
 
@@ -454,7 +513,7 @@ export function LayersSidebar({
                         aria-label="Delete layer"
                         title="Delete layer"
                     >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
             </div>
@@ -569,7 +628,7 @@ export function LayersSidebar({
                             aria-label="Rename folder"
                             title="Rename folder"
                         >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-4 h-4" />
                         </button>
                         <button
                             onClick={(e) => {
@@ -580,7 +639,7 @@ export function LayersSidebar({
                             aria-label="Delete folder"
                             title="Delete folder (contents will be moved to root)"
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
