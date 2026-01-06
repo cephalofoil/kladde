@@ -27,6 +27,7 @@ import type {
     BoardElement,
     ShadeworksFile,
     TileType,
+    LayerFolder,
 } from "@/lib/board-types";
 import { isClosedShape } from "@/lib/board-types";
 import {
@@ -153,6 +154,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [showHotkeysDialog, setShowHotkeysDialog] = useState(false);
     const [showInviteDialog, setShowInviteDialog] = useState(false);
     const [showLayersSidebar, setShowLayersSidebar] = useState(false);
+    const [layerFolders, setLayerFolders] = useState<LayerFolder[]>([]);
     const [pendingName, setPendingName] = useState<string | null>(null);
     const [highlightedElementIds, setHighlightedElementIds] = useState<
         string[]
@@ -1287,19 +1289,20 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
             saveToUndoStack();
 
-            // Sort elements by zIndex to get the proper order
+            // Sort elements by zIndex (highest first, matching sidebar display)
             const sortedElements = [...elements].sort((a, b) => {
                 const zIndexA = a.zIndex ?? 0;
                 const zIndexB = b.zIndex ?? 0;
-                return zIndexA - zIndexB;
+                return zIndexB - zIndexA;
             });
 
             const currentIndex = sortedElements.findIndex((el) => el.id === id);
             if (currentIndex === -1) return;
 
-            // Get the element to swap with
+            // In the sidebar, "up" means visually moving up (lower index in sorted array = higher zIndex)
+            // "down" means visually moving down (higher index = lower zIndex)
             const swapIndex =
-                direction === "up" ? currentIndex + 1 : currentIndex - 1;
+                direction === "up" ? currentIndex - 1 : currentIndex + 1;
             if (swapIndex < 0 || swapIndex >= sortedElements.length) return;
 
             const currentElement = sortedElements[currentIndex];
@@ -1386,6 +1389,22 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         [elements, selectedElements, saveToUndoStack, handleUpdateElement],
     );
 
+    const handleToggleLockSelected = useCallback(() => {
+        if (selectedElements.length === 0) return;
+        saveToUndoStack();
+
+        // Check if any selected element is unlocked - if so, lock all; otherwise unlock all
+        const anyUnlocked = selectedElements.some((el) => !el.locked);
+        selectedElements.forEach((el) => {
+            handleUpdateElement(el.id, { locked: anyUnlocked });
+        });
+
+        // Clear selection when locking
+        if (anyUnlocked) {
+            setSelectedElements([]);
+        }
+    }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+
     const handleDuplicateElement = useCallback(
         (id: string) => {
             const element = elements.find((el) => el.id === id);
@@ -1429,6 +1448,63 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             }
         },
         [elements, collaboration, saveToUndoStack],
+    );
+
+    // Folder handlers
+    const handleCreateFolder = useCallback(() => {
+        const newFolder: LayerFolder = {
+            id: uuid(),
+            name: `Folder ${layerFolders.length + 1}`,
+            collapsed: false,
+        };
+        setLayerFolders([...layerFolders, newFolder]);
+    }, [layerFolders]);
+
+    const handleDeleteFolder = useCallback(
+        (folderId: string) => {
+            // Move all elements in this folder to root (remove folderId)
+            const elementsInFolder = elements.filter(
+                (el) => el.folderId === folderId,
+            );
+            elementsInFolder.forEach((el) => {
+                handleUpdateElement(el.id, { folderId: undefined });
+            });
+            // Remove the folder
+            setLayerFolders(layerFolders.filter((f) => f.id !== folderId));
+        },
+        [elements, layerFolders, handleUpdateElement],
+    );
+
+    const handleRenameFolder = useCallback(
+        (folderId: string, newName: string) => {
+            setLayerFolders(
+                layerFolders.map((f) =>
+                    f.id === folderId ? { ...f, name: newName } : f,
+                ),
+            );
+        },
+        [layerFolders],
+    );
+
+    const handleToggleFolderCollapse = useCallback(
+        (folderId: string) => {
+            setLayerFolders(
+                layerFolders.map((f) =>
+                    f.id === folderId ? { ...f, collapsed: !f.collapsed } : f,
+                ),
+            );
+        },
+        [layerFolders],
+    );
+
+    const handleMoveToFolder = useCallback(
+        (elementId: string, folderId: string | null) => {
+            saveToUndoStack();
+            handleUpdateElement(elementId, {
+                folderId: folderId ?? undefined,
+            });
+        },
+        [saveToUndoStack, handleUpdateElement],
     );
 
     // Sync sidebar properties with selected elements
@@ -1751,6 +1827,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onToggleGroupSelection={handleToggleGroupSelection}
                         isEditArrowMode={isEditArrowMode}
                         onToggleEditArrowMode={handleToggleEditArrowMode}
+                        onToggleLockSelected={handleToggleLockSelected}
+                        isSelectionLocked={
+                            selectedElements.length > 0 &&
+                            selectedElements.every((el) => el.locked)
+                        }
                         rightOffset={showLayersSidebar ? 320 : 0}
                     />
                 )}
@@ -1874,6 +1955,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 <LayersSidebar
                     elements={elements}
                     selectedIds={new Set(selectedElements.map((el) => el.id))}
+                    folders={layerFolders}
                     onClose={() => setShowLayersSidebar(false)}
                     onSelectElement={handleSelectElementFromLayers}
                     onDeleteElement={handleDeleteElement}
@@ -1882,6 +1964,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onToggleVisibility={handleToggleVisibility}
                     onToggleLock={handleToggleLock}
                     onDuplicateElement={handleDuplicateElement}
+                    onCreateFolder={handleCreateFolder}
+                    onDeleteFolder={handleDeleteFolder}
+                    onRenameFolder={handleRenameFolder}
+                    onToggleFolderCollapse={handleToggleFolderCollapse}
+                    onMoveToFolder={handleMoveToFolder}
                 />
             )}
         </div>

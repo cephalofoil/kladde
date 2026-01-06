@@ -157,6 +157,8 @@ export interface BoardElement {
     // Layer visibility and lock
     hidden?: boolean;
     locked?: boolean;
+    // Folder organization
+    folderId?: string;
     // Pattern fill properties
     fillPattern?: "none" | "solid";
     isClosed?: boolean;
@@ -172,6 +174,13 @@ export interface Cursor {
     color: string;
     x: number;
     y: number;
+}
+
+export interface LayerFolder {
+    id: string;
+    name: string;
+    collapsed?: boolean;
+    zIndex?: number;
 }
 
 export const COLORS = [

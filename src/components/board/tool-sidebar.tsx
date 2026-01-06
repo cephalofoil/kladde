@@ -36,6 +36,8 @@ import {
     MoreHorizontal,
     SlidersHorizontal,
     Spline,
+    Lock,
+    Unlock,
 } from "lucide-react";
 import {
     Tool,
@@ -113,9 +115,11 @@ interface ToolSidebarProps {
     onCopySelected?: () => void;
     onDeleteSelected?: () => void;
     onToggleGroupSelection?: () => void;
+    onToggleLockSelected?: () => void;
     isEditArrowMode?: boolean;
     onToggleEditArrowMode?: () => void;
     rightOffset?: number;
+    isSelectionLocked?: boolean;
 }
 
 // Tools that have adjustable properties
@@ -193,9 +197,11 @@ export function ToolSidebar({
     onCopySelected,
     onDeleteSelected,
     onToggleGroupSelection,
+    onToggleLockSelected,
     isEditArrowMode = false,
     onToggleEditArrowMode,
     rightOffset = 0,
+    isSelectionLocked = false,
 }: ToolSidebarProps) {
     const { theme, resolvedTheme } = useTheme();
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -1388,6 +1394,25 @@ export function ToolSidebar({
                     </button>
                 )}
 
+                {hasSelectedElements && onToggleLockSelected && (
+                    <button
+                        type="button"
+                        onClick={onToggleLockSelected}
+                        className={cn(
+                            iconButton,
+                            isSelectionLocked && "text-amber-500",
+                        )}
+                        title={isSelectionLocked ? "Unlock" : "Lock"}
+                        aria-label={isSelectionLocked ? "Unlock" : "Lock"}
+                    >
+                        {isSelectionLocked ? (
+                            <Lock className="w-5 h-5" />
+                        ) : (
+                            <Unlock className="w-5 h-5" />
+                        )}
+                    </button>
+                )}
+
                 {showMoreMenu && (
                     <DropdownMenu
                         open={openMoreMenu}
@@ -1950,14 +1975,7 @@ export function ToolSidebar({
                             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 Actions
                             </label>
-                            <div
-                                className={cn(
-                                    "grid gap-1",
-                                    canEditArrow
-                                        ? "grid-cols-4"
-                                        : "grid-cols-3",
-                                )}
-                            >
+                            <div className={cn("grid gap-1", "grid-cols-5")}>
                                 {onCopySelected && (
                                     <button
                                         onClick={onCopySelected}
@@ -2024,6 +2042,33 @@ export function ToolSidebar({
                                         aria-label="Edit arrow"
                                     >
                                         <Spline className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                                {onToggleLockSelected && (
+                                    <button
+                                        onClick={onToggleLockSelected}
+                                        className={cn(
+                                            CONTROL_BUTTON,
+                                            "h-9 flex items-center justify-center",
+                                            isSelectionLocked &&
+                                                "text-amber-500",
+                                        )}
+                                        title={
+                                            isSelectionLocked
+                                                ? "Unlock"
+                                                : "Lock"
+                                        }
+                                        aria-label={
+                                            isSelectionLocked
+                                                ? "Unlock"
+                                                : "Lock"
+                                        }
+                                    >
+                                        {isSelectionLocked ? (
+                                            <Lock className="w-3.5 h-3.5" />
+                                        ) : (
+                                            <Unlock className="w-3.5 h-3.5" />
+                                        )}
                                     </button>
                                 )}
                             </div>
