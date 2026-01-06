@@ -95,6 +95,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     if (nextTool === "highlighter") {
       setStrokeColor("#fde047");
       setOpacity(60);
+      setStrokeWidth(8); // Default highlighter width
     } else {
       setOpacity(100);
     }
