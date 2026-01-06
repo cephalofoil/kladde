@@ -1204,7 +1204,7 @@ export function ToolSidebar({
 
     const condensedSidebar = (
         <div
-            className="fixed top-1/2 -translate-y-1/2 z-[80] select-none transition-all duration-300"
+            className="fixed top-1/2 -translate-y-1/2 z-[110] select-none transition-all duration-300"
             style={{ right: `${16 + rightOffset}px` }}
         >
             <div className="bg-card/95 backdrop-blur-md border border-border rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2 max-h-[calc(100vh-160px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
@@ -1655,7 +1655,7 @@ export function ToolSidebar({
     const fullSidebar = (
         <div
             className={cn(
-                "fixed top-1/2 -translate-y-1/2 z-[80] transition-all duration-300 ease-out select-none",
+                "fixed top-1/2 -translate-y-1/2 z-[110] transition-all duration-300 ease-out select-none",
                 isCollapsed ? "translate-x-[calc(100%-3rem)]" : "translate-x-0",
             )}
             style={{ right: `${16 + rightOffset}px` }}

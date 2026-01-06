@@ -100,6 +100,7 @@ interface UseCanvasRenderersProps {
     strokeStyle: "solid" | "dashed" | "dotted";
     arrowStart: NonNullable<BoardElement["arrowStart"]>;
     arrowEnd: NonNullable<BoardElement["arrowEnd"]>;
+    editingFrameLabelId?: string | null;
 }
 
 export function useCanvasRenderers({
@@ -137,6 +138,7 @@ export function useCanvasRenderers({
     strokeStyle,
     arrowStart,
     arrowEnd,
+    editingFrameLabelId,
 }: UseCanvasRenderersProps) {
     const getConnectorDragPreviewElement = useCallback(
         (element: BoardElement): BoardElement => {
@@ -2051,42 +2053,45 @@ export function useCanvasRenderers({
                                     : pointerEventsValue
                             }
                         />
-                        {element.label && (
-                            <>
-                                <rect
-                                    data-frame-label="true"
-                                    data-element-id={element.id}
-                                    x={(element.x ?? 0) + 4}
-                                    y={(element.y ?? 0) - 24}
-                                    width={Math.max(
-                                        120,
-                                        Math.min(element.width ?? 0, 220),
-                                    )}
-                                    height={20}
-                                    fill="rgba(0, 0, 0, 0.01)"
-                                    pointerEvents="all"
-                                />
-                                <text
-                                    data-frame-label="true"
-                                    data-element-id={element.id}
-                                    x={(element.x ?? 0) + 8}
-                                    y={(element.y ?? 0) - 8}
-                                    fill={element.strokeColor}
-                                    fontSize={12}
-                                    fontFamily="inherit"
-                                    fontWeight="400"
-                                    opacity={
-                                        isMarkedForDeletion
-                                            ? elOpacity * 0.3
-                                            : elOpacity
-                                    }
-                                    pointerEvents="all"
-                                    style={{ userSelect: "none" }}
-                                >
-                                    {element.label}
-                                </text>
-                            </>
-                        )}
+                        {element.label &&
+                            element.id !== editingFrameLabelId && (
+                                <>
+                                    <rect
+                                        data-frame-label="true"
+                                        data-element-id={element.id}
+                                        x={(element.x ?? 0) + 4}
+                                        y={(element.y ?? 0) - 24}
+                                        width={Math.max(
+                                            120,
+                                            Math.min(element.width ?? 0, 220),
+                                        )}
+                                        height={20}
+                                        fill="none"
+                                        stroke="transparent"
+                                        strokeWidth={18}
+                                        pointerEvents="stroke"
+                                    />
+                                    <text
+                                        data-frame-label="true"
+                                        data-element-id={element.id}
+                                        x={(element.x ?? 0) + 8}
+                                        y={(element.y ?? 0) - 8}
+                                        fill={element.strokeColor}
+                                        fontSize={12}
+                                        fontFamily="inherit"
+                                        fontWeight="400"
+                                        opacity={
+                                            isMarkedForDeletion
+                                                ? elOpacity * 0.3
+                                                : elOpacity
+                                        }
+                                        pointerEvents="all"
+                                        style={{ userSelect: "none" }}
+                                    >
+                                        {element.label}
+                                    </text>
+                                </>
+                            )}
                         {isMarkedForDeletion && (
                             <rect
                                 x={element.x}

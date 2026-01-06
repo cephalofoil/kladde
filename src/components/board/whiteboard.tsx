@@ -157,6 +157,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [showHotkeysDialog, setShowHotkeysDialog] = useState(false);
     const [showInviteDialog, setShowInviteDialog] = useState(false);
     const [showLayersSidebar, setShowLayersSidebar] = useState(false);
+    const [isLayersPinned, setIsLayersPinned] = useState(true);
     const [layerFolders, setLayerFolders] = useState<LayerFolder[]>([]);
     const [pendingName, setPendingName] = useState<string | null>(null);
     const [highlightedElementIds, setHighlightedElementIds] = useState<
@@ -1727,7 +1728,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         </button>
                         <button
                             onClick={() =>
-                                setShowLayersSidebar(!showLayersSidebar)
+                                setShowLayersSidebar((prev) =>
+                                    isLayersPinned ? true : !prev,
+                                )
                             }
                             className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
                             aria-label="Toggle layers sidebar"
@@ -1858,7 +1861,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                             selectedElements.length > 0 &&
                             selectedElements.every((el) => el.locked)
                         }
-                        rightOffset={showLayersSidebar ? 320 : 0}
+                        rightOffset={
+                            showLayersSidebar && isLayersPinned ? 320 : 0
+                        }
                     />
                 )}
 
@@ -1983,6 +1988,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     elements={elements}
                     selectedIds={new Set(selectedElements.map((el) => el.id))}
                     folders={layerFolders}
+                    isPinned={isLayersPinned}
+                    onTogglePin={() => setIsLayersPinned((prev) => !prev)}
                     onClose={() => setShowLayersSidebar(false)}
                     onFocusElement={handleFocusElement}
                     onHighlightElements={handleHighlightElements}

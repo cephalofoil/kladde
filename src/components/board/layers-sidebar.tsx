@@ -16,6 +16,8 @@ import {
     FolderOpen,
     ChevronRight,
     Pencil,
+    Pin,
+    PinOff,
     MousePointer2,
     Pen,
     Minus,
@@ -40,6 +42,8 @@ interface LayersSidebarProps {
     elements: BoardElement[];
     selectedIds: Set<string>;
     folders: LayerFolder[];
+    isPinned: boolean;
+    onTogglePin: () => void;
     onClose: () => void;
     onFocusElement?: (element: BoardElement) => void;
     onHighlightElements?: (
@@ -147,6 +151,8 @@ export function LayersSidebar({
     elements,
     selectedIds,
     folders,
+    isPinned,
+    onTogglePin,
     onClose,
     onFocusElement,
     onHighlightElements,
@@ -796,7 +802,14 @@ export function LayersSidebar({
     }, [activeTab, elements, onFocusElement, onHighlightElements, searchQuery]);
 
     return (
-        <div className="h-full w-80 bg-card border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.35)] flex flex-col flex-shrink-0 select-none">
+        <div
+            className={cn(
+                "h-full w-80 bg-card flex flex-col flex-shrink-0 select-none",
+                isPinned
+                    ? "border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.35)]"
+                    : "fixed top-0 right-0 bottom-0 z-[90] border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.55)]",
+            )}
+        >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
                 <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1">
@@ -828,6 +841,18 @@ export function LayersSidebar({
                     </button>
                 </div>
                 <div className="flex items-center gap-1">
+                    <button
+                        onClick={onTogglePin}
+                        className="p-1.5 rounded hover:bg-muted transition-colors"
+                        aria-label={isPinned ? "Unpin sidebar" : "Pin sidebar"}
+                        title={isPinned ? "Unpin" : "Pin"}
+                    >
+                        {isPinned ? (
+                            <PinOff className="w-5 h-5" />
+                        ) : (
+                            <Pin className="w-5 h-5" />
+                        )}
+                    </button>
                     {onCreateFolder && (
                         <button
                             onClick={onCreateFolder}

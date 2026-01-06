@@ -939,6 +939,7 @@ export function Canvas({
         strokeStyle,
         arrowStart,
         arrowEnd,
+        editingFrameLabelId,
     });
 
     const cursorStyle = getCanvasCursorStyle({
@@ -1299,7 +1300,7 @@ export function Canvas({
                                 setEditingFrameLabelId(null);
                             }
                         }}
-                        className="rounded-sm bg-background/80 px-1.5 py-0.5 text-xs outline-none border border-border shadow-sm"
+                        className="rounded-sm bg-transparent px-1.5 py-0.5 text-xs outline-none border border-border shadow-sm"
                         style={{
                             width: 160 * zoom,
                             fontSize: 12 * zoom,
