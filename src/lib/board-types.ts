@@ -1,6 +1,7 @@
 export type Tool =
     | "hand"
     | "select"
+    | "lasso"
     | "pen"
     | "highlighter"
     | "line"
@@ -8,6 +9,7 @@ export type Tool =
     | "rectangle"
     | "diamond"
     | "ellipse"
+    | "frame"
     | "eraser"
     | "text"
     | "laser"

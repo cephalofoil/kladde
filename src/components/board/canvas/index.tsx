@@ -187,6 +187,8 @@ export function Canvas({
             lastMousePos,
             isBoxSelecting,
             selectionBox,
+            isLassoSelecting,
+            lassoPoints,
             inputHint,
             setInputHint,
             setShiftPressed,
@@ -953,6 +955,11 @@ export function Canvas({
         zoom,
     });
 
+    const lassoPath =
+        lassoPoints.length > 1
+            ? `M ${lassoPoints.map((p) => `${p.x} ${p.y}`).join(" L ")}`
+            : null;
+
     // Update parent component when selection changes
     useEffect(() => {
         if (onSelectionChange) {
@@ -1274,6 +1281,17 @@ export function Canvas({
 
                     {/* Render snap target highlight */}
                     {renderSnapTargetHighlight()}
+
+                    {/* Render lasso selection */}
+                    {isLassoSelecting && lassoPath && (
+                        <path
+                            d={`${lassoPath}${lassoPoints.length > 2 ? " Z" : ""}`}
+                            fill="rgba(98, 114, 164, 0.12)"
+                            stroke="var(--accent)"
+                            strokeWidth={1}
+                            strokeDasharray="4,4"
+                        />
+                    )}
 
                     {/* Render box selection rectangle */}
                     {isBoxSelecting && selectionBox && (

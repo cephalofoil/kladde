@@ -6,6 +6,7 @@ import {
     getElbowPolylineForVertices,
 } from "./curves";
 import { isBoundsFullyInsideBox } from "./geometry";
+import type { Point } from "@/lib/board-types";
 
 // Get bounding box for any element
 export function getBoundingBox(element: BoardElement): BoundingBox | null {
@@ -216,6 +217,77 @@ export function getBoxSelectedIds(
             return bounds
                 ? isBoundsFullyInsideBox(bounds, selectionBox)
                 : false;
+        });
+        if (allInside) {
+            selected.push(...groupElements.map((el) => el.id));
+        }
+    }
+
+    return selected;
+}
+
+function isPointInPolygon(point: Point, polygon: Point[]) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x;
+        const yi = polygon[i].y;
+        const xj = polygon[j].x;
+        const yj = polygon[j].y;
+
+        const intersects =
+            yi > point.y !== yj > point.y &&
+            point.x <
+                ((xj - xi) * (point.y - yi)) / (yj - yi + Number.EPSILON) + xi;
+
+        if (intersects) inside = !inside;
+    }
+    return inside;
+}
+
+function isBoundsFullyInsidePolygon(bounds: BoundingBox, polygon: Point[]) {
+    const corners = [
+        { x: bounds.x, y: bounds.y },
+        { x: bounds.x + bounds.width, y: bounds.y },
+        { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+        { x: bounds.x, y: bounds.y + bounds.height },
+    ];
+    return corners.every((corner) => isPointInPolygon(corner, polygon));
+}
+
+export function getLassoSelectedIds(
+    elements: BoardElement[],
+    polygon: Point[],
+): string[] {
+    if (polygon.length < 3) return [];
+
+    const ungrouped: BoardElement[] = [];
+    const groups = new Map<string, BoardElement[]>();
+
+    for (const el of elements) {
+        // Skip laser, hidden, and locked elements from lasso selection
+        if (el.type === "laser" || el.hidden || el.locked) continue;
+        if (!el.groupId) {
+            ungrouped.push(el);
+            continue;
+        }
+        const existing = groups.get(el.groupId) ?? [];
+        existing.push(el);
+        groups.set(el.groupId, existing);
+    }
+
+    const selected: string[] = [];
+
+    for (const el of ungrouped) {
+        const bounds = getBoundingBox(el);
+        if (bounds && isBoundsFullyInsidePolygon(bounds, polygon)) {
+            selected.push(el.id);
+        }
+    }
+
+    for (const groupElements of groups.values()) {
+        const allInside = groupElements.every((el) => {
+            const bounds = getBoundingBox(el);
+            return bounds ? isBoundsFullyInsidePolygon(bounds, polygon) : false;
         });
         if (allInside) {
             selected.push(...groupElements.map((el) => el.id));

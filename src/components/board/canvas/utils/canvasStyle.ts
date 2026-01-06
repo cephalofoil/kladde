@@ -63,11 +63,15 @@ export function getCanvasCursorStyle({
         case "rectangle":
         case "diamond":
         case "ellipse":
+        case "frame":
+        case "lasso":
             return "crosshair";
         case "eraser":
             return "none";
         case "select":
-            return hoverCursor ?? (selectedIds.length > 0 ? "grab" : "crosshair");
+            return (
+                hoverCursor ?? (selectedIds.length > 0 ? "grab" : "crosshair")
+            );
         case "text":
             return "text";
         case "laser":

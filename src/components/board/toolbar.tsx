@@ -113,6 +113,11 @@ const TILE_TYPES: TileTypeInfo[] = [
     },
 ];
 
+const MORE_TOOLS: Array<{ tool: Tool; label: string }> = [
+    { tool: "lasso", label: "lasso" },
+    { tool: "frame", label: "frame tool" },
+];
+
 // Get icon for a tool
 function getToolIcon(tool: Tool): React.ReactNode {
     switch (tool) {
@@ -202,6 +207,66 @@ function ToolSubmenu({
                     title={tool.label}
                 >
                     {tool.icon}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function MoreToolsMenu({
+    isOpen,
+    onClose,
+    onSelect,
+    buttonRef,
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    onSelect: (tool: Tool) => void;
+    buttonRef: React.RefObject<HTMLDivElement | null>;
+}) {
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(e.target as Node) &&
+                buttonRef.current &&
+                !buttonRef.current.contains(e.target as Node)
+            ) {
+                onClose();
+            }
+        };
+
+        const timer = setTimeout(() => {
+            document.addEventListener("mousedown", handleClickOutside);
+        }, 0);
+
+        return () => {
+            clearTimeout(timer);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isOpen, onClose, buttonRef]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            ref={menuRef}
+            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-card border border-border rounded-lg shadow-2xl p-1 z-50 flex flex-col gap-0.5 min-w-[140px]"
+        >
+            {MORE_TOOLS.map((item) => (
+                <button
+                    key={item.tool}
+                    onClick={() => {
+                        onSelect(item.tool);
+                        onClose();
+                    }}
+                    className="px-3 py-2 text-left text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
+                >
+                    {item.label}
                 </button>
             ))}
         </div>
@@ -330,6 +395,8 @@ export function Toolbar({
     const [lastPenTool, setLastPenTool] = useState<Tool>("pen");
     const [lastLineTool, setLastLineTool] = useState<Tool>("line");
     const [lastShapeTool, setLastShapeTool] = useState<Tool>("rectangle");
+    const [isMoreOpen, setIsMoreOpen] = useState(false);
+    const moreButtonRef = useRef<HTMLDivElement>(null);
 
     // Update last used tool when tool changes
     useEffect(() => {
@@ -545,12 +612,21 @@ export function Toolbar({
                     <div className="h-px w-6 bg-border my-1" />
 
                     {/* More Tools */}
-                    <button
-                        className="flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                        title="More tools"
-                    >
-                        <Plus className="h-4 w-4" />
-                    </button>
+                    <div ref={moreButtonRef} className="relative">
+                        <button
+                            onClick={() => setIsMoreOpen((prev) => !prev)}
+                            className="flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                            title="More tools"
+                        >
+                            <Plus className="h-4 w-4" />
+                        </button>
+                        <MoreToolsMenu
+                            isOpen={isMoreOpen}
+                            onClose={() => setIsMoreOpen(false)}
+                            onSelect={(tool) => onToolChange(tool)}
+                            buttonRef={moreButtonRef}
+                        />
+                    </div>
                 </div>
             </div>
 

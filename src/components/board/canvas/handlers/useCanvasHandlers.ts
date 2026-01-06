@@ -27,6 +27,7 @@ import {
     getBoundingBox,
     getBoxSelectedIds,
     getGroupSelectionIds,
+    getLassoSelectedIds,
 } from "../shapes";
 import {
     findNearestSnapTarget,
@@ -191,6 +192,10 @@ export function useCanvasHandlers({
         setIsBoxSelecting,
         selectionBox,
         setSelectionBox,
+        isLassoSelecting,
+        setIsLassoSelecting,
+        lassoPoints,
+        setLassoPoints,
         shiftPressed,
     } = ui;
     const {
@@ -524,6 +529,32 @@ export function useCanvasHandlers({
                     x: e.clientX - panStart.x,
                     y: e.clientY - panStart.y,
                 });
+                return;
+            }
+
+            if (isLassoSelecting) {
+                const minDistance = 4;
+                const lastPoint = lassoPoints[lassoPoints.length - 1];
+                const nextPoints =
+                    !lastPoint ||
+                    Math.hypot(point.x - lastPoint.x, point.y - lastPoint.y) >=
+                        minDistance
+                        ? [...lassoPoints, point]
+                        : lassoPoints;
+
+                if (nextPoints !== lassoPoints) {
+                    setLassoPoints(nextPoints);
+                }
+
+                if (nextPoints.length >= 3) {
+                    const lassoSelected = getLassoSelectedIds(
+                        elements,
+                        nextPoints,
+                    ).filter((id) => !remotelySelectedIds.has(id));
+                    setSelectedIds(lassoSelected);
+                } else {
+                    setSelectedIds([]);
+                }
                 return;
             }
 
@@ -2194,9 +2225,12 @@ export function useCanvasHandlers({
             onUpdateElement,
             shiftPressed,
             isBoxSelecting,
+            isLassoSelecting,
+            lassoPoints,
             lastMousePos,
             setLastMousePos,
             setSelectedIds,
+            setLassoPoints,
             draggingConnectorPoint,
             connectorStyle,
             getElementsToErase,
@@ -2261,6 +2295,15 @@ export function useCanvasHandlers({
                         ),
                     );
                 }
+                return;
+            }
+
+            if (tool === "lasso") {
+                setSelectedIds([]);
+                setIsBoxSelecting(false);
+                setSelectionBox(null);
+                setIsLassoSelecting(true);
+                setLassoPoints([point]);
                 return;
             }
 
@@ -2769,13 +2812,15 @@ export function useCanvasHandlers({
                     ? "arrow"
                     : tool === "highlighter"
                       ? "pen"
-                      : (tool as
-                            | "pen"
-                            | "line"
-                            | "rectangle"
-                            | "diamond"
-                            | "ellipse"
-                            | "text");
+                      : tool === "frame"
+                        ? "frame"
+                        : (tool as
+                              | "pen"
+                              | "line"
+                              | "rectangle"
+                              | "diamond"
+                              | "ellipse"
+                              | "text");
 
             // For line/arrow, check if start point snaps to a shape
             let startSnapResult = null;
@@ -2833,7 +2878,8 @@ export function useCanvasHandlers({
             if (
                 tool === "rectangle" ||
                 tool === "diamond" ||
-                tool === "ellipse"
+                tool === "ellipse" ||
+                tool === "frame"
             ) {
                 newElement.x = point.x;
                 newElement.y = point.y;
@@ -2872,6 +2918,8 @@ export function useCanvasHandlers({
             getElementsToErase,
             onDeleteElement,
             remotelySelectedIds,
+            setIsLassoSelecting,
+            setLassoPoints,
         ],
     );
 
@@ -2898,6 +2946,19 @@ export function useCanvasHandlers({
             }
             setEraserMarkedIds(new Set());
             setIsDrawing(false);
+            return;
+        }
+
+        if (isLassoSelecting) {
+            if (lassoPoints.length >= 3) {
+                const lassoSelected = getLassoSelectedIds(
+                    elements,
+                    lassoPoints,
+                ).filter((id) => !remotelySelectedIds.has(id));
+                setSelectedIds(lassoSelected);
+            }
+            setIsLassoSelecting(false);
+            setLassoPoints([]);
             return;
         }
 
@@ -3184,7 +3245,8 @@ export function useCanvasHandlers({
             } else if (
                 (currentElement.type === "rectangle" ||
                     currentElement.type === "diamond" ||
-                    currentElement.type === "ellipse") &&
+                    currentElement.type === "ellipse" ||
+                    currentElement.type === "frame") &&
                 currentElement.width &&
                 currentElement.height &&
                 currentElement.width > 2 &&
@@ -3244,6 +3306,10 @@ export function useCanvasHandlers({
         setStartSnapTarget,
         startSnapTarget,
         snapTarget,
+        isLassoSelecting,
+        lassoPoints,
+        setIsLassoSelecting,
+        setLassoPoints,
         draggingConnectorPoint,
         eraserMarkedIds,
         zoom,
