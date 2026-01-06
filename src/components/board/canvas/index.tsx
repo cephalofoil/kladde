@@ -211,18 +211,24 @@ export function Canvas({
             drawingElementBroadcastRafRef,
         },
     } = state;
+    const selectedIdsRef = useRef<string[]>([]);
+
+    useEffect(() => {
+        selectedIdsRef.current = selectedIds;
+    }, [selectedIds]);
 
     useEffect(() => {
         if (!selectedElementIds) return;
         const uniqueIds = Array.from(new Set(selectedElementIds));
+        const current = selectedIdsRef.current;
         if (
-            uniqueIds.length === selectedIds.length &&
-            uniqueIds.every((id) => selectedIds.includes(id))
+            uniqueIds.length === current.length &&
+            uniqueIds.every((id) => current.includes(id))
         ) {
             return;
         }
         setSelectedIds(uniqueIds);
-    }, [selectedElementIds, selectedIds, setSelectedIds]);
+    }, [selectedElementIds, setSelectedIds]);
 
     // Keep refs in sync with edit states
     useEffect(() => {

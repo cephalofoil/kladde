@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { BoardElement, LayerFolder } from "@/lib/board-types";
 import {
     X,
@@ -32,6 +32,7 @@ import {
     Globe,
     Sparkles,
     LetterText,
+    Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +41,11 @@ interface LayersSidebarProps {
     selectedIds: Set<string>;
     folders: LayerFolder[];
     onClose: () => void;
-    onFindCanvas?: () => void;
+    onFocusElement?: (element: BoardElement) => void;
+    onHighlightElements?: (
+        elementIds: string[],
+        currentId?: string | null,
+    ) => void;
     onSelectElement: (id: string, addToSelection: boolean) => void;
     onDeleteElement: (id: string) => void;
     onReorderElement: (id: string, direction: "up" | "down") => void;
@@ -143,7 +148,8 @@ export function LayersSidebar({
     selectedIds,
     folders,
     onClose,
-    onFindCanvas,
+    onFocusElement,
+    onHighlightElements,
     onSelectElement,
     onDeleteElement,
     onReorderElement,
@@ -187,6 +193,10 @@ export function LayersSidebar({
     // Folder editing state
     const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
     const [editingFolderName, setEditingFolderName] = useState("");
+    const [activeTab, setActiveTab] = useState<"layers" | "find">("layers");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<BoardElement[]>([]);
+    const [currentResultIndex, setCurrentResultIndex] = useState(0);
 
     const handleDragStart = useCallback(
         (
@@ -659,28 +669,163 @@ export function LayersSidebar({
     // Calculate global index for elements considering folders
     let globalIndex = 0;
 
+    const handleFindNext = () => {
+        if (searchResults.length === 0 || !onFocusElement) return;
+        const nextIndex = (currentResultIndex + 1) % searchResults.length;
+        setCurrentResultIndex(nextIndex);
+        const next = searchResults[nextIndex];
+        onFocusElement(next);
+        onHighlightElements?.(
+            searchResults.map((el) => el.id),
+            next.id,
+        );
+    };
+
+    const handleFindPrevious = () => {
+        if (searchResults.length === 0 || !onFocusElement) return;
+        const prevIndex =
+            currentResultIndex === 0
+                ? searchResults.length - 1
+                : currentResultIndex - 1;
+        setCurrentResultIndex(prevIndex);
+        const prev = searchResults[prevIndex];
+        onFocusElement(prev);
+        onHighlightElements?.(
+            searchResults.map((el) => el.id),
+            prev.id,
+        );
+    };
+
+    const handleFindKeyDown = (event: React.KeyboardEvent) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            if (event.shiftKey) {
+                handleFindPrevious();
+            } else {
+                handleFindNext();
+            }
+        }
+    };
+
+    const clearFindState = useCallback(() => {
+        setSearchQuery("");
+        setSearchResults([]);
+        setCurrentResultIndex(0);
+        onHighlightElements?.([]);
+    }, [onHighlightElements]);
+
+    useEffect(() => {
+        if (activeTab !== "find") {
+            clearFindState();
+        }
+    }, [activeTab, clearFindState]);
+
+    useEffect(() => {
+        if (activeTab !== "find") return;
+        if (!searchQuery.trim()) {
+            setSearchResults([]);
+            setCurrentResultIndex(0);
+            onHighlightElements?.([]);
+            return;
+        }
+
+        const query = searchQuery.toLowerCase();
+        const matchingElements = elements.filter((el) => {
+            if (el.type === "text") {
+                return el.text?.toLowerCase().includes(query);
+            }
+            if (el.type === "frame") {
+                return el.label?.toLowerCase().includes(query);
+            }
+            if (el.type === "tile") {
+                if (el.tileTitle?.toLowerCase().includes(query)) {
+                    return true;
+                }
+                if (el.tileContent) {
+                    const content = el.tileContent;
+                    if (content.richText?.toLowerCase().includes(query)) {
+                        return true;
+                    }
+                    if (content.noteText?.toLowerCase().includes(query)) {
+                        return true;
+                    }
+                    if (content.code?.toLowerCase().includes(query)) {
+                        return true;
+                    }
+                    if (content.chart?.toLowerCase().includes(query)) {
+                        return true;
+                    }
+                    if (content.bookmarkTitle?.toLowerCase().includes(query)) {
+                        return true;
+                    }
+                    if (
+                        content.bookmarkDescription
+                            ?.toLowerCase()
+                            .includes(query)
+                    ) {
+                        return true;
+                    }
+                    if (content.displayName?.toLowerCase().includes(query)) {
+                        return true;
+                    }
+                }
+                if (el.tileType) {
+                    const tileTypeName = el.tileType
+                        .replace("tile-", "")
+                        .toLowerCase();
+                    if (tileTypeName.includes(query) || query === "tile") {
+                        return true;
+                    }
+                }
+            }
+            if (el.type.toLowerCase().includes(query)) {
+                return true;
+            }
+            return false;
+        });
+
+        setSearchResults(matchingElements);
+        setCurrentResultIndex(0);
+        onHighlightElements?.(
+            matchingElements.map((el) => el.id),
+            matchingElements.length > 0 ? matchingElements[0].id : null,
+        );
+        if (matchingElements.length > 0 && onFocusElement) {
+            onFocusElement(matchingElements[0]);
+        }
+    }, [activeTab, elements, onFocusElement, onHighlightElements, searchQuery]);
+
     return (
-        <div className="h-full w-80 bg-card border-l border-border shadow-[-14px_0_24px_-18px_rgba(15,23,42,0.35)] flex flex-col flex-shrink-0 select-none">
+        <div className="h-full w-80 bg-card border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.35)] flex flex-col flex-shrink-0 select-none">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
                 <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1">
                     <button
                         type="button"
-                        className="px-3 py-1 text-sm font-semibold rounded-md bg-background shadow-sm"
+                        onClick={() => setActiveTab("layers")}
+                        className={cn(
+                            "px-3 py-1 text-sm font-semibold rounded-md transition-colors",
+                            activeTab === "layers"
+                                ? "bg-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-background/70",
+                        )}
                         aria-current="page"
                     >
                         Layers
                     </button>
-                    {onFindCanvas && (
-                        <button
-                            type="button"
-                            onClick={onFindCanvas}
-                            className="px-3 py-1 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-background/70 transition-colors"
-                            aria-label="Find on canvas"
-                        >
-                            Find
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("find")}
+                        className={cn(
+                            "px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                            activeTab === "find"
+                                ? "bg-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-background/70",
+                        )}
+                        aria-label="Find on canvas"
+                    >
+                        Find
+                    </button>
                 </div>
                 <div className="flex items-center gap-1">
                     {onCreateFolder && (
@@ -703,32 +848,110 @@ export function LayersSidebar({
                 </div>
             </div>
 
-            {/* Layers List */}
-            <div ref={listRef} className="flex-1 overflow-y-auto p-2">
-                {sortedElements.length === 0 && folders.length === 0 ? (
-                    <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                        No layers yet
+            {activeTab === "find" ? (
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    <div className="flex items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-1.5">
+                        <Search className="w-4 h-4 text-muted-foreground" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={handleFindKeyDown}
+                            className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
+                            placeholder="Find on canvas..."
+                        />
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={handleFindPrevious}
+                                className="p-1 rounded hover:bg-muted transition-colors"
+                                aria-label="Previous match"
+                                disabled={searchResults.length === 0}
+                            >
+                                <ChevronUp className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleFindNext}
+                                className="p-1 rounded hover:bg-muted transition-colors"
+                                aria-label="Next match"
+                                disabled={searchResults.length === 0}
+                            >
+                                <ChevronDown className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
-                ) : (
-                    <div className="space-y-0.5">
-                        {/* Render folders first */}
-                        {folders.map((folder, idx) =>
-                            renderFolder(folder, idx),
-                        )}
+                    <div className="text-xs text-muted-foreground">
+                        {searchResults.length === 0
+                            ? searchQuery.trim()
+                                ? "No matches"
+                                : "Type to search layers"
+                            : `${currentResultIndex + 1} of ${searchResults.length} matches`}
+                    </div>
+                    {searchResults.length > 0 && (
+                        <div className="space-y-1">
+                            {searchResults.map((result, index) => {
+                                const isActive = index === currentResultIndex;
+                                return (
+                                    <button
+                                        key={result.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setCurrentResultIndex(index);
+                                            onFocusElement?.(result);
+                                            onHighlightElements?.(
+                                                searchResults.map(
+                                                    (el) => el.id,
+                                                ),
+                                                result.id,
+                                            );
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors",
+                                            isActive
+                                                ? "bg-muted text-foreground"
+                                                : "hover:bg-muted/70 text-muted-foreground hover:text-foreground",
+                                        )}
+                                    >
+                                        <span className="text-muted-foreground">
+                                            {getElementIcon(result)}
+                                        </span>
+                                        <span className="truncate">
+                                            {getElementLabel(result)}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <div ref={listRef} className="flex-1 overflow-y-auto p-2">
+                    {sortedElements.length === 0 && folders.length === 0 ? (
+                        <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                            No layers yet
+                        </div>
+                    ) : (
+                        <div className="space-y-0.5">
+                            {/* Render folders first */}
+                            {folders.map((folder, idx) =>
+                                renderFolder(folder, idx),
+                            )}
 
-                        {/* Render root elements (not in any folder) */}
-                        {rootElements.map((element, idx) => {
-                            const el = renderElement(
-                                element,
-                                globalIndex,
-                                false,
-                            );
-                            globalIndex++;
-                            return el;
-                        })}
-                    </div>
-                )}
-            </div>
+                            {/* Render root elements (not in any folder) */}
+                            {rootElements.map((element, idx) => {
+                                const el = renderElement(
+                                    element,
+                                    globalIndex,
+                                    false,
+                                );
+                                globalIndex++;
+                                return el;
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Footer Info */}
             <div className="p-3 border-t border-border text-xs text-muted-foreground flex items-center justify-between">

@@ -135,6 +135,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [selectedElements, setSelectedElements] = useState<BoardElement[]>(
         [],
     );
+    const [layerSelectionIds, setLayerSelectionIds] = useState<string[] | null>(
+        null,
+    );
     const [isEditArrowMode, setIsEditArrowMode] = useState(false);
     const [canvasBackground, setCanvasBackground] = useState<
         "none" | "dots" | "lines" | "grid"
@@ -1264,23 +1267,31 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             const element = elements.find((el) => el.id === id);
             if (!element) return;
 
+            let nextSelection: BoardElement[];
             if (addToSelection) {
                 const isAlreadySelected = selectedElements.some(
                     (el) => el.id === id,
                 );
                 if (isAlreadySelected) {
-                    setSelectedElements(
-                        selectedElements.filter((el) => el.id !== id),
+                    nextSelection = selectedElements.filter(
+                        (el) => el.id !== id,
                     );
                 } else {
-                    setSelectedElements([...selectedElements, element]);
+                    nextSelection = [...selectedElements, element];
                 }
             } else {
-                setSelectedElements([element]);
+                nextSelection = [element];
             }
+            setSelectedElements(nextSelection);
+            setLayerSelectionIds(nextSelection.map((el) => el.id));
         },
         [elements, selectedElements],
     );
+
+    const handleSelectionChange = useCallback((selection: BoardElement[]) => {
+        setSelectedElements(selection);
+        setLayerSelectionIds(null);
+    }, []);
 
     const handleMoveToIndex = useCallback(
         (id: string, newIndex: number) => {
@@ -1867,8 +1878,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         setViewportRef.current = setter;
                     }}
                     onManualViewportChange={() => setFollowedUserId(null)}
-                    onSelectionChange={setSelectedElements}
-                    selectedElementIds={selectedElements.map((el) => el.id)}
+                    onSelectionChange={handleSelectionChange}
+                    selectedElementIds={layerSelectionIds ?? undefined}
                     onStrokeColorChange={handleStrokeColorChange}
                     onFillColorChange={handleFillColorChange}
                     canvasBackground={canvasBackground}
@@ -1954,7 +1965,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     selectedIds={new Set(selectedElements.map((el) => el.id))}
                     folders={layerFolders}
                     onClose={() => setShowLayersSidebar(false)}
-                    onFindCanvas={handleFindOnCanvas}
+                    onFocusElement={handleFocusElement}
+                    onHighlightElements={handleHighlightElements}
                     onSelectElement={handleSelectElementFromLayers}
                     onDeleteElement={handleDeleteElement}
                     onReorderElement={handleReorderElement}
