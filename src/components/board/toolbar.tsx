@@ -435,6 +435,9 @@ export function Toolbar({
             }
 
             const key = e.key.toUpperCase();
+            if (key === "F" && (e.ctrlKey || e.metaKey)) {
+                return;
+            }
 
             switch (key) {
                 case "H":
