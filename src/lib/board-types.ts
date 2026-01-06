@@ -309,24 +309,6 @@ export function isClosedShape(
     }
   }
 
-  // Check 3: The polygon formed has significant area relative to its perimeter
-  // This catches shapes that are "almost closed" even without intersection
-  const area = calculatePolygonArea(points);
-  let perimeter = 0;
-  for (let i = 0; i < points.length - 1; i++) {
-    perimeter += Math.sqrt(
-      Math.pow(points[i + 1].x - points[i].x, 2) +
-        Math.pow(points[i + 1].y - points[i].y, 2),
-    );
-  }
-
-  // If area is significant relative to perimeter squared, it's likely enclosed
-  // A circle has the highest area/perimeter^2 ratio (~0.08), so we use a lower threshold
-  const compactness = area / (perimeter * perimeter);
-  if (compactness > 0.01 && area > 500) {
-    return true;
-  }
-
   return false;
 }
 

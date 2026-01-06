@@ -2648,7 +2648,9 @@ export function useCanvasHandlers({
       if (tool === "pen") {
         newElement.fillPattern = fillPattern;
         if (fillPattern === "solid") {
-          newElement.fillColor = fillColor;
+          // Default fill color to stroke color if not set or transparent
+          newElement.fillColor =
+            fillColor && fillColor !== "transparent" ? fillColor : strokeColor;
         }
       } else if (isHighlighter) {
         newElement.penMode = "highlighter";
@@ -2966,15 +2968,16 @@ export function useCanvasHandlers({
         // Check if shape is closed
         const isClosed = isClosedShape(currentElement.points);
 
-        // Add closed flag and apply fill pattern if shape is closed
-        // Default to solid fill with stroke color for closed shapes
+        // Only apply fill if shape is closed AND user has fill enabled
+        const shouldFill = isClosed && currentElement.fillPattern === "solid";
         const finalElement: BoardElement = {
           ...currentElement,
           isClosed,
-          fillPattern: isClosed ? "solid" : "none",
-          fillColor: isClosed
+          fillPattern: shouldFill ? "solid" : "none",
+          // Use existing fillColor (which defaults to strokeColor) or fallback to strokeColor
+          fillColor: shouldFill
             ? currentElement.fillColor || currentElement.strokeColor
-            : currentElement.fillColor,
+            : undefined,
         };
 
         onAddElement(finalElement);
