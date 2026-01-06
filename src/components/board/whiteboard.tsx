@@ -491,12 +491,17 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const handleUpdateElement = useCallback(
         (id: string, updates: Partial<BoardElement>) => {
             if (isReadOnly) return;
+            const currentElement = elements.find((el) => el.id === id);
+            const nextUpdates =
+                currentElement?.type === "frame"
+                    ? { ...updates, strokeWidth: 2 }
+                    : updates;
             if (collaboration) {
-                collaboration.updateElement(id, updates);
+                collaboration.updateElement(id, nextUpdates);
             } else {
                 setElements(
                     elements.map((el) =>
-                        el.id === id ? { ...el, ...updates } : el,
+                        el.id === id ? { ...el, ...nextUpdates } : el,
                     ),
                 );
             }
@@ -511,11 +516,25 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
             if (collaboration) {
                 updates.forEach(({ id, updates: elementUpdates }) => {
-                    collaboration.updateElement(id, elementUpdates);
+                    const currentElement = elements.find((el) => el.id === id);
+                    const nextUpdates =
+                        currentElement?.type === "frame"
+                            ? { ...elementUpdates, strokeWidth: 2 }
+                            : elementUpdates;
+                    collaboration.updateElement(id, nextUpdates);
                 });
             } else {
                 const updatesMap = new Map(
-                    updates.map(({ id, updates: u }) => [id, u]),
+                    updates.map(({ id, updates: u }) => {
+                        const currentElement = elements.find(
+                            (el) => el.id === id,
+                        );
+                        const nextUpdates =
+                            currentElement?.type === "frame"
+                                ? { ...u, strokeWidth: 2 }
+                                : u;
+                        return [id, nextUpdates];
+                    }),
                 );
                 setElements(
                     elements.map((el) =>

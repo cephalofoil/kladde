@@ -196,6 +196,8 @@ export function useCanvasHandlers({
         setIsLassoSelecting,
         lassoPoints,
         setLassoPoints,
+        setEditingFrameLabelId,
+        setFrameLabelValue,
         shiftPressed,
     } = ui;
     const {
@@ -2143,7 +2145,8 @@ export function useCanvasHandlers({
                     break;
                 }
                 case "rectangle":
-                case "diamond": {
+                case "diamond":
+                case "frame": {
                     const width = point.x - startPoint.x;
                     const height = point.y - startPoint.y;
                     let finalWidth = Math.abs(width);
@@ -2281,6 +2284,25 @@ export function useCanvasHandlers({
                 isLockedOrHidden
                     ? null
                     : clickedElement;
+
+            const frameLabelTarget = target?.closest?.(
+                '[data-frame-label="true"]',
+            ) as HTMLElement | null;
+            if (frameLabelTarget) {
+                e.preventDefault();
+                const frameId =
+                    frameLabelTarget.getAttribute("data-element-id");
+                const frameElement = frameId
+                    ? elements.find(
+                          (el) => el.id === frameId && el.type === "frame",
+                      )
+                    : null;
+                if (frameElement) {
+                    setEditingFrameLabelId(frameElement.id);
+                    setFrameLabelValue(frameElement.label ?? "Frame");
+                }
+                return;
+            }
 
             const isCanvasInteractiveTarget = !!target?.closest?.(
                 '[data-canvas-interactive="true"], [contenteditable="true"], input, textarea',
@@ -2853,9 +2875,14 @@ export function useCanvasHandlers({
                     startSnapResult ? startSnapResult.snapPoint.point : point,
                 ],
                 strokeColor,
-                strokeWidth,
+                strokeWidth: tool === "frame" ? 2 : strokeWidth,
                 opacity,
-                strokeStyle: isHighlighter ? "solid" : strokeStyle,
+                strokeStyle:
+                    tool === "frame"
+                        ? "solid"
+                        : isHighlighter
+                          ? "solid"
+                          : strokeStyle,
                 lineCap,
                 cornerRadius,
                 ...(elementType === "line" || elementType === "arrow"
@@ -2863,6 +2890,11 @@ export function useCanvasHandlers({
                     : {}),
                 ...(elementType === "arrow" ? { arrowStart, arrowEnd } : {}),
             };
+            if (tool === "frame") {
+                newElement.strokeColor = "#94a3b8";
+                newElement.fillColor = "transparent";
+                newElement.label = "Frame";
+            }
 
             if (tool === "pen") {
                 newElement.fillPattern = fillPattern;
@@ -2920,6 +2952,8 @@ export function useCanvasHandlers({
             remotelySelectedIds,
             setIsLassoSelecting,
             setLassoPoints,
+            setEditingFrameLabelId,
+            setFrameLabelValue,
         ],
     );
 
@@ -2959,6 +2993,7 @@ export function useCanvasHandlers({
             }
             setIsLassoSelecting(false);
             setLassoPoints([]);
+            onToolChange?.("select");
             return;
         }
 

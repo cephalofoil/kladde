@@ -23,6 +23,8 @@ import {
     Plus,
     Type,
     LetterText,
+    Lasso,
+    Frame,
 } from "lucide-react";
 import type { Tool, TileType } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
@@ -113,10 +115,11 @@ const TILE_TYPES: TileTypeInfo[] = [
     },
 ];
 
-const MORE_TOOLS: Array<{ tool: Tool; label: string }> = [
-    { tool: "lasso", label: "lasso" },
-    { tool: "frame", label: "frame tool" },
-];
+const MORE_TOOLS: Array<{ tool: Tool; label: string; icon: React.ReactNode }> =
+    [
+        { tool: "lasso", label: "Lasso", icon: <Lasso className="h-4 w-4" /> },
+        { tool: "frame", label: "Frame", icon: <Frame className="h-4 w-4" /> },
+    ];
 
 // Get icon for a tool
 function getToolIcon(tool: Tool): React.ReactNode {
@@ -264,8 +267,9 @@ function MoreToolsMenu({
                         onSelect(item.tool);
                         onClose();
                     }}
-                    className="px-3 py-2 text-left text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
+                    className="px-3 py-2 text-left text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all flex items-center gap-2"
                 >
+                    {item.icon}
                     {item.label}
                 </button>
             ))}
@@ -397,6 +401,7 @@ export function Toolbar({
     const [lastShapeTool, setLastShapeTool] = useState<Tool>("rectangle");
     const [isMoreOpen, setIsMoreOpen] = useState(false);
     const moreButtonRef = useRef<HTMLDivElement>(null);
+    const moreTool = MORE_TOOLS.find((item) => item.tool === currentTool);
 
     // Update last used tool when tool changes
     useEffect(() => {
@@ -457,6 +462,10 @@ export function Toolbar({
                 case "4":
                     e.preventDefault();
                     onToolChange("text");
+                    break;
+                case "F":
+                    e.preventDefault();
+                    onToolChange("frame");
                     break;
             }
 
@@ -615,10 +624,15 @@ export function Toolbar({
                     <div ref={moreButtonRef} className="relative">
                         <button
                             onClick={() => setIsMoreOpen((prev) => !prev)}
-                            className="flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                            className={cn(
+                                "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
+                                moreTool
+                                    ? "bg-accent text-accent-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                            )}
                             title="More tools"
                         >
-                            <Plus className="h-4 w-4" />
+                            {moreTool?.icon ?? <Plus className="h-4 w-4" />}
                         </button>
                         <MoreToolsMenu
                             isOpen={isMoreOpen}

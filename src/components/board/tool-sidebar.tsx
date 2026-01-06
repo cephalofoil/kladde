@@ -666,7 +666,12 @@ export function ToolSidebar({
         ? selectedElements.some((el) => el.type === "text")
         : selectedTool === "text";
 
-    const showStrokeWidthAndStyle = !isTextTool;
+    const isFrameOnlySelection =
+        hasSelectedElements &&
+        selectedElements.every((el) => el.type === "frame");
+    const isFrameToolActive = !hasSelectedElements && selectedTool === "frame";
+    const showStrokeWidthAndStyle =
+        !isTextTool && !isFrameOnlySelection && !isFrameToolActive;
     const showLineCapControls = hasSelectedElements
         ? selectedElements.some(
               (el) => el.type === "line" || el.type === "arrow",

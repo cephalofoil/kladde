@@ -1982,7 +1982,7 @@ export function useCanvasRenderers({
                         ? "8,4"
                         : elStrokeStyle === "dotted"
                           ? "2,6"
-                          : "8,4"; // Frame defaults to dashed
+                          : "none";
                 const elCornerRadius = element.cornerRadius ?? 8;
                 const elFillColor = element.fillColor || "none";
                 // Treat 'transparent' same as 'none' for hit detection - invisible fills shouldn't be clickable
@@ -2052,22 +2052,40 @@ export function useCanvasRenderers({
                             }
                         />
                         {element.label && (
-                            <text
-                                x={(element.x ?? 0) + 8}
-                                y={(element.y ?? 0) - 4}
-                                fill={element.strokeColor}
-                                fontSize={14}
-                                fontFamily="inherit"
-                                fontWeight="600"
-                                opacity={
-                                    isMarkedForDeletion
-                                        ? elOpacity * 0.3
-                                        : elOpacity
-                                }
-                                pointerEvents="none"
-                            >
-                                {element.label}
-                            </text>
+                            <>
+                                <rect
+                                    data-frame-label="true"
+                                    data-element-id={element.id}
+                                    x={(element.x ?? 0) + 4}
+                                    y={(element.y ?? 0) - 24}
+                                    width={Math.max(
+                                        120,
+                                        Math.min(element.width ?? 0, 220),
+                                    )}
+                                    height={20}
+                                    fill="rgba(0, 0, 0, 0.01)"
+                                    pointerEvents="all"
+                                />
+                                <text
+                                    data-frame-label="true"
+                                    data-element-id={element.id}
+                                    x={(element.x ?? 0) + 8}
+                                    y={(element.y ?? 0) - 8}
+                                    fill={element.strokeColor}
+                                    fontSize={12}
+                                    fontFamily="inherit"
+                                    fontWeight="400"
+                                    opacity={
+                                        isMarkedForDeletion
+                                            ? elOpacity * 0.3
+                                            : elOpacity
+                                    }
+                                    pointerEvents="all"
+                                    style={{ userSelect: "none" }}
+                                >
+                                    {element.label}
+                                </text>
+                            </>
                         )}
                         {isMarkedForDeletion && (
                             <rect

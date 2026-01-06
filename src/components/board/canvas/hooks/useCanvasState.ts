@@ -156,6 +156,10 @@ export function useCanvasState({
     const [selectionBox, setSelectionBox] = useState<BoundingBox | null>(null);
     const [isLassoSelecting, setIsLassoSelecting] = useState(false);
     const [lassoPoints, setLassoPoints] = useState<Point[]>([]);
+    const [editingFrameLabelId, setEditingFrameLabelId] = useState<
+        string | null
+    >(null);
+    const [frameLabelValue, setFrameLabelValue] = useState("");
     const [inputHint, setInputHint] = useState<"mouse" | "trackpad">("mouse");
     const [shiftPressed, setShiftPressed] = useState(false);
 
@@ -275,6 +279,10 @@ export function useCanvasState({
             setIsLassoSelecting,
             lassoPoints,
             setLassoPoints,
+            editingFrameLabelId,
+            setEditingFrameLabelId,
+            frameLabelValue,
+            setFrameLabelValue,
             inputHint,
             setInputHint,
             shiftPressed,

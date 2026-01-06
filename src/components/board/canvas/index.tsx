@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import type { Tool, BoardElement, TileType } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
@@ -189,6 +189,10 @@ export function Canvas({
             selectionBox,
             isLassoSelecting,
             lassoPoints,
+            editingFrameLabelId,
+            frameLabelValue,
+            setEditingFrameLabelId,
+            setFrameLabelValue,
             inputHint,
             setInputHint,
             setShiftPressed,
@@ -960,6 +964,29 @@ export function Canvas({
             ? `M ${lassoPoints.map((p) => `${p.x} ${p.y}`).join(" L ")}`
             : null;
 
+    const editingFrame = useMemo(
+        () =>
+            editingFrameLabelId
+                ? (elements.find(
+                      (el) =>
+                          el.id === editingFrameLabelId && el.type === "frame",
+                  ) ?? null)
+                : null,
+        [editingFrameLabelId, elements],
+    );
+
+    const handleFrameLabelCommit = useCallback(() => {
+        if (!editingFrameLabelId) return;
+        const nextLabel = frameLabelValue.trim() || "Frame";
+        onUpdateElement(editingFrameLabelId, { label: nextLabel });
+        setEditingFrameLabelId(null);
+    }, [
+        editingFrameLabelId,
+        frameLabelValue,
+        onUpdateElement,
+        setEditingFrameLabelId,
+    ]);
+
     // Update parent component when selection changes
     useEffect(() => {
         if (onSelectionChange) {
@@ -1248,6 +1275,41 @@ export function Canvas({
                         ))}
                 </div>
             </div>
+
+            {/* Frame label editor */}
+            {editingFrame && (
+                <div
+                    className="absolute z-40"
+                    style={{
+                        left: (editingFrame.x ?? 0) * zoom + pan.x + 6 * zoom,
+                        top: (editingFrame.y ?? 0) * zoom + pan.y - 32 * zoom,
+                    }}
+                    data-canvas-interactive="true"
+                >
+                    <input
+                        value={frameLabelValue}
+                        onChange={(e) => setFrameLabelValue(e.target.value)}
+                        onBlur={handleFrameLabelCommit}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleFrameLabelCommit();
+                            } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                setEditingFrameLabelId(null);
+                            }
+                        }}
+                        className="rounded-sm bg-background/80 px-1.5 py-0.5 text-xs outline-none border border-border shadow-sm"
+                        style={{
+                            width: 160 * zoom,
+                            fontSize: 12 * zoom,
+                            lineHeight: `${14 * zoom}px`,
+                            color: editingFrame.strokeColor,
+                        }}
+                        autoFocus
+                    />
+                </div>
+            )}
 
             {/* Canvas Overlay (selection, in-progress drawings, cursors) */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
