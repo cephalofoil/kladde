@@ -421,7 +421,7 @@ export function Toolbar({
     );
 
     return (
-        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1.5">
+        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-[80] flex flex-col items-center gap-1.5">
             {/* Lock Button - Separate box */}
             <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
                 <button

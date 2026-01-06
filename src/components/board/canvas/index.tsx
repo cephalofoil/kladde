@@ -1536,7 +1536,11 @@ export function Canvas({
             )}
 
             {/* Zoom Controls and Undo/Redo */}
-            <div className="absolute bottom-4 right-4 flex items-center gap-2 select-none">
+            <div
+                className="absolute bottom-4 right-4 z-[80] flex items-center gap-2 select-none"
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+            >
                 {/* Undo/Redo */}
                 {showUndoRedo && (
                     <div className="flex items-center gap-0.5 bg-card/95 backdrop-blur-md border border-border rounded-md p-1 shadow-xl">
@@ -1585,6 +1589,17 @@ export function Canvas({
                 <div className="flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border rounded-md p-1 shadow-xl">
                     <button
                         onClick={() => {
+                            setZoom(1);
+                            onManualViewportChange?.();
+                        }}
+                        className="flex items-center justify-center h-8 px-2 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all text-xs"
+                        title="Reset Zoom"
+                    >
+                        Reset
+                    </button>
+                    <div className="w-px h-5 bg-border" />
+                    <button
+                        onClick={() => {
                             setZoom((prev) => Math.max(0.1, prev - 0.1));
                             onManualViewportChange?.();
                         }}
@@ -1629,17 +1644,6 @@ export function Canvas({
                                 d="M12 4v16m8-8H4"
                             />
                         </svg>
-                    </button>
-                    <div className="w-px h-5 bg-border" />
-                    <button
-                        onClick={() => {
-                            setZoom(1);
-                            onManualViewportChange?.();
-                        }}
-                        className="flex items-center justify-center h-8 px-2 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all text-xs"
-                        title="Reset Zoom"
-                    >
-                        Reset
                     </button>
                 </div>
             </div>
