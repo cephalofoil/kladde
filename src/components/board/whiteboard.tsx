@@ -90,16 +90,41 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineHeight, setLineHeight] = useState(1.5);
   const [fillPattern, setFillPattern] = useState<"none" | "solid">("none");
-  const handleToolChange = useCallback((nextTool: Tool) => {
-    setTool(nextTool);
-    if (nextTool === "highlighter") {
-      setStrokeColor("#fde047");
-      setOpacity(60);
-      setStrokeWidth(8); // Default highlighter width
-    } else {
-      setOpacity(100);
-    }
-  }, []);
+
+  // Store pre-highlighter values to restore when switching away
+  const preHighlighterRef = useRef<{
+    strokeColor: string;
+    strokeWidth: number;
+  } | null>(null);
+
+  const handleToolChange = useCallback(
+    (nextTool: Tool) => {
+      setTool((prevTool) => {
+        if (nextTool === "highlighter" && prevTool !== "highlighter") {
+          // Save current values before switching to highlighter
+          preHighlighterRef.current = {
+            strokeColor: strokeColor,
+            strokeWidth: strokeWidth,
+          };
+          setStrokeColor("#fde047");
+          setOpacity(60);
+          setStrokeWidth(16); // Default highlighter width
+        } else if (nextTool !== "highlighter" && prevTool === "highlighter") {
+          // Restore previous values when switching away from highlighter
+          if (preHighlighterRef.current) {
+            setStrokeColor(preHighlighterRef.current.strokeColor);
+            setStrokeWidth(preHighlighterRef.current.strokeWidth);
+            preHighlighterRef.current = null;
+          }
+          setOpacity(100);
+        } else if (nextTool !== "highlighter") {
+          setOpacity(100);
+        }
+        return nextTool;
+      });
+    },
+    [strokeColor, strokeWidth],
+  );
 
   // Collaboration state
   const [collaboration, setCollaboration] =
