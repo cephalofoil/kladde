@@ -20,6 +20,7 @@ import {
   PinOff,
   MousePointer2,
   Pen,
+  Highlighter,
   Minus,
   MoveRight,
   RectangleHorizontal,
@@ -84,6 +85,9 @@ const getElementIcon = (element: BoardElement) => {
     case "arrow":
       return <MoveRight className={iconClass} />;
     case "pen":
+      if (element.penMode === "highlighter") {
+        return <Highlighter className={iconClass} />;
+      }
       return <Pen className={iconClass} />;
     case "text":
       return <Type className={iconClass} />;
@@ -146,6 +150,11 @@ const getElementLabel = (element: BoardElement) => {
       default:
         return "Tile";
     }
+  }
+
+  // For pen elements, check if it's a highlighter
+  if (element.type === "pen" && element.penMode === "highlighter") {
+    return "Highlighter";
   }
 
   // Default: capitalize the type
