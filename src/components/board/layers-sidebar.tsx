@@ -40,6 +40,7 @@ interface LayersSidebarProps {
     selectedIds: Set<string>;
     folders: LayerFolder[];
     onClose: () => void;
+    onFindCanvas?: () => void;
     onSelectElement: (id: string, addToSelection: boolean) => void;
     onDeleteElement: (id: string) => void;
     onReorderElement: (id: string, direction: "up" | "down") => void;
@@ -142,6 +143,7 @@ export function LayersSidebar({
     selectedIds,
     folders,
     onClose,
+    onFindCanvas,
     onSelectElement,
     onDeleteElement,
     onReorderElement,
@@ -395,15 +397,8 @@ export function LayersSidebar({
                     </span>
                 </div>
 
-                {/* Quick Actions (always visible for locked/hidden, hover for others) */}
-                <div
-                    className={cn(
-                        "flex items-center gap-0.5 transition-opacity",
-                        isHidden || isLocked
-                            ? "opacity-100"
-                            : "opacity-0 group-hover:opacity-100",
-                    )}
-                >
+                {/* Quick Actions */}
+                <div className="flex items-center gap-0.5">
                     {/* Visibility Toggle */}
                     {onToggleVisibility && (
                         <button
@@ -414,6 +409,9 @@ export function LayersSidebar({
                             className={cn(
                                 "p-1 rounded hover:bg-muted transition-colors",
                                 isHidden && "text-muted-foreground",
+                                isHidden
+                                    ? "opacity-100"
+                                    : "opacity-0 group-hover:opacity-100",
                             )}
                             aria-label={isHidden ? "Show layer" : "Hide layer"}
                             title={isHidden ? "Show layer" : "Hide layer"}
@@ -435,7 +433,9 @@ export function LayersSidebar({
                             }}
                             className={cn(
                                 "p-1 rounded hover:bg-muted transition-colors",
-                                isLocked && "text-amber-500",
+                                isLocked && "text-amber-500 opacity-100",
+                                !isLocked &&
+                                    "opacity-0 group-hover:opacity-100",
                             )}
                             aria-label={
                                 isLocked ? "Unlock layer" : "Lock layer"
@@ -660,10 +660,28 @@ export function LayersSidebar({
     let globalIndex = 0;
 
     return (
-        <div className="h-full w-80 bg-card border-l border-border shadow-2xl flex flex-col flex-shrink-0 select-none">
+        <div className="h-full w-80 bg-card border-l border-border shadow-[-14px_0_24px_-18px_rgba(15,23,42,0.35)] flex flex-col flex-shrink-0 select-none">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
-                <h2 className="text-lg font-semibold">Layers</h2>
+                <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1">
+                    <button
+                        type="button"
+                        className="px-3 py-1 text-sm font-semibold rounded-md bg-background shadow-sm"
+                        aria-current="page"
+                    >
+                        Layers
+                    </button>
+                    {onFindCanvas && (
+                        <button
+                            type="button"
+                            onClick={onFindCanvas}
+                            className="px-3 py-1 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-background/70 transition-colors"
+                            aria-label="Find on canvas"
+                        >
+                            Find
+                        </button>
+                    )}
+                </div>
                 <div className="flex items-center gap-1">
                     {onCreateFolder && (
                         <button

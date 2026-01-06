@@ -57,6 +57,7 @@ interface CanvasProps {
     ) => void;
     onManualViewportChange?: () => void;
     onSelectionChange?: (elements: BoardElement[]) => void;
+    selectedElementIds?: string[];
     onStrokeColorChange?: (color: string) => void;
     onFillColorChange?: (color: string) => void;
     canvasBackground?: "none" | "dots" | "lines" | "grid";
@@ -104,6 +105,7 @@ export function Canvas({
     onSetViewport,
     onManualViewportChange,
     onSelectionChange,
+    selectedElementIds,
     onStrokeColorChange,
     onFillColorChange,
     canvasBackground = "none",
@@ -209,6 +211,18 @@ export function Canvas({
             drawingElementBroadcastRafRef,
         },
     } = state;
+
+    useEffect(() => {
+        if (!selectedElementIds) return;
+        const uniqueIds = Array.from(new Set(selectedElementIds));
+        if (
+            uniqueIds.length === selectedIds.length &&
+            uniqueIds.every((id) => selectedIds.includes(id))
+        ) {
+            return;
+        }
+        setSelectedIds(uniqueIds);
+    }, [selectedElementIds, selectedIds, setSelectedIds]);
 
     // Keep refs in sync with edit states
     useEffect(() => {

@@ -1868,6 +1868,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     }}
                     onManualViewportChange={() => setFollowedUserId(null)}
                     onSelectionChange={setSelectedElements}
+                    selectedElementIds={selectedElements.map((el) => el.id)}
                     onStrokeColorChange={handleStrokeColorChange}
                     onFillColorChange={handleFillColorChange}
                     canvasBackground={canvasBackground}
@@ -1953,6 +1954,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     selectedIds={new Set(selectedElements.map((el) => el.id))}
                     folders={layerFolders}
                     onClose={() => setShowLayersSidebar(false)}
+                    onFindCanvas={handleFindOnCanvas}
                     onSelectElement={handleSelectElementFromLayers}
                     onDeleteElement={handleDeleteElement}
                     onReorderElement={handleReorderElement}
