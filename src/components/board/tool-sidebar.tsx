@@ -627,21 +627,17 @@ export function ToolSidebar({
           el.type === "diamond" ||
           el.type === "ellipse" ||
           el.type === "frame" ||
-          (el.type === "pen" &&
-            !isHighlighterElement(el) &&
-            el.isClosed &&
-            fillPattern !== "none"),
+          (el.type === "pen" && el.isClosed && fillPattern !== "none"),
       )
     : selectedTool === "rectangle" ||
       selectedTool === "diamond" ||
       selectedTool === "ellipse" ||
-      (selectedTool === "pen" && fillPattern !== "none");
+      ((selectedTool === "pen" || selectedTool === "highlighter") &&
+        fillPattern !== "none");
 
   const showFillPatternControls = hasSelectedElements
-    ? selectedElements.some(
-        (el) => el.type === "pen" && !isHighlighterElement(el),
-      )
-    : selectedTool === "pen";
+    ? selectedElements.some((el) => el.type === "pen")
+    : selectedTool === "pen" || selectedTool === "highlighter";
 
   const showCornerRadius = hasSelectedElements
     ? selectedElements.some(

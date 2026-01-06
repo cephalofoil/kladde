@@ -2654,8 +2654,12 @@ export function useCanvasHandlers({
         }
       } else if (isHighlighter) {
         newElement.penMode = "highlighter";
-        newElement.fillPattern = "solid";
-        newElement.fillColor = strokeColor;
+        newElement.fillPattern = fillPattern;
+        if (fillPattern === "solid") {
+          // Default fill color to stroke color if not set or transparent
+          newElement.fillColor =
+            fillColor && fillColor !== "transparent" ? fillColor : strokeColor;
+        }
       }
 
       if (
@@ -2967,8 +2971,9 @@ export function useCanvasHandlers({
       if (currentElement.type === "pen" && currentElement.points.length >= 1) {
         // Check if shape is closed
         const isClosed = isClosedShape(currentElement.points);
+        const isHighlighter = currentElement.penMode === "highlighter";
 
-        // Only apply fill if shape is closed AND user has fill enabled
+        // Only fill if closed AND fill is enabled (same for pen and highlighter)
         const shouldFill = isClosed && currentElement.fillPattern === "solid";
         const finalElement: BoardElement = {
           ...currentElement,
