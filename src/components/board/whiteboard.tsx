@@ -108,7 +108,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           };
           setStrokeColor("#fde047");
           setOpacity(60);
-          setStrokeWidth(16); // Default highlighter width
+          setStrokeWidth(8); // Default highlighter width
         } else if (nextTool !== "highlighter" && prevTool === "highlighter") {
           // Restore previous values when switching away from highlighter
           if (preHighlighterRef.current) {
