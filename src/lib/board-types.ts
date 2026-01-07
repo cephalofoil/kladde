@@ -16,47 +16,116 @@ export type Tool =
     | "tile";
 
 export type TileType =
-    | "tile-text"
-    | "tile-note"
-    | "tile-code"
-    | "tile-mermaid"
-    | "tile-image";
+  | "tile-text"
+  | "tile-note"
+  | "tile-code"
+  | "tile-mermaid"
+  | "tile-image"
+  | "tile-document";
+
+// Document section types for tile-document
+export type DocumentSectionType = "tile-content" | "heading" | "text" | "spacer";
+
+export interface DocumentSectionBase {
+  id: string;
+  type: DocumentSectionType;
+}
+
+export interface TileContentSection extends DocumentSectionBase {
+  type: "tile-content";
+  tileId: string;
+  cachedContent?: TileContent;
+  cachedTileType?: TileType;
+  cachedTileTitle?: string;
+}
+
+export interface HeadingSection extends DocumentSectionBase {
+  type: "heading";
+  level: 1 | 2 | 3;
+  text: string;
+}
+
+export interface TextSection extends DocumentSectionBase {
+  type: "text";
+  content: string;
+}
+
+export interface SpacerSection extends DocumentSectionBase {
+  type: "spacer";
+  height: number; // in millimeters
+}
+
+export type DocumentSection =
+  | TileContentSection
+  | HeadingSection
+  | TextSection
+  | SpacerSection;
+
+export interface DocumentLayout {
+  pageFormat: "A4" | "Letter";
+  orientation: "portrait" | "landscape";
+  margins: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  sections: DocumentSection[];
+}
+
+export interface DocumentMetadata {
+  author?: string;
+  createdAt: number;
+  modifiedAt: number;
+}
+
+export interface DocumentContent {
+  title: string;
+  description: string;
+  layout: DocumentLayout;
+  metadata: DocumentMetadata;
+}
 
 export interface Point {
     x: number;
     y: number;
 }
 
+export type NoteColor = "butter" | "mint" | "lavender";
+
 export interface TileContent {
-    // Text tile
-    richText?: string;
-    // Note tile
-    noteText?: string;
-    // Code tile
-    code?: string;
-    language?: string;
-    // Mermaid tile
-    chart?: string;
-    mermaidScale?: number;
-    mermaidOffsetX?: number;
-    mermaidOffsetY?: number;
-    // Bookmark tile
-    url?: string;
-    bookmarkTitle?: string;
-    bookmarkDescription?: string;
-    favicon?: string;
-    siteName?: string;
-    imageUrl?: string;
-    displayName?: string;
-    // Image tile
-    imageSrc?: string;
-    imageAlt?: string;
-    // Shape tile
-    shape?: "rectangle" | "circle" | "triangle";
-    shapeFill?: string;
-    // Tile header customization
-    headerBgColor?: string;
-    headerTextColor?: string;
+  // Text tile
+  richText?: string;
+  // Note tile
+  noteText?: string;
+  noteColor?: NoteColor;
+  // Code tile
+  code?: string;
+  language?: string;
+  // Mermaid tile
+  chart?: string;
+  mermaidScale?: number;
+  mermaidOffsetX?: number;
+  mermaidOffsetY?: number;
+  // Bookmark tile
+  url?: string;
+  bookmarkTitle?: string;
+  bookmarkDescription?: string;
+  favicon?: string;
+  siteName?: string;
+  imageUrl?: string;
+  displayName?: string;
+  // Image tile
+  imageSrc?: string;
+  imageAlt?: string;
+  // Shape tile
+  shape?: "rectangle" | "circle" | "triangle";
+  shapeFill?: string;
+  // Document tile
+  documentContent?: DocumentContent;
+  // Tile header customization
+  headerBgColor?: string;
+  headerTextColor?: string;
 }
 
 /**

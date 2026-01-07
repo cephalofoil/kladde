@@ -369,7 +369,14 @@ export default function BoardsPage() {
                 {quickBoards.map((board) => (
                   <div
                     key={board.id}
-                    onClick={() => router.push(`/board/${board.id}`)}
+                    onClick={(e) => {
+                      // Ctrl/Cmd + Click opens in new tab
+                      if (e.ctrlKey || e.metaKey) {
+                        window.open(`/board/${board.id}`, '_blank');
+                        return;
+                      }
+                      router.push(`/board/${board.id}`);
+                    }}
                     className="group relative flex shrink-0 cursor-pointer items-start gap-3 rounded-lg border-2 border-dashed border-purple-200 dark:border-purple-800 bg-card p-3 transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-md w-[240px]"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-md bg-purple-500 shrink-0">
@@ -501,7 +508,14 @@ export default function BoardsPage() {
               {pinnedBoards.map((board) => (
                 <div
                   key={board.id}
-                  onClick={() => router.push(`/board/${board.id}`)}
+                  onClick={(e) => {
+                    // Ctrl/Cmd + Click opens in new tab
+                    if (e.ctrlKey || e.metaKey) {
+                      window.open(`/board/${board.id}`, '_blank');
+                      return;
+                    }
+                    router.push(`/board/${board.id}`);
+                  }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {

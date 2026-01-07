@@ -10,6 +10,7 @@ import { Toolbar } from "./toolbar";
 import { ToolSidebar } from "./tool-sidebar";
 import { LayersSidebar } from "./layers-sidebar";
 
+import { DocumentEditorPanel } from "./document-editor";
 import { BurgerMenu } from "./burger-menu";
 import { CanvasTitleBar } from "./canvas-title-bar";
 import { ExportImageModal } from "./export-image-modal";
@@ -191,6 +192,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [showLayersSidebar, setShowLayersSidebar] = useState(false);
     const [isLayersPinned, setIsLayersPinned] = useState(true);
     const [layerFolders, setLayerFolders] = useState<LayerFolder[]>([]);
+    const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
     const [pendingName, setPendingName] = useState<string | null>(null);
     const [highlightedElementIds, setHighlightedElementIds] = useState<
         string[]
@@ -198,8 +200,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [currentHighlightId, setCurrentHighlightId] = useState<string | null>(
         null,
     );
-    const [hideLogoBar, setHideLogoBar] = useState(false);
-    const effectiveTool = isReadOnly ? "hand" : tool;
+      const effectiveTool = isReadOnly ? "hand" : tool;
 
     // Undo/Redo stacks - store snapshots
     const undoStackRef = useRef<BoardElement[][]>([]);
@@ -1752,17 +1753,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         collaboration.updateSelectedElements(selectedIds);
     }, [collaboration, selectedIdsKey]);
 
-    // Hide the logo bar in smaller windows (match ToolSidebar condensed thresholds).
-    useEffect(() => {
-        const update = () => {
-            setHideLogoBar(
-                window.innerHeight < 920 || window.innerWidth < 1100,
-            );
-        };
-        update();
-        window.addEventListener("resize", update);
-        return () => window.removeEventListener("resize", update);
-    }, []);
 
     // Show loading while connecting
     if (!isReady) {
@@ -1782,44 +1772,44 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         ? collaboratorUsers.find((u) => u.id === followedUserId)
         : null;
 
-    return (
-        <div className="relative w-screen h-screen overflow-hidden flex">
-            {/* Main Content Area */}
-            <div className="relative flex-1 overflow-hidden">
-                {/* Burger Menu and Title Bar - Top Left */}
-                <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
-                    <BurgerMenu
-                        onClear={handleClear}
-                        onSave={handleSave}
-                        onOpen={handleOpen}
-                        onExportImage={handleExportImage}
-                        onFindOnCanvas={handleFindOnCanvas}
-                        onHelp={() => setShowHotkeysDialog(true)}
-                        onInvite={() => setShowInviteDialog(true)}
-                        canvasBackground={canvasBackground}
-                        onCanvasBackgroundChange={setCanvasBackground}
-                        handDrawnMode={handDrawnMode}
-                        onHandDrawnModeChange={setHandDrawnMode}
-                        isReadOnly={isReadOnly}
-                    />
-                    {!hideLogoBar && <CanvasTitleBar boardId={boardId} />}
-                    {false && !hideLogoBar && (
-                        <a
-                            href="/dashboard"
-                            className="h-10 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
-                        >
-                            <img
-                                src={
-                                    (resolvedTheme || theme) === "light"
-                                        ? "/kladde-logo.svg"
-                                        : "/kladde-logo-bright-540.svg"
-                                }
-                                alt="Kladde"
-                                className="h-5 w-auto"
-                            />
-                        </a>
-                    )}
-                </div>
+  return (
+    <div className="relative w-screen h-screen overflow-hidden flex">
+      {/* Main Content Area */}
+      <div className="relative flex-1 overflow-hidden">
+        {/* Burger Menu and Title Bar - Top Left */}
+        <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
+          <BurgerMenu
+            onClear={handleClear}
+            onSave={handleSave}
+            onOpen={handleOpen}
+            onExportImage={handleExportImage}
+            onFindOnCanvas={handleFindOnCanvas}
+            onHelp={() => setShowHotkeysDialog(true)}
+            onInvite={() => setShowInviteDialog(true)}
+            canvasBackground={canvasBackground}
+            onCanvasBackgroundChange={setCanvasBackground}
+            handDrawnMode={handDrawnMode}
+            onHandDrawnModeChange={setHandDrawnMode}
+            isReadOnly={isReadOnly}
+          />
+          <CanvasTitleBar boardId={boardId} />
+          {false && (
+            <a
+              href="/dashboard"
+              className="h-10 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
+            >
+              <img
+                src={
+                  (resolvedTheme || theme) === "light"
+                    ? "/kladde-logo.svg"
+                    : "/kladde-logo-bright-540.svg"
+                }
+                alt="Kladde"
+                className="h-5 w-auto"
+              />
+            </a>
+          )}
+        </div>
 
                 {/* Collaboration + Hotkeys - Top Right */}
                 {!isReadOnly && (
@@ -2037,7 +2027,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     isReadOnly={isReadOnly}
                     showRemoteCursors={!isReadOnly}
                     showUndoRedo={!isReadOnly}
-                />
+                  onOpenDocumentEditor={setEditingDocumentId}
+        />
 
                 {/* Save File Dialog */}
                 {showSaveDialog && (
@@ -2130,6 +2121,20 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onMoveToFolder={handleMoveToFolder}
                 />
             )}
-        </div>
+    
+      {/* Document Editor Panel */}
+      {editingDocumentId && (() => {
+        const documentElement = elements.find((el) => el.id === editingDocumentId);
+        if (!documentElement) return null;
+        return (
+          <DocumentEditorPanel
+            documentElement={documentElement}
+            allElements={elements}
+            onClose={() => setEditingDocumentId(null)}
+            onUpdateDocument={(updates) => handleUpdateElement(editingDocumentId, updates)}
+          />
+        );
+      })()}
+    </div>
     );
 }

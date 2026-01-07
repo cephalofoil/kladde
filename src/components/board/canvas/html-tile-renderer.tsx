@@ -16,10 +16,12 @@ import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
 import { MarkdownEditor } from "./content-renderers/markdown-editor";
+import { DocumentRenderer } from "./content-renderers/document-renderer";
 import {
   HeaderColorPicker,
   getContrastTextColor,
 } from "./content-renderers/header-color-picker";
+import { NoteTileRenderer, type NoteColor } from "./content-renderers/note-tile-renderer";
 
 interface HtmlTileRendererProps {
   element: BoardElement;
@@ -28,6 +30,7 @@ interface HtmlTileRendererProps {
   onRequestTextEdit: () => void;
   onUpdate?: (updates: Partial<BoardElement>) => void;
   onDelete?: () => void;
+  onOpenDocumentEditor?: (elementId: string) => void;
 }
 
 export function HtmlTileRenderer({
@@ -37,6 +40,7 @@ export function HtmlTileRenderer({
   onRequestTextEdit,
   onUpdate,
   onDelete,
+  onOpenDocumentEditor,
 }: HtmlTileRendererProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -61,6 +65,28 @@ export function HtmlTileRenderer({
 
   const content = element.tileContent;
 
+  // Handle title change - for document tiles, also sync documentContent.title
+  const handleTitleChange = useCallback(
+    (newTitle: string) => {
+      if (element.tileType === "tile-document") {
+        // Sync both tileTitle and documentContent.title for document tiles
+        const existingDocContent = element.tileContent?.documentContent;
+        onUpdate?.({
+          tileTitle: newTitle,
+          tileContent: {
+            ...element.tileContent,
+            documentContent: existingDocContent
+              ? { ...existingDocContent, title: newTitle }
+              : undefined,
+          },
+        });
+      } else {
+        onUpdate?.({ tileTitle: newTitle });
+      }
+    },
+    [element.tileType, element.tileContent, onUpdate]
+  );
+
   useEffect(() => {
     setMermaidScale(element.tileContent?.mermaidScale || 1);
     setMermaidOffsetX(element.tileContent?.mermaidOffsetX || 0);
@@ -83,6 +109,8 @@ export function HtmlTileRenderer({
         return "bg-sky-50 dark:bg-sky-900/20";
       case "tile-image":
         return "bg-gray-100 dark:bg-gray-800";
+      case "tile-document":
+        return "bg-orange-50 dark:bg-orange-900/20";
       default:
         return "bg-white dark:bg-slate-900";
     }
@@ -96,6 +124,8 @@ export function HtmlTileRenderer({
         return "text-amber-900 dark:text-amber-100";
       case "tile-mermaid":
         return "text-sky-900 dark:text-sky-100";
+      case "tile-document":
+        return "text-orange-900 dark:text-orange-100";
       default:
         return "text-gray-900 dark:text-gray-100";
     }
@@ -238,10 +268,8 @@ export function HtmlTileRenderer({
         const markdown = content?.richText || "";
         return renderTextTileBody(markdown, "richText");
       }
-      case "tile-note": {
-        const markdown = content?.noteText || "";
-        return renderTextTileBody(markdown, "noteText");
-      }
+      case "tile-note":
+        return null; // Note tiles render their own content in the special branch below
       case "tile-code":
         return (
           <div className="absolute left-0 right-0 bottom-0 top-10 rounded-b-lg overflow-hidden pointer-events-auto">
@@ -343,12 +371,74 @@ export function HtmlTileRenderer({
           </div>
         );
 
+      case "tile-document":
+        return (
+          <div
+            className="absolute left-0 right-0 bottom-0 top-10 overflow-hidden rounded-b-lg pointer-events-auto cursor-pointer"
+            onClick={() => onOpenDocumentEditor?.(element.id)}
+          >
+            <DocumentRenderer
+              documentContent={content?.documentContent}
+              className={getTileTextColor()}
+            />
+          </div>
+        );
+
       default:
         return null;
     }
   };
 
   if (element.type !== "tile" || !element.tileType) return null;
+
+  // Note tiles have a special sticky-note design without header
+  const isNoteTile = element.tileType === "tile-note";
+
+  if (isNoteTile) {
+    return (
+      <div
+        className="absolute group"
+        style={tileStyle}
+        data-element-id={element.id}
+        data-tile-id={element.id}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onRequestTextEdit();
+        }}
+      >
+        <div
+          data-tile-header="true"
+          data-element-id={element.id}
+          className={cn(
+            "relative w-full h-full select-none",
+            isSelected && !isTextEditing ? "cursor-move" : "cursor-text",
+          )}
+        >
+          <div className="absolute inset-0 pointer-events-auto">
+            <NoteTileRenderer
+              content={content?.noteText || ""}
+              color={(content?.noteColor as NoteColor) || "butter"}
+              onChange={(text) =>
+                onUpdate?.({
+                  tileContent: { ...content, noteText: text },
+                })
+              }
+              onColorChange={(newColor) =>
+                onUpdate?.({
+                  tileContent: { ...content, noteColor: newColor },
+                })
+              }
+              onDelete={onDelete}
+              readOnly={false}
+              isSelected={isSelected}
+              isEditing={isTextEditing}
+              onRequestEdit={onRequestTextEdit}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -395,7 +485,7 @@ export function HtmlTileRenderer({
             <input
               type="text"
               value={tileTitle}
-              onChange={(e) => onUpdate?.({ tileTitle: e.target.value })}
+              onChange={(e) => handleTitleChange(e.target.value)}
               onBlur={() => setIsEditingTitle(false)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") setIsEditingTitle(false);

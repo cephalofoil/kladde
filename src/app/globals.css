@@ -167,6 +167,27 @@
         @apply bg-background text-foreground;
         font-family: var(--font-sans);
     }
+
+    /* Text selection colors matching primary color */
+    *::selection {
+        background-color: var(--accent) !important;
+        color: var(--accent-foreground) !important;
+    }
+
+    *::-moz-selection {
+        background-color: var(--accent) !important;
+        color: var(--accent-foreground) !important;
+    }
+
+    ::selection {
+        background-color: var(--accent) !important;
+        color: var(--accent-foreground) !important;
+    }
+
+    ::-moz-selection {
+        background-color: var(--accent) !important;
+        color: var(--accent-foreground) !important;
+    }
 }
 
 @keyframes kladde-caret-blink {
