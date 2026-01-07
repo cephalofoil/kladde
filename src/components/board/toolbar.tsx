@@ -303,7 +303,7 @@ function ToolSubmenu({
       {tools.map((tool) => (
         <button
           key={tool.tool}
-          onClick={() => {
+          onPointerDown={() => {
             onToolChange(tool.tool);
             onClose();
           }}
@@ -369,7 +369,7 @@ function MoreToolsMenu({
       {MORE_TOOLS.map((item) => (
         <button
           key={item.tool}
-          onClick={() => {
+          onPointerDown={() => {
             onSelect(item.tool);
             onClose();
           }}
@@ -391,6 +391,7 @@ function ToolButton({
   hotkey,
   lastUsedTool,
   showStackedIcon = false,
+  onPrimaryPress,
 }: {
   tools: ToolInfo[];
   currentTool: Tool;
@@ -398,6 +399,7 @@ function ToolButton({
   hotkey: string;
   lastUsedTool: Tool;
   showStackedIcon?: boolean;
+  onPrimaryPress?: () => void;
 }) {
   const [isSubmenuOpen, setIsSubmenuOpen] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -416,7 +418,13 @@ function ToolButton({
   return (
     <div ref={buttonRef} className="relative">
       <button
-        onClick={() => setIsSubmenuOpen(!isSubmenuOpen)}
+        onPointerDown={() => {
+          if (onPrimaryPress) {
+            onPrimaryPress();
+            return;
+          }
+          setIsSubmenuOpen(!isSubmenuOpen);
+        }}
         className={cn(
           "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
           isActive
@@ -468,7 +476,7 @@ function SimpleToolButton({
   const isActive = currentTool === tool;
   return (
     <button
-      onClick={() => onToolChange(tool)}
+      onPointerDown={() => onToolChange(tool)}
       className={cn(
         "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
         isActive
@@ -503,7 +511,7 @@ export function Toolbar({
 }: ToolbarProps) {
   // Track last used tool in each group
   const [lastPenTool, setLastPenTool] = useState<Tool>("pen");
-  const [lastLineTool, setLastLineTool] = useState<Tool>("line");
+  const [lastLineTool, setLastLineTool] = useState<Tool>("arrow");
   const [lastShapeTool, setLastShapeTool] = useState<Tool>("rectangle");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLDivElement>(null);
@@ -601,10 +609,10 @@ export function Toolbar({
 
   return (
     <div className="fixed left-4 top-1/2 -translate-y-1/2 z-[80] flex flex-col items-center gap-1.5">
-      {/* Lock Button - Separate box */}
+          {/* Lock Button - Separate box */}
       <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
         <button
-          onClick={onToggleToolLock}
+          onPointerDown={onToggleToolLock}
           className={cn(
             "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
             toolLock
@@ -665,6 +673,13 @@ export function Toolbar({
             onToolChange={onToolChange}
             hotkey="2"
             lastUsedTool={lastLineTool}
+            onPrimaryPress={() => {
+              if (currentTool === "arrow") {
+                onToolChange("line");
+                return;
+              }
+              onToolChange("arrow");
+            }}
           />
 
           {/* Shape Group - with stacked icon when not active */}
@@ -711,7 +726,7 @@ export function Toolbar({
           {/* More Tools */}
           <div ref={moreButtonRef} className="relative">
             <button
-              onClick={() => setIsMoreOpen((prev) => !prev)}
+              onPointerDown={() => setIsMoreOpen((prev) => !prev)}
               className={cn(
                 "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
                 moreTool
@@ -736,7 +751,7 @@ export function Toolbar({
       {isCollabMode && (
         <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
           <button
-            onClick={() => onToolChange("laser")}
+            onPointerDown={() => onToolChange("laser")}
             className={cn(
               "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
               currentTool === "laser"
