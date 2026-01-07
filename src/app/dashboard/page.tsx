@@ -26,6 +26,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { WorkspaceColorPicker } from "@/components/workspace-color-picker";
 import {
@@ -59,6 +60,8 @@ export default function BoardsPage() {
   const [boardToMove, setBoardToMove] = useState<Board | null>(null);
   const [isRenamingWorkspace, setIsRenamingWorkspace] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const boards = useBoardStore((s) => s.boards);
   const workstreamsMap = useBoardStore((s) => s.workstreams);
@@ -73,6 +76,7 @@ export default function BoardsPage() {
   );
   const createBoard = useBoardStore((s) => s.createBoard);
   const updateWorkstream = useBoardStore((s) => s.updateWorkstream);
+  const deleteWorkstream = useBoardStore((s) => s.deleteWorkstream);
 
   const matchesFilters = (board: Board) => {
     if (currentWorkstreamId && board.workstreamId !== currentWorkstreamId) {
@@ -525,6 +529,14 @@ export default function BoardsPage() {
                         />
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Workspace
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -717,6 +729,85 @@ export default function BoardsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setBoardToMove(null)}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Workspace Confirmation Dialog */}
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setDeleteConfirmation("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">
+              Delete Workspace
+            </DialogTitle>
+            <DialogDescription className="space-y-3">
+              <span className="block">
+                This will permanently delete the workspace{" "}
+                <strong className="text-foreground">
+                  {currentWorkstream?.name}
+                </strong>
+                . All boards in this workspace will be moved to the default
+                workspace.
+              </span>
+              <span className="block">
+                To confirm, type{" "}
+                <strong className="text-foreground font-mono">
+                  {currentWorkstream?.name}
+                </strong>{" "}
+                below:
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <Input
+            value={deleteConfirmation}
+            onChange={(e) => setDeleteConfirmation(e.target.value)}
+            placeholder={`Type "${currentWorkstream?.name}" to confirm`}
+            className="font-mono"
+            autoComplete="off"
+          />
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setDeleteConfirmation("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirmation !== currentWorkstream?.name}
+              onClick={() => {
+                if (
+                  currentWorkstream &&
+                  deleteConfirmation === currentWorkstream.name
+                ) {
+                  deleteWorkstream(currentWorkstream.id);
+                  setIsDeleteDialogOpen(false);
+                  setDeleteConfirmation("");
+                  // Switch to first available workspace
+                  const remaining = workstreams.filter(
+                    (ws) =>
+                      ws.id !== currentWorkstream.id &&
+                      ws.id !== QUICK_BOARDS_WORKSPACE_ID
+                  );
+                  if (remaining.length > 0) {
+                    switchWorkstream(remaining[0].id);
+                  }
+                }
+              }}
+            >
+              Delete Workspace
             </Button>
           </DialogFooter>
         </DialogContent>
