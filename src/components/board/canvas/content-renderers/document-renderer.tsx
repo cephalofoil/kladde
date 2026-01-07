@@ -21,12 +21,12 @@ export function DocumentRenderer({
     <div
       className={cn(
         "h-full flex flex-col items-center justify-center p-4 text-center",
-        className
+        className,
       )}
     >
       {/* Document Icon */}
       <div className="relative mb-3">
-        <div className="w-16 h-20 bg-white dark:bg-gray-800 rounded-lg shadow-md border-2 border-gray-200 dark:border-gray-600 flex flex-col overflow-hidden">
+        <div className="w-16 h-20 bg-white dark:bg-neutral-800 rounded-lg shadow-md border-2 border-gray-200 dark:border-gray-600 flex flex-col overflow-hidden">
           {/* Document header area */}
           <div className="h-4 bg-orange-100 dark:bg-orange-900/30 border-b border-gray-200 dark:border-gray-600" />
           {/* Content lines */}
@@ -57,7 +57,9 @@ export function DocumentRenderer({
 
       {/* Stats */}
       <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
-        <span>{sectionCount} section{sectionCount !== 1 ? "s" : ""}</span>
+        <span>
+          {sectionCount} section{sectionCount !== 1 ? "s" : ""}
+        </span>
         <span>•</span>
         <span>Click to edit</span>
       </div>

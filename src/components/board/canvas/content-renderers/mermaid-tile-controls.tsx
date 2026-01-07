@@ -37,7 +37,7 @@ export function MermaidTileControls({
       {/* Zoom Controls */}
       <button
         onClick={handleZoomOut}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+        className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
         title="Zoom Out"
       >
         <ZoomOut className="h-4 w-4 text-gray-700 dark:text-gray-300" />
@@ -45,7 +45,7 @@ export function MermaidTileControls({
 
       <button
         onClick={handleResetZoom}
-        className="px-2 py-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+        className="px-2 py-1 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
         title="Reset Zoom"
       >
         <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
@@ -55,7 +55,7 @@ export function MermaidTileControls({
 
       <button
         onClick={handleZoomIn}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+        className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
         title="Zoom In"
       >
         <ZoomIn className="h-4 w-4 text-gray-700 dark:text-gray-300" />
@@ -66,7 +66,7 @@ export function MermaidTileControls({
       {/* Edit Button */}
       <button
         onClick={onEdit}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+        className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
         title="Edit Diagram"
       >
         <Edit className="h-4 w-4 text-gray-700 dark:text-gray-300" />
@@ -76,7 +76,7 @@ export function MermaidTileControls({
       {onCopyImage && (
         <button
           onClick={onCopyImage}
-          className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+          className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
           title="Copy as Image"
         >
           <Copy className="h-4 w-4 text-gray-700 dark:text-gray-300" />
@@ -87,7 +87,7 @@ export function MermaidTileControls({
       {onDownloadImage && (
         <button
           onClick={onDownloadImage}
-          className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+          className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
           title="Download as PNG"
         >
           <Download className="h-4 w-4 text-gray-700 dark:text-gray-300" />

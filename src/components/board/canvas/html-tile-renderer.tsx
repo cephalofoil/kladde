@@ -21,7 +21,10 @@ import {
   HeaderColorPicker,
   getContrastTextColor,
 } from "./content-renderers/header-color-picker";
-import { NoteTileRenderer, type NoteColor } from "./content-renderers/note-tile-renderer";
+import {
+  NoteTileRenderer,
+  type NoteColor,
+} from "./content-renderers/note-tile-renderer";
 
 interface HtmlTileRendererProps {
   element: BoardElement;
@@ -84,7 +87,7 @@ export function HtmlTileRenderer({
         onUpdate?.({ tileTitle: newTitle });
       }
     },
-    [element.tileType, element.tileContent, onUpdate]
+    [element.tileType, element.tileContent, onUpdate],
   );
 
   useEffect(() => {
@@ -100,34 +103,34 @@ export function HtmlTileRenderer({
   const getTileBackground = () => {
     switch (element.tileType) {
       case "tile-text":
-        return "bg-white dark:bg-slate-900";
+        return "bg-white dark:bg-neutral-900";
       case "tile-note":
         return "bg-amber-50 dark:bg-amber-900/20";
       case "tile-code":
-        return "bg-slate-800 dark:bg-slate-950";
+        return "bg-neutral-800 dark:bg-neutral-950";
       case "tile-mermaid":
-        return "bg-sky-50 dark:bg-sky-900/20";
+        return "bg-sky-50 dark:bg-neutral-900";
       case "tile-image":
-        return "bg-gray-100 dark:bg-gray-800";
+        return "bg-gray-100 dark:bg-neutral-900";
       case "tile-document":
-        return "bg-orange-50 dark:bg-orange-900/20";
+        return "bg-orange-50 dark:bg-neutral-900";
       default:
-        return "bg-white dark:bg-slate-900";
+        return "bg-white dark:bg-neutral-900";
     }
   };
 
   const getTileTextColor = () => {
     switch (element.tileType) {
       case "tile-code":
-        return "text-slate-200";
+        return "text-neutral-200";
       case "tile-note":
         return "text-amber-900 dark:text-amber-100";
       case "tile-mermaid":
-        return "text-sky-900 dark:text-sky-100";
+        return "text-sky-900 dark:text-neutral-100";
       case "tile-document":
-        return "text-orange-900 dark:text-orange-100";
+        return "text-orange-900 dark:text-neutral-100";
       default:
-        return "text-gray-900 dark:text-gray-100";
+        return "text-gray-900 dark:text-neutral-100";
     }
   };
 
@@ -151,7 +154,10 @@ export function HtmlTileRenderer({
     const isHeaderClick = target.closest('[data-tile-header="true"]');
     if (isHeaderClick) return;
 
-    if (element.tileType === "tile-code" || element.tileType === "tile-mermaid") {
+    if (
+      element.tileType === "tile-code" ||
+      element.tileType === "tile-mermaid"
+    ) {
       setIsEditing(true);
     }
   };
@@ -329,7 +335,7 @@ export function HtmlTileRenderer({
                   scale={mermaidScale}
                   onScaleChange={handleMermaidScaleChange}
                   onEdit={() => setIsEditing(true)}
-                  className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg shadow-md p-1"
+                  className="bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm rounded-lg shadow-md p-1"
                 />
               </div>
             )}
@@ -451,10 +457,15 @@ export function HtmlTileRenderer({
       <div
         className={cn(
           "relative w-full h-full rounded-lg shadow-lg border-2 transition-all",
-          "border-gray-200 dark:border-gray-700",
+          "border-gray-200 dark:border-neutral-700",
         )}
       >
-        <div className={cn("absolute inset-0 -z-10 rounded-lg", getTileBackground())} />
+        <div
+          className={cn(
+            "absolute inset-0 -z-10 rounded-lg",
+            getTileBackground(),
+          )}
+        />
 
         <div
           data-tile-header="true"
@@ -463,8 +474,8 @@ export function HtmlTileRenderer({
             "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors z-10",
             !content?.headerBgColor &&
               (isEditingTitle
-                ? "bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-800"
-                : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750"),
+                ? "bg-white dark:bg-neutral-800 border-accent dark:border-accent"
+                : "bg-gray-50 dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 hover:bg-gray-100 dark:hover:bg-neutral-700"),
             content?.headerBgColor && "pointer-events-auto",
             isSelected ? "cursor-move" : "cursor-pointer",
             "select-none",
@@ -497,7 +508,9 @@ export function HtmlTileRenderer({
               autoFocus
             />
           ) : (
-            <div className="flex-1 text-sm font-medium truncate">{tileTitle}</div>
+            <div className="flex-1 text-sm font-medium truncate">
+              {tileTitle}
+            </div>
           )}
 
           {isSelected && !isEditingTitle && (
@@ -508,7 +521,7 @@ export function HtmlTileRenderer({
                 className={cn(
                   "p-1 rounded",
                   !content?.headerBgColor &&
-                    "hover:bg-gray-200 dark:hover:bg-gray-700",
+                    "hover:bg-gray-200 dark:hover:bg-neutral-600",
                 )}
                 style={{
                   color: content?.headerBgColor

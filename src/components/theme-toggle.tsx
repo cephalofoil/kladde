@@ -44,7 +44,7 @@ export const ThemeToggle = memo(function ThemeToggle() {
         className={`h-[1.2rem] w-[1.2rem] transition-all duration-200 ${
           !isDark
             ? "text-gray-500 scale-75 rotate-12"
-            : "text-blue-400 scale-100 rotate-0"
+            : "text-accent scale-100 rotate-0"
         }`}
       />
     </div>

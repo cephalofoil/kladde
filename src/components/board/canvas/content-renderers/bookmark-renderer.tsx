@@ -33,10 +33,15 @@ export function BookmarkRenderer({
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-white dark:bg-slate-900 rounded overflow-hidden", className)}>
+    <div
+      className={cn(
+        "flex flex-col h-full bg-white dark:bg-neutral-900 rounded overflow-hidden",
+        className,
+      )}
+    >
       {/* Image Preview (if available) */}
       {imageUrl && (
-        <div className="w-full h-32 overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+        <div className="w-full h-32 overflow-hidden bg-gray-100 dark:bg-neutral-800 flex-shrink-0">
           <img
             src={imageUrl}
             alt={title || "Bookmark preview"}
@@ -66,7 +71,9 @@ export function BookmarkRenderer({
           ) : (
             <Globe className="w-4 h-4" />
           )}
-          <span className="truncate">{siteName || displayName || new URL(url).hostname}</span>
+          <span className="truncate">
+            {siteName || displayName || new URL(url).hostname}
+          </span>
         </div>
 
         {/* Title */}
@@ -82,16 +89,16 @@ export function BookmarkRenderer({
         )}
 
         {/* URL */}
-        <div className="text-xs text-blue-600 dark:text-blue-400 truncate mt-auto">
+        <div className="text-xs text-accent dark:text-accent truncate mt-auto">
           {url}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-neutral-800 border-t border-gray-200 dark:border-neutral-700">
         <button
           onClick={handleOpenLink}
-          className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          className="flex items-center gap-1 text-xs text-accent dark:text-accent hover:underline"
         >
           <ExternalLink className="h-3 w-3" />
           Open Link

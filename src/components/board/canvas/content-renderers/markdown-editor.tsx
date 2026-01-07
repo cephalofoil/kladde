@@ -109,7 +109,7 @@ export function MarkdownEditor({
       // Inline code
       html = html.replace(
         /`(.+?)`/g,
-        '<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-sm">$1</code>',
+        '<code class="bg-gray-200 dark:bg-neutral-700 px-1 rounded text-sm">$1</code>',
       );
 
       return html;
@@ -238,7 +238,7 @@ export function MarkdownEditor({
       {/* Floating Toolbar */}
       {showToolbar && (
         <div
-          className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-1 w-fit"
+          className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-1 w-fit"
           onMouseDown={(e) => e.stopPropagation()}
           onMouseMove={(e) => e.stopPropagation()}
           onMouseUp={(e) => e.stopPropagation()}
@@ -246,21 +246,21 @@ export function MarkdownEditor({
         >
           <button
             onClick={() => insertHeading(1)}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Heading 1"
           >
             <Heading1 className="w-4 h-4" />
           </button>
           <button
             onClick={() => insertHeading(2)}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Heading 2"
           >
             <Heading2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => insertHeading(3)}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Heading 3"
           >
             <Heading3 className="w-4 h-4" />
@@ -268,28 +268,28 @@ export function MarkdownEditor({
           <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
           <button
             onClick={() => insertMarkdown("**", "**")}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Bold"
           >
             <Bold className="w-4 h-4" />
           </button>
           <button
             onClick={() => insertMarkdown("*", "*")}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Italic"
           >
             <Italic className="w-4 h-4" />
           </button>
           <button
             onClick={() => insertMarkdown("~~", "~~")}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Strikethrough"
           >
             <Strikethrough className="w-4 h-4" />
           </button>
           <button
             onClick={() => insertMarkdown("`", "`")}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Inline Code"
           >
             <Code className="w-4 h-4" />
@@ -297,14 +297,14 @@ export function MarkdownEditor({
           <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
           <button
             onClick={() => insertMarkdown("- ")}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Bullet List"
           >
             <List className="w-4 h-4" />
           </button>
           <button
             onClick={() => insertMarkdown("1. ")}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded"
             title="Numbered List"
           >
             <ListOrdered className="w-4 h-4" />

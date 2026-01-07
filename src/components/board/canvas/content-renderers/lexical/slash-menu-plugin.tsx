@@ -258,14 +258,14 @@ function SlashMenu({ onSelect, results, selectedIndex }: SlashMenuProps) {
   return (
     <div
       ref={menuRef}
-      className="absolute z-10 w-64 max-h-64 overflow-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+      className="absolute z-10 w-64 max-h-64 overflow-auto bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-lg"
     >
       {results.map((item, index) => (
         <button
           key={item.key}
           className={cn(
-            "w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 first:rounded-t-lg last:rounded-b-lg",
-            index === selectedIndex && "bg-gray-100 dark:bg-gray-700",
+            "w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-neutral-700 flex items-center gap-3 first:rounded-t-lg last:rounded-b-lg",
+            index === selectedIndex && "bg-gray-100 dark:bg-neutral-700",
           )}
           onClick={() => onSelect(item)}
         >

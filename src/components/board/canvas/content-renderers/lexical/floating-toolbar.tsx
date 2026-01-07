@@ -157,14 +157,14 @@ export function FloatingToolbar() {
   }, [editor, isLink]);
 
   return (
-    <div className="flex flex-wrap w-fit items-center gap-1 px-2 py-1 bg-white/95 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm dark:bg-gray-800/95">
+    <div className="flex flex-wrap w-fit items-center gap-1 px-2 py-1 bg-white/95 backdrop-blur-sm border border-gray-200 dark:border-neutral-700 rounded-lg shadow-sm dark:bg-neutral-800/95">
       {/* Block Type Controls */}
       <div className="flex items-center gap-0.5">
         <button
           onClick={formatParagraph}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center",
-            blockType === "paragraph" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700 flex items-center",
+            blockType === "paragraph" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Normal text"
         >
@@ -174,8 +174,8 @@ export function FloatingToolbar() {
         <button
           onClick={() => formatHeading("h1")}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            blockType === "h1" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            blockType === "h1" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Heading 1"
         >
@@ -185,8 +185,8 @@ export function FloatingToolbar() {
         <button
           onClick={() => formatHeading("h2")}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            blockType === "h2" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            blockType === "h2" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Heading 2"
         >
@@ -196,8 +196,8 @@ export function FloatingToolbar() {
         <button
           onClick={() => formatHeading("h3")}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            blockType === "h3" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            blockType === "h3" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Heading 3"
         >
@@ -205,15 +205,15 @@ export function FloatingToolbar() {
         </button>
       </div>
 
-      <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
+      <div className="w-px h-4 bg-gray-300 dark:bg-neutral-600" />
 
       {/* List Controls */}
       <div className="flex items-center gap-0.5">
         <button
           onClick={formatBulletList}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            blockType === "ul" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            blockType === "ul" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Bullet List"
         >
@@ -223,8 +223,8 @@ export function FloatingToolbar() {
         <button
           onClick={formatNumberedList}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            blockType === "ol" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            blockType === "ol" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Numbered List"
         >
@@ -234,8 +234,8 @@ export function FloatingToolbar() {
         <button
           onClick={formatQuote}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            blockType === "quote" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            blockType === "quote" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Quote"
         >
@@ -245,8 +245,8 @@ export function FloatingToolbar() {
         <button
           onClick={formatCode}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            blockType === "code" && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            blockType === "code" && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Code Block"
         >
@@ -254,7 +254,7 @@ export function FloatingToolbar() {
         </button>
       </div>
 
-      <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
+      <div className="w-px h-4 bg-gray-300 dark:bg-neutral-600" />
 
       {/* Text Format Controls */}
       <div className="flex items-center gap-0.5">
@@ -263,8 +263,8 @@ export function FloatingToolbar() {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
           }}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            isBold && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            isBold && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Bold (⌘B)"
         >
@@ -276,8 +276,8 @@ export function FloatingToolbar() {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
           }}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            isItalic && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            isItalic && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Italic (⌘I)"
         >
@@ -289,8 +289,8 @@ export function FloatingToolbar() {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
           }}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            isUnderline && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            isUnderline && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Underline (⌘U)"
         >
@@ -302,8 +302,8 @@ export function FloatingToolbar() {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough");
           }}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            isStrikethrough && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            isStrikethrough && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Strikethrough"
         >
@@ -315,8 +315,8 @@ export function FloatingToolbar() {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
           }}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            isCode && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            isCode && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Inline Code"
         >
@@ -326,8 +326,8 @@ export function FloatingToolbar() {
         <button
           onClick={insertLink}
           className={cn(
-            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700",
-            isLink && "bg-gray-200 dark:bg-gray-600",
+            "p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-700",
+            isLink && "bg-gray-200 dark:bg-neutral-600",
           )}
           title="Link"
         >

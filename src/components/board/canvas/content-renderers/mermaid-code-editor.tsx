@@ -88,7 +88,9 @@ export function MermaidCodeEditor({
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-300 font-medium">Mermaid Editor</span>
+          <span className="text-xs text-slate-300 font-medium">
+            Mermaid Editor
+          </span>
           <select
             onChange={(e) => handleTemplateSelect(e.target.value)}
             value=""
@@ -131,7 +133,10 @@ export function MermaidCodeEditor({
       {/* Editor and Preview */}
       <div className="flex flex-1 overflow-hidden">
         {/* Code Editor */}
-        <div className="flex flex-col border-r border-slate-700" style={{ width: editorWidth }}>
+        <div
+          className="flex flex-col border-r border-slate-700"
+          style={{ width: editorWidth }}
+        >
           <div className="px-3 py-1 bg-slate-800 border-b border-slate-700">
             <span className="text-xs text-slate-400">Code</span>
           </div>
@@ -151,9 +156,13 @@ export function MermaidCodeEditor({
             <div className="px-3 py-1 bg-slate-800 border-b border-slate-700">
               <span className="text-xs text-slate-400">Preview</span>
             </div>
-            <div className="flex-1 overflow-auto bg-white dark:bg-slate-950 p-4">
+            <div className="flex-1 overflow-auto bg-white dark:bg-neutral-950 p-4">
               {code ? (
-                <MermaidRenderer chart={code} width={previewWidth - 32} height={editorHeight - 50} />
+                <MermaidRenderer
+                  chart={code}
+                  width={previewWidth - 32}
+                  height={editorHeight - 50}
+                />
               ) : (
                 <div className="flex items-center justify-center h-full text-sm text-slate-500">
                   Type code to see preview

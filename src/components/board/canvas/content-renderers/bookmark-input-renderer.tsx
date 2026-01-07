@@ -90,7 +90,10 @@ export function BookmarkInputRenderer({
 
   return (
     <div
-      className={cn("flex flex-col bg-white dark:bg-slate-900 rounded p-4 gap-4", className)}
+      className={cn(
+        "flex flex-col bg-white dark:bg-neutral-900 rounded p-4 gap-4",
+        className,
+      )}
       style={{ width, height }}
     >
       <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -109,11 +112,11 @@ export function BookmarkInputRenderer({
           placeholder="https://example.com"
           className={cn(
             "w-full px-3 py-2 text-sm rounded border",
-            "bg-white dark:bg-slate-800",
+            "bg-white dark:bg-neutral-800",
             "border-gray-300 dark:border-gray-600",
             "text-gray-900 dark:text-gray-100",
             "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500"
+            "focus:outline-none focus:ring-2 focus:ring-accent",
           )}
           autoFocus
           disabled={isLoading}
@@ -133,11 +136,11 @@ export function BookmarkInputRenderer({
           placeholder="My Bookmark"
           className={cn(
             "w-full px-3 py-2 text-sm rounded border",
-            "bg-white dark:bg-slate-800",
+            "bg-white dark:bg-neutral-800",
             "border-gray-300 dark:border-gray-600",
             "text-gray-900 dark:text-gray-100",
             "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500"
+            "focus:outline-none focus:ring-2 focus:ring-accent",
           )}
           disabled={isLoading}
         />
@@ -158,8 +161,8 @@ export function BookmarkInputRenderer({
           className={cn(
             "flex items-center gap-1 px-3 py-1.5 text-sm rounded transition-colors",
             "text-gray-700 dark:text-gray-300",
-            "hover:bg-gray-100 dark:hover:bg-gray-800",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
+            "hover:bg-gray-100 dark:hover:bg-neutral-700",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
           )}
         >
           <X className="h-3 w-3" />
@@ -170,8 +173,8 @@ export function BookmarkInputRenderer({
           disabled={isLoading}
           className={cn(
             "flex items-center gap-1 px-3 py-1.5 text-sm rounded transition-colors",
-            "bg-blue-600 hover:bg-blue-700 text-white",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
+            "bg-accent hover:bg-accent/90 text-accent-foreground",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
           )}
         >
           {isLoading ? (

@@ -94,7 +94,7 @@ export function HeaderColorPicker({
   return (
     <div
       ref={pickerRef}
-      className="w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4"
+      className="w-64 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-lg p-4"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
