@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Plus,
   Search,
+  Settings,
   Zap,
   Trash2,
 } from "lucide-react";
@@ -271,6 +272,13 @@ export default function BoardsPage() {
           <div className="flex flex-wrap items-center justify-end gap-6 min-h-16">
             <div className="flex items-center gap-3">
               <ThemeToggle />
+              <Link
+                href="/settings"
+                className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Link>
             </div>
           </div>
 

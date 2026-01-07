@@ -645,6 +645,62 @@ export const useBoardStore = create<BoardStore>()(
                 // Loading is handled by Zustand persist middleware on hydration
                 return Promise.resolve();
             },
+
+            // Settings / Data management
+            getStorageStats: () => {
+                const state = get();
+                return {
+                    boardCount: state.boards.size,
+                    workspaceCount: state.workstreams.size,
+                };
+            },
+
+            clearAllData: async () => {
+                // 1. Clear IndexedDB
+                const { del } = await import("idb-keyval");
+                await del("kladde-boards");
+
+                // 2. Clear localStorage keys
+                const localStorageKeys = [
+                    "kladde-dashboard-pins",
+                    "kladde-handdrawn-mode",
+                    "kladde-recent-colors",
+                    "kladde-cookie-consent",
+                ];
+                localStorageKeys.forEach((key) => {
+                    try {
+                        localStorage.removeItem(key);
+                    } catch {
+                        // Ignore errors (e.g., if localStorage is not available)
+                    }
+                });
+
+                // 3. Clear sessionStorage
+                try {
+                    sessionStorage.removeItem("kladde-name");
+                } catch {
+                    // Ignore errors
+                }
+
+                // 4. Reset Zustand store to initial state
+                set({
+                    boards: new Map(),
+                    boardData: new Map(),
+                    workstreams: new Map([
+                        [DEFAULT_WORKSTREAM_ID, createDefaultWorkstream()],
+                        [QUICK_BOARDS_WORKSPACE_ID, createQuickBoardsWorkstream()],
+                    ]),
+                    ui: {
+                        currentBoardId: null,
+                        currentWorkstreamId: DEFAULT_WORKSTREAM_ID,
+                        selectedTags: [],
+                        searchQuery: "",
+                        dashboardView: "grid",
+                    },
+                    patchQueue: [],
+                    flushStatus: "idle",
+                });
+            },
         }),
         {
             name: "kladde-boards",

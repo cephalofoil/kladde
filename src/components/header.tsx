@@ -66,6 +66,15 @@ export function Header({ rightContent }: HeaderProps = {}) {
               >
                 <Link href="/components">Components</Link>
               </Button>
+
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="text-gray-900 dark:text-white"
+              >
+                <Link href="/settings">Settings</Link>
+              </Button>
             </div>
           </div>
 

@@ -139,6 +139,10 @@ export interface BoardStoreActions {
     // Persistence
     saveBoard: (boardId: string) => Promise<void>;
     loadAllBoards: () => Promise<void>;
+
+    // Settings / Data management
+    getStorageStats: () => { boardCount: number; workspaceCount: number };
+    clearAllData: () => Promise<void>;
 }
 
 /**
