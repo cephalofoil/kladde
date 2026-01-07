@@ -1585,17 +1585,40 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleDeleteFolder = useCallback(
         (folderId: string) => {
-            // Move all elements in this folder to root (remove folderId)
-            const elementsInFolder = elements.filter(
-                (el) => el.folderId === folderId,
-            );
-            elementsInFolder.forEach((el) => {
-                handleUpdateElement(el.id, { folderId: undefined });
-            });
+            const idsInFolder = elements
+                .filter((el) => el.folderId === folderId)
+                .map((el) => el.id);
+            if (idsInFolder.length > 0) {
+                handleDeleteElements(idsInFolder);
+                const idSet = new Set(idsInFolder);
+                setSelectedElements(
+                    selectedElements.filter((el) => !idSet.has(el.id)),
+                );
+                if (layerSelectionIds) {
+                    const nextLayerSelectionIds = layerSelectionIds.filter(
+                        (id) => !idSet.has(id),
+                    );
+                    setLayerSelectionIds(
+                        nextLayerSelectionIds.length > 0
+                            ? nextLayerSelectionIds
+                            : null,
+                    );
+                }
+                if (lastSelectedLayerId && idSet.has(lastSelectedLayerId)) {
+                    setLastSelectedLayerId(null);
+                }
+            }
             // Remove the folder
             setLayerFolders(layerFolders.filter((f) => f.id !== folderId));
         },
-        [elements, layerFolders, handleUpdateElement],
+        [
+            elements,
+            layerFolders,
+            handleDeleteElements,
+            selectedElements,
+            layerSelectionIds,
+            lastSelectedLayerId,
+        ],
     );
 
     const handleRenameFolder = useCallback(
