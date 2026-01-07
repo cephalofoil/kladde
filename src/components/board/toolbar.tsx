@@ -25,6 +25,7 @@ import {
     LetterText,
     Lasso,
     Frame,
+    FileText,
 } from "lucide-react";
 import type { Tool, TileType } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
@@ -112,6 +113,12 @@ const TILE_TYPES: TileTypeInfo[] = [
         icon: <ImageIcon className="h-4 w-4" />,
         label: "Image",
         hotkey: "9",
+    },
+    {
+        type: "tile-document",
+        icon: <FileText className="h-4 w-4" />,
+        label: "Doc",
+        hotkey: "0",
     },
 ];
 
