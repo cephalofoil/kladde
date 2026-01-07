@@ -23,7 +23,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { WorkspaceColorPicker } from "@/components/workspace-color-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -443,10 +448,25 @@ export default function BoardsPage() {
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="group flex items-center gap-3">
-                <span
-                  className="h-5 w-5 rounded-full"
-                  style={{ backgroundColor: currentWorkstream?.color }}
-                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="h-5 w-5 rounded-full transition-all hover:scale-110 hover:ring-2 hover:ring-ring hover:ring-offset-2 hover:ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      style={{ backgroundColor: currentWorkstream?.color }}
+                      title="Change workspace color"
+                    />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="p-0">
+                    <WorkspaceColorPicker
+                      value={currentWorkstream?.color || "#2563eb"}
+                      onChange={(color) => {
+                        if (currentWorkstream) {
+                          updateWorkstream(currentWorkstream.id, { color });
+                        }
+                      }}
+                    />
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {isRenamingWorkspace ? (
                   <input
                     type="text"
@@ -487,6 +507,25 @@ export default function BoardsPage() {
                     <DropdownMenuItem onClick={handleRenameWorkspace}>
                       Rename Workspace
                     </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <span
+                          className="h-3 w-3 rounded-full mr-1"
+                          style={{ backgroundColor: currentWorkstream?.color }}
+                        />
+                        Change Color
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="p-0">
+                        <WorkspaceColorPicker
+                          value={currentWorkstream?.color || "#2563eb"}
+                          onChange={(color) => {
+                            if (currentWorkstream) {
+                              updateWorkstream(currentWorkstream.id, { color });
+                            }
+                          }}
+                        />
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
