@@ -176,7 +176,7 @@ const TILE_TYPES: TileTypeInfo[] = [
   },
   {
     type: "tile-note",
-    icon: <StickyNote className="h-4 w-4" />,
+    icon: <StickyNote className="h-4 w-4 rotate-90" />,
     label: "Note",
     hotkey: "5",
   },
