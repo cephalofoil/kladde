@@ -29,7 +29,7 @@ import type {
     TileType,
     LayerFolder,
 } from "@/lib/board-types";
-import { isClosedShape } from "@/lib/board-types";
+import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import {
     getKeyFromUrl,
     importKeyFromString,
@@ -998,7 +998,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         // Check if the stroke is closed (in case it wasn't detected before)
                         const isClosed =
                             el.isClosed ?? isClosedShape(el.points);
-                        if (isClosed) {
+                        const endpointsInArea = areEndpointsNear(el.points);
+                        if (isClosed && endpointsInArea) {
                             handleUpdateElement(el.id, {
                                 fillPattern: pattern,
                                 isClosed: true, // Make sure isClosed is set

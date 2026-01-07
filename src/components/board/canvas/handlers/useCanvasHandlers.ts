@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { v4 as uuid } from "uuid";
 import type { Tool, BoardElement, Point, TileType } from "@/lib/board-types";
-import { isClosedShape } from "@/lib/board-types";
+import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import type { CollaborationManager } from "@/lib/collaboration";
 import type { CanvasState } from "../hooks/useCanvasState";
 import type { BoundingBox, ConnectorDragKind, ResizeHandle } from "../types";
@@ -3238,11 +3238,14 @@ export function useCanvasHandlers({
             ) {
                 // Check if shape is closed
                 const isClosed = isClosedShape(currentElement.points);
+                const endpointsInArea = areEndpointsNear(currentElement.points);
                 const isHighlighter = currentElement.penMode === "highlighter";
 
                 // Only fill if closed AND fill is enabled (same for pen and highlighter)
                 const shouldFill =
-                    isClosed && currentElement.fillPattern === "solid";
+                    isClosed &&
+                    endpointsInArea &&
+                    currentElement.fillPattern === "solid";
                 const finalElement: BoardElement = {
                     ...currentElement,
                     isClosed,
