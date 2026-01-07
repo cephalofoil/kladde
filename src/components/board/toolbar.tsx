@@ -51,6 +51,8 @@ interface ToolInfo {
   label: string;
 }
 
+const ICON_CLASS = "h-5 w-5";
+
 // Custom icon components for SVG files
 function ShapesIcon({ className }: { className?: string }) {
   return (
@@ -136,71 +138,82 @@ function TextTileIcon({ className }: { className?: string }) {
   );
 }
 
+function DiagramToolIcon({ className }: { className?: string }) {
+  return (
+    <img
+      src="/icons/diagram-tool.svg"
+      alt=""
+      aria-hidden="true"
+      className={className}
+    />
+  );
+}
+
 // Tool groups for submenus
 const PEN_GROUP: ToolInfo[] = [
-  { tool: "pen", icon: <Pencil className="h-4 w-4" />, label: "Pen" },
+  { tool: "pen", icon: <Pencil className={ICON_CLASS} />, label: "Pen" },
   {
     tool: "highlighter",
-    icon: <Highlighter className="h-4 w-4" />,
+    icon: <Highlighter className={ICON_CLASS} />,
     label: "Highlighter",
   },
-  { tool: "eraser", icon: <Eraser className="h-4 w-4" />, label: "Eraser" },
+  { tool: "eraser", icon: <Eraser className={ICON_CLASS} />, label: "Eraser" },
 ];
 
 const LINE_GROUP: ToolInfo[] = [
-  { tool: "line", icon: <Minus className="h-4 w-4" />, label: "Line" },
-  { tool: "arrow", icon: <MoveRight className="h-4 w-4" />, label: "Arrow" },
+  { tool: "line", icon: <Minus className={ICON_CLASS} />, label: "Line" },
+  { tool: "arrow", icon: <MoveRight className={ICON_CLASS} />, label: "Arrow" },
 ];
 
 const SHAPE_GROUP: ToolInfo[] = [
   {
     tool: "rectangle",
-    icon: <RectangleHorizontal className="h-4 w-4" />,
+    icon: <RectangleHorizontal className={ICON_CLASS} />,
     label: "Rectangle",
   },
   {
     tool: "diamond",
-    icon: <Diamond className="h-4 w-4" />,
+    icon: <Diamond className={ICON_CLASS} />,
     label: "Diamond",
   },
-  { tool: "ellipse", icon: <Circle className="h-4 w-4" />, label: "Ellipse" },
-  { tool: "text", icon: <Type className="h-4 w-4" />, label: "Text" },
+  { tool: "ellipse", icon: <Circle className={ICON_CLASS} />, label: "Ellipse" },
+  { tool: "text", icon: <Type className={ICON_CLASS} />, label: "Text" },
 ];
 
 const TILE_TYPES: TileTypeInfo[] = [
   {
     type: "tile-text",
-    icon: <TextTileIcon className="h-4 w-4" />,
+    icon: <TextTileIcon className={ICON_CLASS} />,
     label: "Text",
     hotkey: "4",
   },
   {
     type: "tile-note",
-    icon: <StickyNote className="h-4 w-4 rotate-90" />,
+    icon: <StickyNote className={`${ICON_CLASS} rotate-90`} />,
     label: "Note",
     hotkey: "5",
   },
   {
     type: "tile-code",
-    icon: <CodeXml className="h-4 w-4" />,
+    icon: <CodeXml className={ICON_CLASS} />,
     label: "Code",
     hotkey: "6",
   },
   {
     type: "tile-mermaid",
-    icon: <GitBranch className="h-4 w-4" />,
+    icon: <DiagramToolIcon className={ICON_CLASS} />,
     label: "Diagram",
     hotkey: "7",
   },
   {
     type: "tile-image",
-    icon: <ImageIcon className="h-4 w-4" />,
+    icon: <ImageIcon className={ICON_CLASS} />,
     label: "Image",
     hotkey: "8",
   },
   {
     type: "tile-document",
-    icon: <FileText className="h-4 w-4" />,
+    icon: <FileText className={ICON_CLASS} />,
     label: "Doc",
     hotkey: "9",
   },
@@ -208,31 +221,31 @@ const TILE_TYPES: TileTypeInfo[] = [
 
 const MORE_TOOLS: Array<{ tool: Tool; label: string; icon: React.ReactNode }> =
   [
-    { tool: "lasso", label: "Lasso", icon: <Lasso className="h-4 w-4" /> },
-    { tool: "frame", label: "Frame", icon: <Frame className="h-4 w-4" /> },
+    { tool: "lasso", label: "Lasso", icon: <Lasso className={ICON_CLASS} /> },
+    { tool: "frame", label: "Frame", icon: <Frame className={ICON_CLASS} /> },
   ];
 
 // Get icon for a tool
 function getToolIcon(tool: Tool): React.ReactNode {
   switch (tool) {
     case "pen":
-      return <Pencil className="h-4 w-4" />;
+      return <Pencil className={ICON_CLASS} />;
     case "highlighter":
-      return <Highlighter className="h-4 w-4" />;
+      return <Highlighter className={ICON_CLASS} />;
     case "eraser":
-      return <Eraser className="h-4 w-4" />;
+      return <Eraser className={ICON_CLASS} />;
     case "line":
-      return <Minus className="h-4 w-4" />;
+      return <Minus className={ICON_CLASS} />;
     case "arrow":
-      return <MoveRight className="h-4 w-4" />;
+      return <MoveRight className={ICON_CLASS} />;
     case "rectangle":
-      return <RectangleHorizontal className="h-4 w-4" />;
+      return <RectangleHorizontal className={ICON_CLASS} />;
     case "diamond":
-      return <Diamond className="h-4 w-4" />;
+      return <Diamond className={ICON_CLASS} />;
     case "ellipse":
-      return <Circle className="h-4 w-4" />;
+      return <Circle className={ICON_CLASS} />;
     case "text":
-      return <Type className="h-4 w-4" />;
+      return <Type className={ICON_CLASS} />;
     default:
       return null;
   }
@@ -395,7 +408,7 @@ function ToolButton({
   // For shapes, show the actual selected shape icon when active, otherwise show stacked icon
   const displayIcon =
     showStackedIcon && !isActive ? (
-      <ShapesIcon className="h-4 w-4" />
+      <ShapesIcon className={ICON_CLASS} />
     ) : (
       displayTool.icon
     );
@@ -614,7 +627,7 @@ export function Toolbar({
           {/* Hand Tool */}
           <SimpleToolButton
             tool="hand"
-            icon={<Hand className="h-4 w-4" />}
+            icon={<Hand className={ICON_CLASS} />}
             label="Hand"
             hotkey="H"
             currentTool={currentTool}
@@ -624,9 +637,9 @@ export function Toolbar({
           {/* Select Tool */}
           <SimpleToolButton
             tool="select"
-            icon={<MousePointer2 className="h-4 w-4" />}
+            icon={<MousePointer2 className={ICON_CLASS} />}
             activeIcon={
-              <MousePointer2 className="h-4 w-4" fill="currentColor" />
+              <MousePointer2 className={ICON_CLASS} fill="currentColor" />
             }
             label="Select"
             hotkey="V"
@@ -707,7 +720,7 @@ export function Toolbar({
               )}
               title="More tools"
             >
-              {moreTool?.icon ?? <Plus className="h-4 w-4" />}
+              {moreTool?.icon ?? <Plus className={ICON_CLASS} />}
             </button>
             <MoreToolsMenu
               isOpen={isMoreOpen}
@@ -732,7 +745,7 @@ export function Toolbar({
             )}
             title="Laser Pointer"
           >
-            <Pointer className="w-4 h-4" />
+            <Pointer className={ICON_CLASS} />
           </button>
         </div>
       )}
