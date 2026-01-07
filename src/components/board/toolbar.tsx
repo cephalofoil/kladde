@@ -683,7 +683,7 @@ export function Toolbar({
           {TILE_TYPES.map((tileType) => (
             <button
               key={tileType.type}
-              onClick={() => handleTileTypeClick(tileType.type)}
+              onPointerDown={() => handleTileTypeClick(tileType.type)}
               className={cn(
                 "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
                 selectedTileType === tileType.type && currentTool === "tile"
