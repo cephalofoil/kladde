@@ -15,6 +15,8 @@ export type Tool =
     | "laser"
     | "tile";
 
+export type ToolbarMode = "tiles" | "draw";
+
 export type TileType =
   | "tile-text"
   | "tile-note"
