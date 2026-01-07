@@ -81,35 +81,35 @@
     /* Dark mode - pure black canvas, lighter toolbars/sidebars */
     --background: #000000;
     --foreground: #fafafa;
-    --card: #141414;
+    --card: #1c1c1c;
     --card-foreground: #fafafa;
-    --popover: #141414;
+    --popover: #1c1c1c;
     --popover-foreground: #fafafa;
     --primary: #f28705;
     --primary-foreground: #000000;
-    --secondary: #141414;
+    --secondary: #1c1c1c;
     --secondary-foreground: #fafafa;
-    --muted: #1a1a1a;
+    --muted: #262626;
     --muted-foreground: #a3a3a3;
     --accent: #f28705;
     --accent-foreground: #000000;
     --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: #fafafa;
-    --border: #262626;
-    --input: #141414;
+    --border: #333333;
+    --input: #1c1c1c;
     --ring: #f28705;
     --chart-1: #f28705;
     --chart-2: oklch(0.6 0.118 184.704);
     --chart-3: oklch(0.398 0.07 227.392);
     --chart-4: oklch(0.828 0.189 84.429);
     --chart-5: oklch(0.769 0.188 70.08);
-    --sidebar: #141414;
+    --sidebar: #1c1c1c;
     --sidebar-foreground: #fafafa;
     --sidebar-primary: #f28705;
     --sidebar-primary-foreground: #000000;
-    --sidebar-accent: #1a1a1a;
+    --sidebar-accent: #262626;
     --sidebar-accent-foreground: #fafafa;
-    --sidebar-border: #262626;
+    --sidebar-border: #333333;
     --sidebar-ring: #f28705;
 }
 

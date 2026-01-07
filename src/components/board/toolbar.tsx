@@ -140,12 +140,48 @@ function TextTileIcon({ className }: { className?: string }) {
 
 function DiagramToolIcon({ className }: { className?: string }) {
   return (
-    <img
-      src="/icons/diagram-tool.svg"
-      alt=""
-      aria-hidden="true"
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
       className={className}
-    />
+      aria-hidden="true"
+    >
+      <path
+        d="M10 16H6C5.44772 16 5 16.4477 5 17V21C5 21.5523 5.44772 22 6 22H10C10.5523 22 11 21.5523 11 21V17C11 16.4477 10.5523 16 10 16Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 2H3C2.44772 2 2 2.44772 2 3V7C2 7.55228 2.44772 8 3 8H7C7.55228 8 8 7.55228 8 7V3C8 2.44772 7.55228 2 7 2Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 9V11.25C5 11.4489 5.10435 11.6397 5.2901 11.7803C5.47585 11.921 5.72779 12 5.99048 12H13"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M11 19H17.557C17.6745 19 17.7872 18.921 17.8702 18.7803C17.9533 18.6397 18 18.4489 18 18.25V16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M21.4497 10.6213L19.0355 8.20711C18.3689 7.54044 17.288 7.54044 16.6213 8.20711L14.2071 10.6213C13.5404 11.288 13.5404 12.3689 14.2071 13.0355L16.6213 15.4497C17.288 16.1164 18.3689 16.1164 19.0355 15.4497L21.4497 13.0355C22.1164 12.3689 22.1164 11.288 21.4497 10.6213Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -176,7 +212,11 @@ const SHAPE_GROUP: ToolInfo[] = [
     icon: <Diamond className={ICON_CLASS} />,
     label: "Diamond",
   },
-  { tool: "ellipse", icon: <Circle className={ICON_CLASS} />, label: "Ellipse" },
+  {
+    tool: "ellipse",
+    icon: <Circle className={ICON_CLASS} />,
+    label: "Ellipse",
+  },
   { tool: "text", icon: <Type className={ICON_CLASS} />, label: "Text" },
 ];
 
@@ -311,7 +351,7 @@ function ToolSubmenu({
             "flex items-center justify-center w-8 h-8 rounded-md transition-all",
             currentTool === tool.tool
               ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+              : "text-muted-foreground hover:text-foreground hover:bg-muted",
           )}
           title={tool.label}
         >
@@ -373,7 +413,7 @@ function MoreToolsMenu({
             onSelect(item.tool);
             onClose();
           }}
-          className="px-3 py-2 text-left text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all flex items-center gap-2"
+          className="px-3 py-2 text-left text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all flex items-center gap-2"
         >
           {item.icon}
           {item.label}
@@ -429,7 +469,7 @@ function ToolButton({
           "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
           isActive
             ? "bg-accent text-accent-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+            : "text-muted-foreground hover:text-foreground hover:bg-muted",
         )}
         title={`${displayTool.label} (${hotkey})`}
       >
@@ -481,7 +521,7 @@ function SimpleToolButton({
         "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
         isActive
           ? "bg-accent text-accent-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
       )}
       title={`${label}${hotkey ? ` (${hotkey})` : ""}`}
     >
@@ -609,7 +649,7 @@ export function Toolbar({
 
   return (
     <div className="fixed left-4 top-1/2 -translate-y-1/2 z-[80] flex flex-col items-center gap-1.5">
-          {/* Lock Button - Separate box */}
+      {/* Lock Button - Separate box */}
       <div className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-1">
         <button
           onPointerDown={onToggleToolLock}
@@ -617,7 +657,7 @@ export function Toolbar({
             "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
             toolLock
               ? "bg-accent text-accent-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+              : "text-muted-foreground hover:text-foreground hover:bg-muted",
           )}
           title={toolLock ? "Tool locked" : "Tool unlocked"}
         >
@@ -703,7 +743,7 @@ export function Toolbar({
                 "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
                 selectedTileType === tileType.type && currentTool === "tile"
                   ? "bg-accent text-accent-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
               title={`${tileType.label} (${tileType.hotkey})`}
             >
@@ -731,7 +771,7 @@ export function Toolbar({
                 "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
                 moreTool
                   ? "bg-accent text-accent-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
               title="More tools"
             >
@@ -756,7 +796,7 @@ export function Toolbar({
               "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
               currentTool === "laser"
                 ? "bg-accent text-accent-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
             title="Laser Pointer"
           >
