@@ -478,36 +478,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         });
     }, [applyState]);
 
-    // Handle keyboard shortcuts for undo/redo
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (isReadOnly) return;
-            // Don't trigger if typing in input
-            if (
-                e.target instanceof HTMLInputElement ||
-                e.target instanceof HTMLTextAreaElement
-            ) {
-                return;
-            }
-
-            if ((e.ctrlKey || e.metaKey) && e.key === "z") {
-                e.preventDefault();
-                if (e.shiftKey) {
-                    handleRedo();
-                } else {
-                    handleUndo();
-                }
-            }
-            if ((e.ctrlKey || e.metaKey) && e.key === "y") {
-                e.preventDefault();
-                handleRedo();
-            }
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleUndo, handleRedo, isReadOnly]);
-
     const handleAddElement = useCallback(
         (element: BoardElement) => {
             if (isReadOnly) return;
@@ -1248,7 +1218,56 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         } else {
             setElements([...elements, ...copies]);
         }
-    }, [selectedElements, saveToUndoStack, collaboration, elements]);
+        setSelectedElements(copies);
+        setLayerSelectionIds(copies.map((el) => el.id));
+        if (copies.length > 0) {
+            setLastSelectedLayerId(copies[0].id);
+        }
+    }, [
+        selectedElements,
+        saveToUndoStack,
+        collaboration,
+        elements,
+        setSelectedElements,
+        setLayerSelectionIds,
+        setLastSelectedLayerId,
+    ]);
+
+    // Handle keyboard shortcuts for undo/redo
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (isReadOnly) return;
+            // Don't trigger if typing in input
+            if (
+                e.target instanceof HTMLInputElement ||
+                e.target instanceof HTMLTextAreaElement ||
+                (e.target instanceof HTMLElement && e.target.isContentEditable)
+            ) {
+                return;
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    handleRedo();
+                } else {
+                    handleUndo();
+                }
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+                e.preventDefault();
+                handleRedo();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+                if (selectedElements.length === 0) return;
+                e.preventDefault();
+                handleCopySelected();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [handleUndo, handleRedo, handleCopySelected, isReadOnly, selectedElements]);
 
     const handleDeleteSelected = useCallback(() => {
         if (selectedElements.length === 0) return;
