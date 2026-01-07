@@ -26,7 +26,6 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { WorkspaceColorPicker } from "@/components/workspace-color-picker";
 import {
@@ -456,7 +455,7 @@ export default function BoardsPage() {
                       title="Change workspace color"
                     />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="p-0">
+                  <DropdownMenuContent align="start" className="p-0 mt-3">
                     <WorkspaceColorPicker
                       value={currentWorkstream?.color || "#2563eb"}
                       onChange={(color) => {
