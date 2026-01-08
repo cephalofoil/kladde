@@ -8,7 +8,7 @@ import { EraserTrail } from "@/lib/eraser-trail";
 import type { RemoteSelection, RemoteCursor } from "./types";
 import { chooseRotateHandleSide } from "./geometry";
 import { measureWrappedTextHeightPx } from "./text-utils";
-import { getCombinedBounds } from "./shapes";
+import { getBoundingBox, getCombinedBounds } from "./shapes";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasHandlers } from "./handlers/useCanvasHandlers";
 import { useCanvasRenderers } from "./renderers/useCanvasRenderers";
@@ -17,6 +17,8 @@ import {
     getCanvasBackgroundStyle,
     getCanvasCursorStyle,
 } from "./utils/canvasStyle";
+import { getEventTargetInfo } from "./utils/eventTargeting";
+import { isInViewport } from "./utils/viewport";
 import { TrashDropZone } from "./trash-drop-zone";
 
 interface CanvasProps {
@@ -135,6 +137,10 @@ export function Canvas({
 
     // Tile editing state
     const [editingTileId, setEditingTileId] = useState<string | null>(null);
+    const [containerSize, setContainerSize] = useState({
+        width: 0,
+        height: 0,
+    });
 
     // Refs for edit states to avoid dependency array issues
     const editingTextElementIdRef = useRef<string | null>(null);
@@ -568,6 +574,24 @@ export function Canvas({
     }, [elements]);
 
     useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const updateSize = () => {
+            setContainerSize({
+                width: container.clientWidth,
+                height: container.clientHeight,
+            });
+        };
+
+        updateSize();
+        const observer = new ResizeObserver(updateSize);
+        observer.observe(container);
+
+        return () => observer.disconnect();
+    }, [containerRef]);
+
+    useEffect(() => {
         return () => {
             if (cursorBroadcastRafRef.current !== null) {
                 cancelAnimationFrame(cursorBroadcastRafRef.current);
@@ -608,6 +632,26 @@ export function Canvas({
         .map((id) => elements.find((el) => el.id === id))
         .filter(Boolean) as BoardElement[];
     const selectedBounds = getCombinedBounds(selectedIds, elements);
+
+    const viewportBounds = useMemo(
+        () => ({
+            x: -pan.x / zoom,
+            y: -pan.y / zoom,
+            width: containerSize.width / zoom,
+            height: containerSize.height / zoom,
+        }),
+        [containerSize.height, containerSize.width, pan.x, pan.y, zoom],
+    );
+
+    const visibleElements = useMemo(() => {
+        const margin = 200 / zoom;
+        return elements.filter((el) => {
+            if (selectedIds.includes(el.id)) return true;
+            const bounds = getBoundingBox(el);
+            if (!bounds) return true;
+            return isInViewport(bounds, viewportBounds, margin);
+        });
+    }, [elements, selectedIds, viewportBounds, zoom]);
 
     // Decide which side gets the rotate handle at selection time (keeps stable while rotating).
     useEffect(() => {
@@ -1047,7 +1091,7 @@ export function Canvas({
             style={{ cursor: cursorStyle }}
             onMouseDownCapture={(e) => {
                 if (!editingTileId) return;
-                const target = e.target as Element | null;
+                const { target } = getEventTargetInfo(e);
                 const insideActiveTile = target?.closest?.(
                     `[data-tile-id="${editingTileId}"]`,
                 );
@@ -1121,7 +1165,7 @@ export function Canvas({
                 </defs>
                 <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
                     {/* Render all elements sorted by zIndex */}
-                    {[...elements]
+                    {[...visibleElements]
                         .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
                         .map((el) => renderElement(el))}
 
@@ -1252,7 +1296,7 @@ export function Canvas({
                         transformOrigin: "0 0",
                     }}
                 >
-                    {[...elements]
+                    {[...visibleElements]
                         .filter((el) => el.type === "tile")
                         .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
                         .map((el) => (

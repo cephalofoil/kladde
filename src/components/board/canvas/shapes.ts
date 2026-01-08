@@ -8,8 +8,19 @@ import {
 import { isBoundsFullyInsideBox } from "./geometry";
 import type { Point } from "@/lib/board-types";
 
+const boundsCache = new WeakMap<BoardElement, BoundingBox | null>();
+
 // Get bounding box for any element
 export function getBoundingBox(element: BoardElement): BoundingBox | null {
+    if (boundsCache.has(element)) {
+        return boundsCache.get(element) ?? null;
+    }
+    const bounds = calculateBoundingBox(element);
+    boundsCache.set(element, bounds);
+    return bounds;
+}
+
+function calculateBoundingBox(element: BoardElement): BoundingBox | null {
     if (
         element.type === "pen" ||
         element.type === "line" ||

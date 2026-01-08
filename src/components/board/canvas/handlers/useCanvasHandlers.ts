@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { v4 as uuid } from "uuid";
 import type { Tool, BoardElement, Point, TileType } from "@/lib/board-types";
@@ -40,6 +40,45 @@ import {
     getMinSingleCharWidth,
     measureWrappedTextHeightPx,
 } from "../text-utils";
+import { getEventTargetInfo } from "../utils/eventTargeting";
+
+function throttleWithResult<T extends (...args: any[]) => any>(
+    fn: T,
+    waitMs: number,
+) {
+    let lastCall = 0;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let lastArgs: Parameters<T> | null = null;
+    let lastResult: ReturnType<T>;
+
+    const invoke = () => {
+        lastCall = Date.now();
+        timeout = null;
+        if (!lastArgs) return;
+        lastResult = fn(...lastArgs);
+        lastArgs = null;
+    };
+
+    return (...args: Parameters<T>): ReturnType<T> => {
+        const now = Date.now();
+        const remaining = waitMs - (now - lastCall);
+        lastArgs = args;
+
+        if (remaining <= 0 || remaining > waitMs) {
+            if (timeout) {
+                clearTimeout(timeout);
+                timeout = null;
+            }
+            lastCall = now;
+            lastResult = fn(...args);
+            lastArgs = null;
+        } else if (!timeout) {
+            timeout = setTimeout(invoke, remaining);
+        }
+
+        return lastResult;
+    };
+}
 
 interface UseCanvasHandlersProps {
     state: CanvasState;
@@ -207,7 +246,18 @@ export function useCanvasHandlers({
         pendingCursorPosRef,
         cursorBroadcastRafRef,
         textSaveTimeoutRef,
+        elementsRef,
     } = refs;
+
+    const throttledFindSnapTarget = useMemo(
+        () => throttleWithResult(findNearestSnapTarget, 32),
+        [],
+    );
+
+    const throttledArrowUpdates = useMemo(
+        () => throttleWithResult(getConnectedArrowUpdates, 16),
+        [],
+    );
 
     const getMousePosition = useCallback(
         (e: ReactMouseEvent): Point => {
@@ -255,8 +305,9 @@ export function useCanvasHandlers({
         (point: Point): string[] => {
             const eraseRadius = strokeWidth * 2;
             const toErase: string[] = [];
+            const currentElements = elementsRef.current;
 
-            elements.forEach((el) => {
+            currentElements.forEach((el) => {
                 // Skip elements that are selected by remote users
                 if (remotelySelectedIds.has(el.id)) return;
                 if (
@@ -487,7 +538,7 @@ export function useCanvasHandlers({
 
             return toErase;
         },
-        [elements, strokeWidth, remotelySelectedIds, zoom],
+        [elementsRef, strokeWidth, remotelySelectedIds, zoom],
     );
 
     const handleMouseMove = useCallback(
@@ -496,6 +547,7 @@ export function useCanvasHandlers({
 
             const point = getMousePosition(e);
             setLastMousePos(point);
+            const currentElements = elementsRef.current;
 
             // Track eraser cursor position
             if (tool === "eraser") {
@@ -550,7 +602,7 @@ export function useCanvasHandlers({
 
                 if (nextPoints.length >= 3) {
                     const lassoSelected = getLassoSelectedIds(
-                        elements,
+                        currentElements,
                         nextPoints,
                     ).filter((id) => !remotelySelectedIds.has(id));
                     setSelectedIds(lassoSelected);
@@ -577,7 +629,7 @@ export function useCanvasHandlers({
                 ) {
                     // Filter out remotely selected elements from box selection
                     const boxSelected = getBoxSelectedIds(
-                        elements,
+                        currentElements,
                         nextSelectionBox,
                     ).filter((id) => !remotelySelectedIds.has(id));
                     setSelectedIds(boxSelected);
@@ -604,7 +656,7 @@ export function useCanvasHandlers({
                 }
 
                 // Create a temporary elements array with the updated rotation
-                const tempElements = elements.map((el) => {
+                const tempElements = currentElements.map((el) => {
                     if (el.id === rotateStart.elementId) {
                         return { ...el, rotation: nextRotationDeg };
                     }
@@ -612,10 +664,11 @@ export function useCanvasHandlers({
                 });
 
                 // Get updates for connected arrows
-                const arrowUpdates = getConnectedArrowUpdates(
-                    [rotateStart.elementId],
-                    tempElements,
-                );
+                const arrowUpdates =
+                    throttledArrowUpdates(
+                        [rotateStart.elementId],
+                        tempElements,
+                    ) ?? [];
 
                 // Batch update the rotated element and its connected arrows
                 const batchUpdates = [
@@ -651,7 +704,7 @@ export function useCanvasHandlers({
                     selectedBounds,
                     selectionPadding,
                 );
-                const selectedElement = elements.find(
+                const selectedElement = currentElements.find(
                     (el) => el.id === selectedIds[0],
                 );
                 const rotationDeg = selectedElement?.rotation ?? 0;
@@ -957,9 +1010,9 @@ export function useCanvasHandlers({
                             : 0;
                         const otherEndpoint = newPoints[otherEndpointIndex];
 
-                        const snapResult = findNearestSnapTarget(
+                        const snapResult = throttledFindSnapTarget(
                             localPoint,
-                            elements,
+                            currentElements,
                             originalElement.id,
                             snapDistance,
                             style,
@@ -984,7 +1037,7 @@ export function useCanvasHandlers({
                                 generateElbowRouteAroundObstacles(
                                     otherEndpoint,
                                     finalPoint,
-                                    elements,
+                                    currentElements,
                                     originalElement.id,
                                     snapResult.elementId,
                                     otherConnection ?? null,
@@ -1079,9 +1132,9 @@ export function useCanvasHandlers({
                                 index === 0 ? newPoints.length - 1 : 0;
                             const otherEndpoint = newPoints[otherEndpointIndex];
 
-                            const snapResult = findNearestSnapTarget(
+                            const snapResult = throttledFindSnapTarget(
                                 localPoint,
-                                elements,
+                                currentElements,
                                 originalElement.id,
                                 snapDistance,
                                 style,
@@ -1113,7 +1166,7 @@ export function useCanvasHandlers({
                                         generateElbowRouteAroundObstacles(
                                             otherEndpoint,
                                             finalPoint,
-                                            elements,
+                                            currentElements,
                                             originalElement.id,
                                             snapResult.elementId,
                                             otherConnection ?? null,
@@ -1143,7 +1196,7 @@ export function useCanvasHandlers({
                                         generateCurvedRouteAroundObstacles(
                                             otherEndpoint,
                                             finalPoint,
-                                            elements,
+                                            currentElements,
                                             originalElement.id,
                                             snapResult.elementId,
                                             otherConnection ?? null,
@@ -1190,7 +1243,7 @@ export function useCanvasHandlers({
                                         generateElbowRouteAroundObstacles(
                                             otherEndpoint,
                                             finalPoint,
-                                            elements,
+                                            currentElements,
                                             originalElement.id,
                                             snapResult.elementId,
                                             otherConnection ?? null,
@@ -1232,7 +1285,7 @@ export function useCanvasHandlers({
                                         generateElbowRouteAroundObstacles(
                                             otherEndpoint,
                                             finalPoint,
-                                            elements,
+                                            currentElements,
                                             originalElement.id,
                                             null, // No snap target
                                             otherConnection ?? null,
@@ -1265,7 +1318,7 @@ export function useCanvasHandlers({
                                         generateElbowRouteAroundObstacles(
                                             otherEndpoint,
                                             finalPoint,
-                                            elements,
+                                            currentElements,
                                             originalElement.id,
                                             null, // No snap target
                                             otherConnection ?? null,
@@ -1359,17 +1412,16 @@ export function useCanvasHandlers({
                 // Get updates for connected arrows
                 if (movedShapeIds.length > 0) {
                     // Create a temporary elements array with the updated positions
-                    const tempElements = elements.map((el) => {
+                    const tempElements = currentElements.map((el) => {
                         const update = batchUpdates.find((u) => u.id === el.id);
                         if (update) {
                             return { ...el, ...update.updates };
                         }
                         return el;
                     });
-                    const arrowUpdates = getConnectedArrowUpdates(
-                        movedShapeIds,
-                        tempElements,
-                    );
+                    const arrowUpdates =
+                        throttledArrowUpdates(movedShapeIds, tempElements) ??
+                        [];
                     // Add arrow updates to batch, but only if the arrow isn't already being moved
                     const movedIds = new Set(
                         originalElements.map((el) => el.id),
@@ -2032,9 +2084,9 @@ export function useCanvasHandlers({
 
                     // Check for snap target during arrow creation
                     const snapDistance = 20 / zoom;
-                    const snapResult = findNearestSnapTarget(
+                    const snapResult = throttledFindSnapTarget(
                         endPoint,
-                        elements,
+                        currentElements,
                         currentElement.id,
                         snapDistance,
                         activeConnectorStyle,
@@ -2056,7 +2108,7 @@ export function useCanvasHandlers({
                                 generateElbowRouteAroundObstacles(
                                     startPoint,
                                     snappedEndPoint,
-                                    elements,
+                                    currentElements,
                                     currentElement.id,
                                     snapResult.elementId,
                                 );
@@ -2072,7 +2124,7 @@ export function useCanvasHandlers({
                                 generateCurvedRouteAroundObstacles(
                                     startPoint,
                                     snappedEndPoint,
-                                    elements,
+                                    currentElements,
                                     currentElement.id,
                                     snapResult.elementId,
                                 );
@@ -2091,7 +2143,7 @@ export function useCanvasHandlers({
                                 generateElbowRouteAroundObstacles(
                                     startPoint,
                                     snappedEndPoint,
-                                    elements,
+                                    currentElements,
                                     currentElement.id,
                                     snapResult.elementId,
                                 );
@@ -2213,7 +2265,6 @@ export function useCanvasHandlers({
             getMousePosition,
             isPanning,
             panStart,
-            elements,
             onDeleteElement,
             strokeWidth,
             isDragging,
@@ -2237,6 +2288,9 @@ export function useCanvasHandlers({
             draggingConnectorPoint,
             connectorStyle,
             getElementsToErase,
+            throttledArrowUpdates,
+            throttledFindSnapTarget,
+            elementsRef,
             remotelySelectedIds,
         ],
     );
@@ -2260,16 +2314,17 @@ export function useCanvasHandlers({
 
             const point = getMousePosition(e);
             setStartPoint(point);
+            const currentElements = elementsRef.current;
 
             // Get the element ID from the event target (works for SVG + HTML overlay).
-            const target = e.target as Element | null;
-            const clickedElementId =
-                target
-                    ?.closest?.("[data-element-id]")
-                    ?.getAttribute("data-element-id") ?? null;
+            const {
+                elementId: clickedElementId,
+                isInteractive,
+                frameLabel,
+            } = getEventTargetInfo(e);
 
             const clickedElement = clickedElementId
-                ? elements.find((el) => el.id === clickedElementId)
+                ? currentElements.find((el) => el.id === clickedElementId)
                 : null;
             // Don't allow selecting elements that are selected by remote users or locked/hidden
             const isRemotelySelected = clickedElement
@@ -2285,15 +2340,13 @@ export function useCanvasHandlers({
                     ? null
                     : clickedElement;
 
-            const frameLabelTarget = target?.closest?.(
-                '[data-frame-label="true"]',
-            ) as HTMLElement | null;
+            const frameLabelTarget = frameLabel as HTMLElement | null;
             if (frameLabelTarget) {
                 e.preventDefault();
                 const frameId =
                     frameLabelTarget.getAttribute("data-element-id");
                 const frameElement = frameId
-                    ? elements.find(
+                    ? currentElements.find(
                           (el) => el.id === frameId && el.type === "frame",
                       )
                     : null;
@@ -2304,16 +2357,13 @@ export function useCanvasHandlers({
                 return;
             }
 
-            const isCanvasInteractiveTarget = !!target?.closest?.(
-                '[data-canvas-interactive="true"], [contenteditable="true"], input, textarea',
-            );
-            if (isCanvasInteractiveTarget) {
+            if (isInteractive) {
                 // Allow editing/selection inside DOM editors without triggering canvas drags/box-select.
                 if (selectableClickedElement) {
                     setSelectedIds(
                         getGroupSelectionIds(
                             selectableClickedElement,
-                            elements,
+                            currentElements,
                         ),
                     );
                 }
@@ -2391,7 +2441,7 @@ export function useCanvasHandlers({
 
                     // Rotate handle (single selection)
                     if (selectedIds.length === 1) {
-                        const selectedElement = elements.find(
+                        const selectedElement = currentElements.find(
                             (el) => el.id === selectedIds[0],
                         );
                         if (
@@ -2487,8 +2537,9 @@ export function useCanvasHandlers({
 
                     const rotationDegForHandles =
                         selectedIds.length === 1
-                            ? (elements.find((el) => el.id === selectedIds[0])
-                                  ?.rotation ?? 0)
+                            ? (currentElements.find(
+                                  (el) => el.id === selectedIds[0],
+                              )?.rotation ?? 0)
                             : 0;
                     const centerForHandles = getBoundsCenter(visualBounds);
 
@@ -2653,7 +2704,7 @@ export function useCanvasHandlers({
                 if (selectableClickedElement) {
                     const clickedIds = getGroupSelectionIds(
                         selectableClickedElement,
-                        elements,
+                        currentElements,
                     );
                     const clickedAllSelected = clickedIds.every((id) =>
                         selectedIds.includes(id),
@@ -2691,7 +2742,7 @@ export function useCanvasHandlers({
                             setIsDragging(true);
                             setDragStart(point);
                             setOriginalElements(
-                                elements
+                                currentElements
                                     .filter((el) => clickedIds.includes(el.id))
                                     .map((el) => ({ ...el })),
                             );
@@ -2850,7 +2901,7 @@ export function useCanvasHandlers({
                 const snapDistance = 20 / zoom;
                 startSnapResult = findNearestSnapTarget(
                     point,
-                    elements,
+                    currentElements,
                     null, // no element to exclude yet
                     snapDistance,
                     connectorStyle,
@@ -2948,7 +2999,7 @@ export function useCanvasHandlers({
             cornerRadius,
             fillPattern,
             getMousePosition,
-            elements,
+            elementsRef,
             pan,
             zoom,
             selectedBounds,
@@ -2973,6 +3024,7 @@ export function useCanvasHandlers({
             setIsPanning(false);
             return;
         }
+        const currentElements = elementsRef.current;
 
         // Handle eraser - delete marked elements on mouse release
         if (tool === "eraser" && isDrawing) {
@@ -2996,7 +3048,7 @@ export function useCanvasHandlers({
         if (isLassoSelecting) {
             if (lassoPoints.length >= 3) {
                 const lassoSelected = getLassoSelectedIds(
-                    elements,
+                    currentElements,
                     lassoPoints,
                 ).filter((id) => !remotelySelectedIds.has(id));
                 setSelectedIds(lassoSelected);
@@ -3018,7 +3070,7 @@ export function useCanvasHandlers({
             ) {
                 // Filter out remotely selected elements from box selection
                 const boxSelected = getBoxSelectedIds(
-                    elements,
+                    currentElements,
                     selectionBox,
                 ).filter((id) => !remotelySelectedIds.has(id));
                 setSelectedIds(boxSelected);
@@ -3057,7 +3109,7 @@ export function useCanvasHandlers({
                         const routedPoints = generateElbowRouteAroundObstacles(
                             otherEndpoint,
                             snapTarget.point,
-                            elements,
+                            currentElements,
                             orig.id,
                             snapTarget.elementId,
                             otherConnection ?? null,
@@ -3142,7 +3194,9 @@ export function useCanvasHandlers({
                     (orig.type === "line" || orig.type === "arrow") &&
                     (orig.connectorStyle ?? connectorStyle) === "elbow"
                 ) {
-                    const current = elements.find((el) => el.id === orig.id);
+                    const current = currentElements.find(
+                        (el) => el.id === orig.id,
+                    );
                     if (current?.points && current.points.length >= 2) {
                         const eps = 0.5 / zoom;
                         const hasDiagonal = current.points.some((p, i) => {
@@ -3345,7 +3399,7 @@ export function useCanvasHandlers({
         isRotating,
         isBoxSelecting,
         selectionBox,
-        elements,
+        elementsRef,
         tool,
         onDeleteElement,
         onDeleteMultiple,
