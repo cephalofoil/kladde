@@ -15,6 +15,8 @@ const MERMAID_BASE_MAX_WIDTH_PX = 606;
 const MERMAID_SCALE_MIN = 0.5;
 const MERMAID_SCALE_MAX = 2;
 const MERMAID_SCALE_STEP = 0.1;
+const HANDLE_GUTTER_PX = 28;
+const HANDLE_TOP_OFFSET_PX = 6;
 
 const clampMermaidScale = (value: number) =>
   Math.min(MERMAID_SCALE_MAX, Math.max(MERMAID_SCALE_MIN, value));
@@ -288,14 +290,19 @@ export function TileContentSectionRenderer({
   return (
     <div
       className={cn(
-        "group relative flex items-start gap-1 py-1 rounded transition-colors",
+        "group relative flex items-start gap-2 py-1 rounded transition-colors",
         isDeleted ? "bg-red-50/50" : "hover:bg-gray-50/50"
       )}
     >
       {/* Drag Handle */}
-      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing pt-0.5">
-        <GripVertical className="w-3 h-3 text-gray-400" />
-      </div>
+      <button
+        type="button"
+        className="absolute opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+        style={{ left: -HANDLE_GUTTER_PX, top: HANDLE_TOP_OFFSET_PX }}
+        aria-label="Reorder section"
+      >
+        <GripVertical className="w-4 h-4 text-gray-400" />
+      </button>
 
       {/* Content */}
       <div className="flex-1 min-w-0">

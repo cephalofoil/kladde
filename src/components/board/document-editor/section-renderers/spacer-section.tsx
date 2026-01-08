@@ -5,6 +5,9 @@ import { GripVertical, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SpacerSection } from "@/lib/board-types";
 
+const HANDLE_GUTTER_PX = 28;
+const HANDLE_TOP_OFFSET_PX = 6;
+
 interface SpacerSectionRendererProps {
   section: SpacerSection;
   onUpdate: (updates: Partial<SpacerSection>) => void;
@@ -60,11 +63,16 @@ export function SpacerSectionRenderer({
   const isCustomActive = !PRESET_SIZES.some((p) => p.value === section.height);
 
   return (
-    <div className="group relative flex items-center gap-1 hover:bg-gray-50/50 rounded transition-colors">
+    <div className="group relative flex items-center gap-2 hover:bg-gray-50/50 rounded transition-colors">
       {/* Drag Handle */}
-      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
-        <GripVertical className="w-3 h-3 text-gray-400" />
-      </div>
+      <button
+        type="button"
+        className="absolute opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+        style={{ left: -HANDLE_GUTTER_PX, top: HANDLE_TOP_OFFSET_PX }}
+        aria-label="Reorder section"
+      >
+        <GripVertical className="w-4 h-4 text-gray-400" />
+      </button>
 
       {/* Spacer Visual */}
       <div
