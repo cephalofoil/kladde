@@ -27,10 +27,21 @@ interface NoteTileRendererProps {
   className?: string;
 }
 
-const colorStyles: Record<NoteColor, { bg: string; hex: string; label: string }> = {
-  butter: { bg: "bg-[#fef3c7]", hex: "#fef3c7", label: "Butter" },
-  mint: { bg: "bg-[#d1fae1]", hex: "#d1fae1", label: "Mint" },
-  lavender: { bg: "bg-[#e9e5f5]", hex: "#e9e5f5", label: "Lavender" },
+const colorStyles: Record<
+  NoteColor,
+  { bg: string; cssVar: string; label: string }
+> = {
+  butter: {
+    bg: "bg-note-butter",
+    cssVar: "var(--color-note-butter)",
+    label: "Butter",
+  },
+  mint: { bg: "bg-note-mint", cssVar: "var(--color-note-mint)", label: "Mint" },
+  lavender: {
+    bg: "bg-note-lavender",
+    cssVar: "var(--color-note-lavender)",
+    label: "Lavender",
+  },
 };
 
 const colorOrder: NoteColor[] = ["butter", "mint", "lavender"];
@@ -59,14 +70,14 @@ export function NoteTileRenderer({
       setLocalContent(newContent);
       onChange?.(newContent);
     },
-    [onChange]
+    [onChange],
   );
 
   // Tape style matching the reference exactly
   const tapeStyle: React.CSSProperties = {
     background: `
       linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, rgba(0,0,0,0.05) 100%),
-      #e8dba8
+      var(--color-note-tape)
     `,
     boxShadow: `
       inset 0 1px 0 rgba(255,255,255,0.5),
@@ -75,20 +86,14 @@ export function NoteTileRenderer({
     `,
   };
 
-  // Paper style - clean, no lines
-  const paperStyle: React.CSSProperties = {
-    boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08)",
-  };
-
   return (
     <div className={cn("relative w-full h-full", className)}>
       {/* Note body - full square, sits behind tape */}
       <div
         className={cn(
-          "absolute inset-0 rounded-[2px]",
-          colorStyles[color].bg
+          "absolute inset-0 rounded-[2px] shadow-note",
+          colorStyles[color].bg,
         )}
-        style={paperStyle}
       >
         {/* Tape - centered at top, half sticking out */}
         <div
@@ -113,7 +118,7 @@ export function NoteTileRenderer({
                 onMouseDown={(e) => e.stopPropagation()}
                 className="w-6 h-6 rounded-full flex items-center justify-center bg-black/5 hover:bg-black/10 transition-colors focus:outline-none"
               >
-                <Palette className="w-3.5 h-3.5 text-[#2a2a2a]/60" />
+                <Palette className="w-3.5 h-3.5 text-note-text/60" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 side="top"
@@ -135,12 +140,16 @@ export function NoteTileRenderer({
                       className={cn(
                         "w-4 h-4 rounded-full border",
                         color === colorOption
-                          ? "border-[#2a2a2a] ring-1 ring-[#2a2a2a]/20"
-                          : "border-[#2a2a2a]/20"
+                          ? "border-note-text ring-1 ring-note-text/20"
+                          : "border-note-text/20",
                       )}
-                      style={{ backgroundColor: colorStyles[colorOption].hex }}
+                      style={{
+                        backgroundColor: colorStyles[colorOption].cssVar,
+                      }}
                     />
-                    <span className="text-sm">{colorStyles[colorOption].label}</span>
+                    <span className="text-sm">
+                      {colorStyles[colorOption].label}
+                    </span>
                   </DropdownMenuItem>
                 ))}
                 {onDelete && (
@@ -173,10 +182,10 @@ export function NoteTileRenderer({
           placeholder="Type your note..."
           className={cn(
             "w-full h-full px-5 pt-6 pb-4 bg-transparent border-none outline-none resize-none",
-            "font-bold text-2xl text-[#2a2a2a] leading-tight tracking-tight",
-            "placeholder:text-[#2a2a2a]/25",
+            "font-bold text-2xl text-note-text leading-tight tracking-tight",
+            "placeholder:text-note-text/25",
             readOnly ? "cursor-default" : "cursor-text",
-            isSelected && !isEditing && "pointer-events-none"
+            isSelected && !isEditing && "pointer-events-none",
           )}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}

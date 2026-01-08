@@ -73,6 +73,15 @@
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.73 0.17 59);
 
+    /* Note tile colors - light mode (saturated) */
+    --note-butter: #fef3c7;
+    --note-mint: #d1fae1;
+    --note-lavender: #e9e5f5;
+    --note-text: #2a2a2a;
+    --note-tape: #e8dba8;
+    --note-shadow-value:
+        0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+
     /* Set default font family at root level */
     font-family: var(--font-sans);
 }
@@ -111,6 +120,15 @@
     --sidebar-accent-foreground: #fafafa;
     --sidebar-border: #333333;
     --sidebar-ring: oklch(0.73 0.17 59);
+
+    /* Note tile colors - dark mode (same hue as light, slightly dimmer) */
+    --note-butter: #d9cd9f;
+    --note-mint: #b0d9bc;
+    --note-lavender: #ccc8d8;
+    --note-text: #2a2a2a;
+    --note-tape: #c9bd8e;
+    --note-shadow-value:
+        0 2px 12px rgba(255, 255, 255, 0.12), 0 0 20px rgba(255, 255, 255, 0.08);
 }
 
 @theme inline {
@@ -150,6 +168,14 @@
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+
+    /* Note tile colors */
+    --color-note-butter: var(--note-butter);
+    --color-note-mint: var(--note-mint);
+    --color-note-lavender: var(--note-lavender);
+    --color-note-text: var(--note-text);
+    --color-note-tape: var(--note-tape);
+    --shadow-note: var(--note-shadow-value);
 
     /* Font family variables - Tailwind v4 expects these exact names */
     --font-sans: Switzer, system-ui, sans-serif;
