@@ -234,7 +234,7 @@ export function BurgerMenu({
                 <button
                     className={cn(
                         "h-10 w-10 rounded-md transition-all duration-200 inline-flex items-center justify-center leading-none select-none",
-                        "bg-card/95 backdrop-blur-md border border-border",
+                        "bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent",
                         "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
                         "shadow-2xl",
                     )}
@@ -338,7 +338,7 @@ export function BurgerMenu({
                     <DropdownMenuLabel className="p-0 m-0">
                         Theme
                     </DropdownMenuLabel>
-                    <div className="flex items-center bg-secondary/40 rounded-md p-0.5 gap-0.5">
+                    <div className="flex items-center bg-muted rounded-md p-0.5 gap-0.5">
                         <button
                             onClick={() => setTheme("light")}
                             className={cn(

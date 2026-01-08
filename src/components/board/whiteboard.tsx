@@ -192,7 +192,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [showLayersSidebar, setShowLayersSidebar] = useState(false);
     const [isLayersPinned, setIsLayersPinned] = useState(true);
     const [layerFolders, setLayerFolders] = useState<LayerFolder[]>([]);
-    const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+    const [editingDocumentId, setEditingDocumentId] = useState<string | null>(
+        null,
+    );
     const [pendingName, setPendingName] = useState<string | null>(null);
     const [highlightedElementIds, setHighlightedElementIds] = useState<
         string[]
@@ -200,7 +202,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [currentHighlightId, setCurrentHighlightId] = useState<string | null>(
         null,
     );
-      const effectiveTool = isReadOnly ? "hand" : tool;
+    const effectiveTool = isReadOnly ? "hand" : tool;
 
     // Undo/Redo stacks - store snapshots
     const undoStackRef = useRef<BoardElement[][]>([]);
@@ -1267,7 +1269,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleUndo, handleRedo, handleCopySelected, isReadOnly, selectedElements]);
+    }, [
+        handleUndo,
+        handleRedo,
+        handleCopySelected,
+        isReadOnly,
+        selectedElements,
+    ]);
 
     const handleDeleteSelected = useCallback(() => {
         if (selectedElements.length === 0) return;
@@ -1772,7 +1780,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         collaboration.updateSelectedElements(selectedIds);
     }, [collaboration, selectedIdsKey]);
 
-
     // Show loading while connecting
     if (!isReady) {
         return (
@@ -1791,44 +1798,44 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         ? collaboratorUsers.find((u) => u.id === followedUserId)
         : null;
 
-  return (
-    <div className="relative w-screen h-screen overflow-hidden flex">
-      {/* Main Content Area */}
-      <div className="relative flex-1 overflow-hidden">
-        {/* Burger Menu and Title Bar - Top Left */}
-        <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
-          <BurgerMenu
-            onClear={handleClear}
-            onSave={handleSave}
-            onOpen={handleOpen}
-            onExportImage={handleExportImage}
-            onFindOnCanvas={handleFindOnCanvas}
-            onHelp={() => setShowHotkeysDialog(true)}
-            onInvite={() => setShowInviteDialog(true)}
-            canvasBackground={canvasBackground}
-            onCanvasBackgroundChange={setCanvasBackground}
-            handDrawnMode={handDrawnMode}
-            onHandDrawnModeChange={setHandDrawnMode}
-            isReadOnly={isReadOnly}
-          />
-          <CanvasTitleBar boardId={boardId} />
-          {false && (
-            <a
-              href="/dashboard"
-              className="h-10 bg-card/95 backdrop-blur-md border border-border rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
-            >
-              <img
-                src={
-                  (resolvedTheme || theme) === "light"
-                    ? "/kladde-logo.svg"
-                    : "/kladde-logo-bright-540.svg"
-                }
-                alt="Kladde"
-                className="h-5 w-auto"
-              />
-            </a>
-          )}
-        </div>
+    return (
+        <div className="relative w-screen h-screen overflow-hidden flex">
+            {/* Main Content Area */}
+            <div className="relative flex-1 overflow-hidden">
+                {/* Burger Menu and Title Bar - Top Left */}
+                <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
+                    <BurgerMenu
+                        onClear={handleClear}
+                        onSave={handleSave}
+                        onOpen={handleOpen}
+                        onExportImage={handleExportImage}
+                        onFindOnCanvas={handleFindOnCanvas}
+                        onHelp={() => setShowHotkeysDialog(true)}
+                        onInvite={() => setShowInviteDialog(true)}
+                        canvasBackground={canvasBackground}
+                        onCanvasBackgroundChange={setCanvasBackground}
+                        handDrawnMode={handDrawnMode}
+                        onHandDrawnModeChange={setHandDrawnMode}
+                        isReadOnly={isReadOnly}
+                    />
+                    <CanvasTitleBar boardId={boardId} />
+                    {false && (
+                        <a
+                            href="/dashboard"
+                            className="h-10 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md px-2 shadow-2xl hover:bg-muted/60 transition-colors inline-flex items-center justify-center leading-none"
+                        >
+                            <img
+                                src={
+                                    (resolvedTheme || theme) === "light"
+                                        ? "/kladde-logo.svg"
+                                        : "/kladde-logo-bright-540.svg"
+                                }
+                                alt="Kladde"
+                                className="h-5 w-auto"
+                            />
+                        </a>
+                    )}
+                </div>
 
                 {/* Collaboration + Hotkeys - Top Right */}
                 {!isReadOnly && (
@@ -1850,7 +1857,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         />
                         <button
                             onClick={() => setShowHotkeysDialog(true)}
-                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
                             aria-label="Keyboard shortcuts"
                         >
                             <span className="text-base font-semibold leading-none">
@@ -1863,7 +1870,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                                     isLayersPinned ? true : !prev,
                                 )
                             }
-                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
                             aria-label="Toggle layers sidebar"
                         >
                             <PanelRight className="w-4 h-4" />
@@ -2046,13 +2053,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     isReadOnly={isReadOnly}
                     showRemoteCursors={!isReadOnly}
                     showUndoRedo={!isReadOnly}
-                  onOpenDocumentEditor={setEditingDocumentId}
-        />
+                    onOpenDocumentEditor={setEditingDocumentId}
+                />
 
                 {/* Save File Dialog */}
                 {showSaveDialog && (
                     <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                        <div className="bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-2xl p-6 w-96 max-w-[90vw]">
+                        <div className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-xl shadow-2xl p-6 w-96 max-w-[90vw]">
                             <h2 className="text-lg font-semibold mb-4">
                                 Save Kladde File
                             </h2>
@@ -2140,20 +2147,25 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onMoveToFolder={handleMoveToFolder}
                 />
             )}
-    
-      {/* Document Editor Panel */}
-      {editingDocumentId && (() => {
-        const documentElement = elements.find((el) => el.id === editingDocumentId);
-        if (!documentElement) return null;
-        return (
-          <DocumentEditorPanel
-            documentElement={documentElement}
-            allElements={elements}
-            onClose={() => setEditingDocumentId(null)}
-            onUpdateDocument={(updates) => handleUpdateElement(editingDocumentId, updates)}
-          />
-        );
-      })()}
-    </div>
+
+            {/* Document Editor Panel */}
+            {editingDocumentId &&
+                (() => {
+                    const documentElement = elements.find(
+                        (el) => el.id === editingDocumentId,
+                    );
+                    if (!documentElement) return null;
+                    return (
+                        <DocumentEditorPanel
+                            documentElement={documentElement}
+                            allElements={elements}
+                            onClose={() => setEditingDocumentId(null)}
+                            onUpdateDocument={(updates) =>
+                                handleUpdateElement(editingDocumentId, updates)
+                            }
+                        />
+                    );
+                })()}
+        </div>
     );
 }

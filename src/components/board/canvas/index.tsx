@@ -69,7 +69,7 @@ interface CanvasProps {
     isReadOnly?: boolean;
     showRemoteCursors?: boolean;
     showUndoRedo?: boolean;
-  onOpenDocumentEditor?: (elementId: string) => void;
+    onOpenDocumentEditor?: (elementId: string) => void;
 }
 
 export function Canvas({
@@ -118,7 +118,7 @@ export function Canvas({
     isReadOnly = false,
     showRemoteCursors = true,
     showUndoRedo = true,
-  onOpenDocumentEditor,
+    onOpenDocumentEditor,
 }: CanvasProps) {
     const TEXT_CLIP_BUFFER_PX = 2;
     const LASER_HOLD_DURATION_MS = 3000;
@@ -1273,8 +1273,8 @@ export function Canvas({
                                         onUpdateElement(el.id, updates)
                                     }
                                     onDelete={() => onDeleteElement(el.id)}
-                                  onOpenDocumentEditor={onOpenDocumentEditor}
-                />
+                                    onOpenDocumentEditor={onOpenDocumentEditor}
+                                />
                             </div>
                         ))}
                 </div>
@@ -1627,7 +1627,7 @@ export function Canvas({
             >
                 {/* Undo/Redo */}
                 {showUndoRedo && (
-                    <div className="flex items-center gap-0.5 bg-card/95 backdrop-blur-md border border-border rounded-md p-1 shadow-xl">
+                    <div className="flex items-center gap-0.5 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md p-1 shadow-xl">
                         <button
                             onClick={onUndo}
                             className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all"
@@ -1670,7 +1670,7 @@ export function Canvas({
                 )}
 
                 {/* Zoom Controls */}
-                <div className="flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border rounded-md p-1 shadow-xl">
+                <div className="flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md p-1 shadow-xl">
                     <button
                         onClick={() => {
                             setZoom(1);

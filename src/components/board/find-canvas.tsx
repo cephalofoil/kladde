@@ -224,7 +224,7 @@ export function FindCanvas({
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50">
             <div
                 ref={containerRef}
-                className="bg-card/95 backdrop-blur-md border border-border rounded-lg shadow-2xl p-3 w-96 max-w-[90vw]"
+                className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-lg shadow-2xl p-3 w-96 max-w-[90vw]"
             >
                 <div className="flex items-center gap-2">
                     <Search className="w-4 h-4 text-muted-foreground" />
