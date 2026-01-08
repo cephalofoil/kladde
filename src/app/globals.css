@@ -51,13 +51,13 @@
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
     --muted-foreground: oklch(0.556 0 0);
-    --accent: #f28705;
+    --accent: oklch(0.73 0.17 59);
     --accent-foreground: #000000;
     --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: oklch(0.985 0 0);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: #f28705;
+    --ring: oklch(0.73 0.17 59);
     --chart-1: oklch(0.646 0.222 41.116);
     --chart-2: oklch(0.6 0.118 184.704);
     --chart-3: oklch(0.398 0.07 227.392);
@@ -71,7 +71,7 @@
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: #f28705;
+    --sidebar-ring: oklch(0.73 0.17 59);
 
     /* Set default font family at root level */
     font-family: var(--font-sans);
@@ -91,13 +91,13 @@
     --secondary-foreground: #fafafa;
     --muted: #262626;
     --muted-foreground: #a3a3a3;
-    --accent: #f28705;
+    --accent: oklch(0.73 0.17 59);
     --accent-foreground: #000000;
     --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: #fafafa;
     --border: #333333;
     --input: #1c1c1c;
-    --ring: #f28705;
+    --ring: oklch(0.73 0.17 59);
     --chart-1: #f28705;
     --chart-2: oklch(0.6 0.118 184.704);
     --chart-3: oklch(0.398 0.07 227.392);
@@ -110,7 +110,7 @@
     --sidebar-accent: #262626;
     --sidebar-accent-foreground: #fafafa;
     --sidebar-border: #333333;
-    --sidebar-ring: #f28705;
+    --sidebar-ring: oklch(0.73 0.17 59);
 }
 
 @theme inline {
