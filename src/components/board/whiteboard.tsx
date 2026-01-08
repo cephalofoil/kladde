@@ -216,6 +216,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const setViewportRef = useRef<
         ((pan: { x: number; y: number }, zoom: number) => void) | null
     >(null);
+    const initialViewportRef = useRef<{
+        pan: { x: number; y: number };
+        zoom: number;
+    } | null>(null);
+    const hasAppliedInitialViewportRef = useRef(false);
 
     // Keep elementsRef in sync with elements
     useEffect(() => {
@@ -231,6 +236,28 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             );
         }
     }, [handDrawnMode]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const stored = localStorage.getItem(`kladde-viewport-${boardId}`);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored) as {
+                    pan: { x: number; y: number };
+                    zoom: number;
+                };
+                if (
+                    typeof parsed?.pan?.x === "number" &&
+                    typeof parsed?.pan?.y === "number" &&
+                    typeof parsed?.zoom === "number"
+                ) {
+                    initialViewportRef.current = parsed;
+                }
+            } catch {
+                initialViewportRef.current = null;
+            }
+        }
+    }, [boardId]);
 
     // Update default stroke color when theme changes
     useEffect(() => {
@@ -2043,6 +2070,23 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onToolChange={isReadOnly ? undefined : handleToolChange}
                     onSetViewport={(setter) => {
                         setViewportRef.current = setter;
+                        if (
+                            initialViewportRef.current &&
+                            !hasAppliedInitialViewportRef.current
+                        ) {
+                            setter(
+                                initialViewportRef.current.pan,
+                                initialViewportRef.current.zoom,
+                            );
+                            hasAppliedInitialViewportRef.current = true;
+                        }
+                    }}
+                    onViewportChange={(pan, zoom) => {
+                        if (typeof window === "undefined") return;
+                        localStorage.setItem(
+                            `kladde-viewport-${boardId}`,
+                            JSON.stringify({ pan, zoom }),
+                        );
                     }}
                     onManualViewportChange={() => setFollowedUserId(null)}
                     onSelectionChange={handleSelectionChange}

@@ -59,6 +59,7 @@ interface CanvasProps {
         setter: (pan: { x: number; y: number }, zoom: number) => void,
     ) => void;
     onManualViewportChange?: () => void;
+    onViewportChange?: (pan: { x: number; y: number }, zoom: number) => void;
     onSelectionChange?: (elements: BoardElement[]) => void;
     selectedElementIds?: string[];
     onStrokeColorChange?: (color: string) => void;
@@ -109,6 +110,7 @@ export function Canvas({
     onToolChange,
     onSetViewport,
     onManualViewportChange,
+    onViewportChange,
     onSelectionChange,
     selectedElementIds,
     onStrokeColorChange,
@@ -552,6 +554,10 @@ export function Canvas({
         if (!collaboration) return;
         collaboration.updateViewport(pan, zoom);
     }, [collaboration, pan, zoom]);
+
+    useEffect(() => {
+        onViewportChange?.(pan, zoom);
+    }, [onViewportChange, pan, zoom]);
 
     // Periodically delete expired laser elements so they don't stick around if the creator disconnects mid-fade.
     useEffect(() => {
