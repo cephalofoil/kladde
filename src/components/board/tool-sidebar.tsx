@@ -1710,52 +1710,6 @@ export function ToolSidebar({
                         </span>
                     </div>
 
-                    {/* Stroke Color */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Stroke Color
-                        </label>
-                        <div className="flex flex-wrap gap-1">
-                            {paletteColors.map((color) => (
-                                <button
-                                    key={color}
-                                    onClick={() => onStrokeColorChange(color)}
-                                    className={cn(
-                                        SWATCH_BASE,
-                                        strokeColor === color
-                                            ? "scale-105"
-                                            : undefined,
-                                    )}
-                                    style={{
-                                        backgroundColor: color,
-                                        boxShadow:
-                                            strokeColor === color
-                                                ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${color}, 0 0 14px ${color}66`
-                                                : undefined,
-                                    }}
-                                    title={color}
-                                />
-                            ))}
-                            {/* Custom color picker */}
-                            <button
-                                onClick={() => setShowStrokeColorPicker(true)}
-                                className={cn(
-                                    SWATCH_BASE,
-                                    "cursor-pointer overflow-hidden",
-                                )}
-                                title="Custom color"
-                            >
-                                <div
-                                    className="w-full h-full"
-                                    style={{
-                                        background:
-                                            "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
-                                    }}
-                                />
-                            </button>
-                        </div>
-                    </div>
-
                     {/* Fill Color (for shapes) */}
                     {showFill && onFillColorChange && (
                         <>
@@ -1837,6 +1791,54 @@ export function ToolSidebar({
                             </div>
                         </>
                     )}
+
+                    
+
+                    {/* Stroke Color */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Stroke Color
+                        </label>
+                        <div className="flex flex-wrap gap-1">
+                            {paletteColors.map((color) => (
+                                <button
+                                    key={color}
+                                    onClick={() => onStrokeColorChange(color)}
+                                    className={cn(
+                                        SWATCH_BASE,
+                                        strokeColor === color
+                                            ? "scale-105"
+                                            : undefined,
+                                    )}
+                                    style={{
+                                        backgroundColor: color,
+                                        boxShadow:
+                                            strokeColor === color
+                                                ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${color}, 0 0 14px ${color}66`
+                                                : undefined,
+                                    }}
+                                    title={color}
+                                />
+                            ))}
+                            {/* Custom color picker */}
+                            <button
+                                onClick={() => setShowStrokeColorPicker(true)}
+                                className={cn(
+                                    SWATCH_BASE,
+                                    "cursor-pointer overflow-hidden",
+                                )}
+                                title="Custom color"
+                            >
+                                <div
+                                    className="w-full h-full"
+                                    style={{
+                                        background:
+                                            "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
+                                    }}
+                                />
+                            </button>
+                        </div>
+                    </div>
 
                     {optionsControls}
 
