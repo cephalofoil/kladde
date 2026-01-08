@@ -927,7 +927,7 @@ export function LayersSidebar({
                 "h-full w-80 bg-card flex flex-col flex-shrink-0 select-none outline-none",
                 isPinned
                     ? "border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.35)]"
-                    : "fixed top-0 right-0 bottom-0 z-[90] border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.55)]",
+                    : "fixed top-0 right-0 bottom-0 z-[120] border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.55)]",
             )}
         >
             {/* Header */}
