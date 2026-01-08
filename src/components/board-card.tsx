@@ -97,6 +97,14 @@ export function BoardCard({
       onClick={isRenaming ? undefined : (e) => handleClick(e)}
       className="group relative flex cursor-pointer flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-accent-foreground/30 hover:shadow-lg"
     >
+      <div className="absolute right-4 top-[18px]">
+        <div className="rounded-full bg-card/80 px-2 py-0.5 text-xs font-normal text-muted-foreground transition-opacity group-hover:opacity-0">
+          {new Date(board.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })}
+        </div>
+      </div>
       <div className="mb-4 flex items-start justify-between">
         <div
           className="flex h-12 w-12 items-center justify-center rounded-lg"
@@ -195,13 +203,6 @@ export function BoardCard({
           </h3>
         )}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>
-            {new Date(board.createdAt).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
-          <span>-</span>
           <span className="rounded bg-muted px-2 py-0.5 capitalize text-muted-foreground">
             temporary
           </span>
