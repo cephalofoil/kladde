@@ -74,7 +74,6 @@ function PaperclipVertical({ className }: { className?: string }) {
 // PATH 2: recycled-brown style - deeper tears
 const TORN_PATHS = [
   "polygon(0 0, 100% 0, 100% 93%, 97% 95%, 94% 92%, 91% 96%, 88% 93%, 85% 97%, 82% 94%, 79% 91%, 76% 96%, 73% 93%, 70% 95%, 67% 91%, 64% 96%, 61% 93%, 58% 97%, 55% 94%, 52% 91%, 49% 96%, 46% 93%, 43% 95%, 40% 91%, 37% 96%, 34% 93%, 31% 97%, 28% 94%, 25% 91%, 22% 96%, 19% 93%, 16% 95%, 13% 91%, 10% 96%, 7% 93%, 4% 97%, 2% 94%, 0 91%)",
-  "polygon(0 0, 100% 0, 100% 88%, 98% 91%, 96% 87%, 94% 93%, 92% 89%, 90% 95%, 88% 90%, 86% 86%, 84% 92%, 82% 88%, 80% 94%, 78% 89%, 76% 85%, 74% 91%, 72% 87%, 70% 93%, 68% 88%, 66% 84%, 64% 90%, 62% 86%, 60% 92%, 58% 87%, 56% 83%, 54% 89%, 52% 85%, 50% 91%, 48% 86%, 46% 82%, 44% 88%, 42% 84%, 40% 90%, 38% 85%, 36% 81%, 34% 87%, 32% 83%, 30% 89%, 28% 84%, 26% 80%, 24% 86%, 22% 82%, 20% 88%, 18% 83%, 16% 79%, 14% 85%, 12% 81%, 10% 87%, 8% 82%, 6% 78%, 4% 84%, 2% 80%, 0 85%)",
 ];
 
 const colorStyles: Record<
@@ -115,8 +114,8 @@ export function TornNoteTileRenderer({
   className,
 }: TornNoteTileRendererProps) {
   const [localContent, setLocalContent] = useState(content);
-  // Use a stable torn path - default to first (PATH 1)
-  const [tornPathIndex] = useState(() => Math.floor(Math.random() * 2));
+  // Use the single torn path
+  const tornPathIndex = 0;
 
   useEffect(() => {
     setLocalContent(content);
@@ -143,10 +142,9 @@ export function TornNoteTileRenderer({
 
       {/* Torn note body - with clip-path for torn edge effect */}
       <div
-        className="absolute inset-0"
+        className={cn("absolute inset-0", colorStyle.bg)}
         style={{
           clipPath: tornPath,
-          backgroundColor: colorStyle.cssVar,
           transform: "rotate(0.3deg)",
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='6' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E")`,
         }}
