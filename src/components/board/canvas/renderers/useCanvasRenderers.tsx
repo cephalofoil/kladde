@@ -4,6 +4,7 @@ import getStroke from "perfect-freehand";
 import type {
     Dispatch,
     MouseEvent as ReactMouseEvent,
+    ReactElement,
     RefObject,
     SetStateAction,
 } from "react";
@@ -121,7 +122,7 @@ interface MemoizedElementRendererProps extends RenderElementOptions {
     renderElementInner: (
         element: BoardElement,
         options: RenderElementOptions,
-    ) => JSX.Element | null;
+    ) => ReactElement | null;
 }
 
 const MemoizedElementRenderer = memo(
