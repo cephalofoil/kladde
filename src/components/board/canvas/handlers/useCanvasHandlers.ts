@@ -2102,7 +2102,27 @@ export function useCanvasHandlers({
                             outOfLineOfSight: snapResult.outOfLineOfSight,
                         });
 
-                        if (activeConnectorStyle === "elbow") {
+                        if (
+                            activeConnectorStyle === "sharp" &&
+                            startSnapTarget
+                        ) {
+                            // Dual-connection in sharp mode: enforce orthogonal exit to avoid edge riding.
+                            const routedPoints =
+                                generateElbowRouteAroundObstacles(
+                                    startPoint,
+                                    snappedEndPoint,
+                                    currentElements,
+                                    currentElement.id,
+                                    snapResult.elementId,
+                                    startSnapTarget.elementId,
+                                );
+                            setCurrentElement({
+                                ...currentElement,
+                                points: routedPoints,
+                                connectorStyle: "elbow",
+                                elbowRoute: undefined,
+                            });
+                        } else if (activeConnectorStyle === "elbow") {
                             // Generate elbow route around obstacles for preview
                             const routedPoints =
                                 generateElbowRouteAroundObstacles(
@@ -2288,6 +2308,7 @@ export function useCanvasHandlers({
             draggingConnectorPoint,
             connectorStyle,
             getElementsToErase,
+            startSnapTarget,
             throttledArrowUpdates,
             throttledFindSnapTarget,
             elementsRef,

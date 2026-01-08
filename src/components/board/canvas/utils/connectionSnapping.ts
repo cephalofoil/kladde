@@ -1199,8 +1199,8 @@ export function generateElbowRouteAroundObstacles(
 
             // Dynamic margin calculation - use available space proportionally
             const getMarginForGap = (gap: number): number => {
-                if (gap <= 0) return PREFERRED_MARGIN; // Shapes overlap - use full margin outside
-                if (gap < MIN_MARGIN * 2) return gap / 2; // Very tight - split the gap
+                if (gap <= 0) return PREFERRED_MARGIN; // Shapes overlap - route outside
+                if (gap < MIN_MARGIN * 2) return MIN_MARGIN; // Too tight - keep a real buffer
                 if (gap < PREFERRED_MARGIN * 2) return gap / 2; // Moderate - use half
                 return PREFERRED_MARGIN; // Plenty of space - use preferred
             };
