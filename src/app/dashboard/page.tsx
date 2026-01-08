@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   MoreVertical,
   Plus,
+  Pin,
   Search,
   Settings,
   Zap,
@@ -582,45 +583,42 @@ export default function BoardsPage() {
                       router.push(`/board/${board.id}`);
                     }
                   }}
-                  className="group relative flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:ring-2 hover:ring-[var(--workspace-color)]"
+                  className="group relative flex shrink-0 cursor-pointer items-start gap-3 rounded-lg border-2 border-dashed border-[var(--workspace-color)]/30 bg-card p-3 transition-all duration-200 hover:border-[var(--workspace-color)]/60 hover:shadow-md w-full md:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-2rem)/3)] xl:w-[calc((100%-3rem)/4)]"
                   style={{
                     ["--workspace-color" as string]:
                       currentWorkstream?.color || "transparent",
-                    boxShadow: `0 0 0 3px hsl(var(--background)), 0 0 0 4px ${
-                      currentWorkstream?.color || "transparent"
-                    }`,
                   }}
                 >
-                  <span className="max-w-[140px] truncate">{board.name}</span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        onClick={(event) => event.stopPropagation()}
-                        className="ml-1 rounded-md p-1 text-muted-foreground/70 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-                        aria-label="Pinned board options"
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          togglePin(board.id);
-                        }}
-                      >
-                        Unpin
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          router.push(`/board/${board.id}`);
-                        }}
-                      >
-                        Open
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
+                    style={{ backgroundColor: currentWorkstream?.color }}
+                  >
+                    <div className="h-4 w-4 rounded bg-card/20" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-0.5 text-[10px] text-muted-foreground">
+                      {new Date(board.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                    <h3 className="line-clamp-2 text-xs font-medium leading-tight text-foreground">
+                      {board.name}
+                    </h3>
+                  </div>
+
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      togglePin(board.id);
+                    }}
+                    className="flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
+                    aria-label="Unpin board"
+                    title="Unpin board"
+                  >
+                    <Pin className="h-3.5 w-3.5" fill="currentColor" stroke="currentColor" />
+                  </button>
                 </div>
               ))}
             </div>
