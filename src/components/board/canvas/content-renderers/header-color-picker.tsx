@@ -30,6 +30,7 @@ const PRESET_COLORS = [
 interface HeaderColorPickerProps {
   value: string;
   onChange: (color: string) => void;
+  onReset: () => void;
   onClose: () => void;
 }
 
@@ -56,6 +57,7 @@ function getContrastTextColor(hexColor: string): string {
 export function HeaderColorPicker({
   value,
   onChange,
+  onReset,
   onClose,
 }: HeaderColorPickerProps) {
   const [hexInput, setHexInput] = useState(value);
@@ -148,10 +150,7 @@ export function HeaderColorPicker({
 
       {/* Reset Button */}
       <Button
-        onClick={() => {
-          setHexInput("#f9fafb");
-          onChange("#f9fafb");
-        }}
+        onClick={onReset}
         variant="outline"
         size="sm"
         className="w-full mt-4"
