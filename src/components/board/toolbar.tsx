@@ -25,7 +25,7 @@ import {
   CodeXml,
   Type,
 } from "lucide-react";
-import type { Tool, TileType } from "@/lib/board-types";
+import type { Tool, TileType, NoteStyle } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
 
 interface ToolbarProps {
@@ -33,6 +33,8 @@ interface ToolbarProps {
   onToolChange: (tool: Tool) => void;
   onTileTypeSelect: (tileType: TileType) => void;
   selectedTileType?: TileType | null;
+  selectedNoteStyle?: NoteStyle;
+  onNoteStyleChange?: (style: NoteStyle) => void;
   toolLock: boolean;
   onToggleToolLock: () => void;
   isCollabMode?: boolean;
@@ -134,6 +136,25 @@ function TextTileIcon({ className }: { className?: string }) {
         d="M12.5 7C12.22 7 12 7.22 12 7.5V8.5C12 8.78 12.22 9 12.5 9H15.5H17.5H20.5C20.78 9 21 8.78 21 8.5V7.5C21 7.22 20.78 7 20.5 7H12.5Z"
         fill="currentColor"
       />
+    </svg>
+  );
+}
+
+function TornNoteIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      {/* Paper body with torn bottom edge */}
+      <path
+        d="M5 4h14v14.5l-1.5 0.8-1 -0.6-1.5 0.9-1-0.7-1.5 0.8-1-0.6-1.5 0.9-1-0.7-1.5 0.8-1-0.6L5 19.5V4z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      {/* Lines representing text */}
+      <line x1="8" y1="8" x2="16" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="8" y1="12" x2="14" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -561,6 +582,8 @@ export function Toolbar({
   onToolChange,
   onTileTypeSelect,
   selectedTileType,
+  selectedNoteStyle = "classic",
+  onNoteStyleChange,
   toolLock,
   onToggleToolLock,
   isCollabMode = false,
@@ -657,10 +680,16 @@ export function Toolbar({
 
   const handleTileTypeClick = useCallback(
     (tileType: TileType) => {
+      // For note tiles, cycle through styles if already selected
+      if (tileType === "tile-note" && selectedTileType === "tile-note" && currentTool === "tile") {
+        const nextStyle: NoteStyle = selectedNoteStyle === "classic" ? "torn" : "classic";
+        onNoteStyleChange?.(nextStyle);
+        return;
+      }
       onTileTypeSelect(tileType);
       onToolChange("tile");
     },
-    [onTileTypeSelect, onToolChange],
+    [onTileTypeSelect, onToolChange, selectedTileType, currentTool, selectedNoteStyle, onNoteStyleChange],
   );
 
   return (
@@ -744,31 +773,42 @@ export function Toolbar({
           <div className="h-px w-6 bg-border my-1" />
 
           {/* Tiles */}
-          {TILE_TYPES.map((tileType) => (
-            <button
-              key={tileType.type}
-              onPointerDown={() => handleTileTypeClick(tileType.type)}
-              className={cn(
-                "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
-                selectedTileType === tileType.type && currentTool === "tile"
-                  ? "bg-accent text-accent-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-              )}
-              title={`${tileType.label} (${tileType.hotkey})`}
-            >
-              {tileType.icon}
-              <span
+          {TILE_TYPES.map((tileType) => {
+            // For note tiles, show the appropriate icon based on selected style
+            const isNoteTile = tileType.type === "tile-note";
+            const noteIcon = isNoteTile && selectedNoteStyle === "torn"
+              ? <TornNoteIcon className={ICON_CLASS} />
+              : tileType.icon;
+            const noteLabel = isNoteTile && selectedNoteStyle === "torn"
+              ? "Torn Note"
+              : tileType.label;
+
+            return (
+              <button
+                key={tileType.type}
+                onPointerDown={() => handleTileTypeClick(tileType.type)}
                 className={cn(
-                  "text-[9px] font-mono absolute right-1 bottom-0.5",
+                  "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
                   selectedTileType === tileType.type && currentTool === "tile"
-                    ? "opacity-70"
-                    : "opacity-40",
+                    ? "bg-accent text-accent-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
+                title={`${noteLabel} (${tileType.hotkey})`}
               >
-                {tileType.hotkey}
-              </span>
-            </button>
-          ))}
+                {noteIcon}
+                <span
+                  className={cn(
+                    "text-[9px] font-mono absolute right-1 bottom-0.5",
+                    selectedTileType === tileType.type && currentTool === "tile"
+                      ? "opacity-70"
+                      : "opacity-40",
+                  )}
+                >
+                  {tileType.hotkey}
+                </span>
+              </button>
+            );
+          })}
 
           <div className="h-px w-6 bg-border my-1" />
 

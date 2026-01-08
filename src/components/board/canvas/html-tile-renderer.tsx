@@ -24,6 +24,7 @@ import {
 import {
   NoteTileRenderer,
   type NoteColor,
+  type NoteStyle,
 } from "./content-renderers/note-tile-renderer";
 import { getEventTargetInfo } from "./utils/eventTargeting";
 
@@ -423,7 +424,8 @@ export function HtmlTileRenderer({
           <div className="absolute inset-0 pointer-events-auto">
             <NoteTileRenderer
               content={content?.noteText || ""}
-              color={(content?.noteColor as NoteColor) || "butter"}
+              color={(content?.noteColor as NoteColor) || (content?.noteStyle === "torn" ? "natural-tan" : "butter")}
+              style={(content?.noteStyle as NoteStyle) || "classic"}
               onChange={(text) =>
                 onUpdate?.({
                   tileContent: { ...content, noteText: text },

@@ -29,6 +29,7 @@ import type {
     ShadeworksFile,
     TileType,
     LayerFolder,
+    NoteStyle,
 } from "@/lib/board-types";
 import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import {
@@ -60,6 +61,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [selectedTileType, setSelectedTileType] = useState<TileType | null>(
         null,
     );
+    const [selectedNoteStyle, setSelectedNoteStyle] = useState<NoteStyle>("classic");
 
     // Default color based on theme: black in light mode, white in dark mode
     const getDefaultStrokeColor = () => {
@@ -1938,6 +1940,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onToolChange={handleToolChange}
                         onTileTypeSelect={setSelectedTileType}
                         selectedTileType={selectedTileType}
+                        selectedNoteStyle={selectedNoteStyle}
+                        onNoteStyleChange={setSelectedNoteStyle}
                         toolLock={isToolLocked}
                         onToggleToolLock={() => setIsToolLocked(!isToolLocked)}
                         isCollabMode={!!sessionId}
@@ -2024,6 +2028,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     lineHeight={lineHeight}
                     fillPattern={fillPattern}
                     selectedTileType={selectedTileType}
+                    selectedNoteStyle={selectedNoteStyle}
                     handDrawnMode={handDrawnMode}
                     collaboration={collaboration}
                     elements={elements}

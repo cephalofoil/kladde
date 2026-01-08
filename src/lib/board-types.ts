@@ -94,7 +94,8 @@ export interface Point {
     y: number;
 }
 
-export type NoteColor = "butter" | "mint" | "lavender";
+export type NoteColor = "butter" | "mint" | "lavender" | "natural-tan";
+export type NoteStyle = "classic" | "torn";
 
 export interface TileContent {
   // Text tile
@@ -102,6 +103,7 @@ export interface TileContent {
   // Note tile
   noteText?: string;
   noteColor?: NoteColor;
+  noteStyle?: NoteStyle;
   // Code tile
   code?: string;
   language?: string;

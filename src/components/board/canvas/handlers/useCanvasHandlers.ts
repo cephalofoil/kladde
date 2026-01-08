@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { v4 as uuid } from "uuid";
-import type { Tool, BoardElement, Point, TileType } from "@/lib/board-types";
+import type { Tool, BoardElement, Point, TileType, NoteStyle } from "@/lib/board-types";
 import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import type { CollaborationManager } from "@/lib/collaboration";
 import type { CanvasState } from "../hooks/useCanvasState";
@@ -100,6 +100,7 @@ interface UseCanvasHandlersProps {
     lineHeight: number;
     fillPattern: "none" | "solid";
     selectedTileType?: TileType | null;
+    selectedNoteStyle?: NoteStyle;
     handDrawnMode?: boolean;
     collaboration: CollaborationManager | null;
     elements: BoardElement[];
@@ -139,6 +140,7 @@ export function useCanvasHandlers({
     lineHeight,
     fillPattern,
     selectedTileType,
+    selectedNoteStyle = "classic",
     handDrawnMode = false,
     collaboration,
     elements,
@@ -2872,6 +2874,14 @@ export function useCanvasHandlers({
                 const { width: tileWidth, height: tileHeight } =
                     getDefaultTileSize(tileType);
 
+                // Set initial tile content based on tile type
+                const initialTileContent: BoardElement["tileContent"] = {};
+                if (tileType === "tile-note") {
+                    initialTileContent.noteStyle = selectedNoteStyle;
+                    // Set default color based on style - natural-tan for torn, butter for classic
+                    initialTileContent.noteColor = selectedNoteStyle === "torn" ? "natural-tan" : "butter";
+                }
+
                 const newTile: BoardElement = {
                     id: uuid(),
                     type: "tile",
@@ -2884,7 +2894,7 @@ export function useCanvasHandlers({
                     height: tileHeight,
                     tileType: tileType,
                     tileTitle: "Untitled",
-                    tileContent: {},
+                    tileContent: initialTileContent,
                     opacity: 100,
                 };
 

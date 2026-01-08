@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import type { Tool, BoardElement, TileType } from "@/lib/board-types";
+import type { Tool, BoardElement, TileType, NoteStyle } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
 import { EraserTrail } from "@/lib/eraser-trail";
@@ -40,6 +40,7 @@ interface CanvasProps {
     lineHeight?: number;
     fillPattern?: "none" | "solid";
     selectedTileType?: TileType | null;
+    selectedNoteStyle?: NoteStyle;
     handDrawnMode?: boolean;
     collaboration: CollaborationManager | null;
     elements: BoardElement[];
@@ -93,6 +94,7 @@ export function Canvas({
     lineHeight = 1.5,
     fillPattern = "none",
     selectedTileType = null,
+    selectedNoteStyle = "classic",
     handDrawnMode = false,
     collaboration,
     elements,
@@ -690,6 +692,7 @@ export function Canvas({
         lineHeight,
         fillPattern,
         selectedTileType,
+        selectedNoteStyle,
         handDrawnMode,
         collaboration,
         elements,
