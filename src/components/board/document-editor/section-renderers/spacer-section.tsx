@@ -78,7 +78,7 @@ export function SpacerSectionRenderer({
               key={preset.label}
               onClick={() => handlePresetClick(preset.value)}
               className={cn(
-                "px-1.5 py-0.5 text-[8px] font-medium rounded transition-colors",
+                "px-3 py-1.5 text-[13px] font-bold rounded transition-colors min-w-[28px]",
                 isPresetActive(preset.value)
                   ? "bg-gray-700 text-white"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -99,7 +99,7 @@ export function SpacerSectionRenderer({
               min={5}
               max={100}
               autoFocus
-              className="w-10 px-1 py-0.5 text-[8px] text-center bg-white border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+              className="w-16 px-2.5 py-1.5 text-[13px] font-bold text-center bg-white border border-gray-300 rounded focus:outline-none focus:border-gray-500"
             />
           ) : (
             <button
@@ -108,7 +108,7 @@ export function SpacerSectionRenderer({
                 setShowCustomInput(true);
               }}
               className={cn(
-                "px-1.5 py-0.5 text-[8px] font-medium rounded transition-colors",
+                "px-3 py-1.5 text-[13px] font-bold rounded transition-colors min-w-[28px]",
                 isCustomActive
                   ? "bg-gray-700 text-white"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
