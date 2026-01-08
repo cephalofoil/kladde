@@ -40,7 +40,7 @@ export function TextSectionRenderer({
         onChange={(e) => onUpdate({ content: e.target.value })}
         placeholder="Enter text..."
         className="flex-1 bg-transparent border-none outline-none text-gray-700 placeholder:text-gray-300 resize-none overflow-hidden"
-        style={{ fontSize: "9px", lineHeight: 1.6, minHeight: "20px" }}
+        style={{ fontSize: "14.7px", lineHeight: 1.6, minHeight: "20px" }}
         rows={1}
       />
 

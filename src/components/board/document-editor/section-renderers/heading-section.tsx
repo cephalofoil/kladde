@@ -12,9 +12,9 @@ interface HeadingSectionRendererProps {
 }
 
 const headingStyles = {
-  1: { fontSize: "14px", fontWeight: 700 },
-  2: { fontSize: "12px", fontWeight: 600 },
-  3: { fontSize: "10px", fontWeight: 600 },
+  1: { fontSize: "26.7px", fontWeight: 700 },
+  2: { fontSize: "21.3px", fontWeight: 600 },
+  3: { fontSize: "17.3px", fontWeight: 600 },
 };
 
 export function HeadingSectionRenderer({

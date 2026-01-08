@@ -39,6 +39,7 @@ export interface TileContentSection extends DocumentSectionBase {
   cachedContent?: TileContent;
   cachedTileType?: TileType;
   cachedTileTitle?: string;
+  mermaidScale?: number;
 }
 
 export interface HeadingSection extends DocumentSectionBase {

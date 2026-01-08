@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { GripVertical, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SpacerSection } from "@/lib/board-types";
@@ -10,13 +11,53 @@ interface SpacerSectionRendererProps {
   onRemove: () => void;
 }
 
+const PRESET_SIZES = [
+  { label: "S", value: 15 },
+  { label: "M", value: 25 },
+  { label: "L", value: 35 },
+] as const;
+
 export function SpacerSectionRenderer({
   section,
   onUpdate,
   onRemove,
 }: SpacerSectionRendererProps) {
-  // Convert mm to px (at 50% scale, so divide by 2)
-  const heightPx = (section.height * 3.78) / 2;
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customValue, setCustomValue] = useState(String(section.height));
+
+  // Convert mm to px at 96 DPI
+  const heightPx = section.height * 3.78;
+
+  const handlePresetClick = useCallback(
+    (value: number) => {
+      onUpdate({ height: value });
+      setShowCustomInput(false);
+    },
+    [onUpdate]
+  );
+
+  const handleCustomSubmit = useCallback(() => {
+    const value = parseInt(customValue);
+    if (!isNaN(value) && value >= 5 && value <= 100) {
+      onUpdate({ height: value });
+    }
+    setShowCustomInput(false);
+  }, [customValue, onUpdate]);
+
+  const handleCustomKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        handleCustomSubmit();
+      } else if (e.key === "Escape") {
+        setShowCustomInput(false);
+        setCustomValue(String(section.height));
+      }
+    },
+    [handleCustomSubmit, section.height]
+  );
+
+  const isPresetActive = (value: number) => section.height === value;
+  const isCustomActive = !PRESET_SIZES.some((p) => p.value === section.height);
 
   return (
     <div className="group relative flex items-center gap-1 hover:bg-gray-50/50 rounded transition-colors">
@@ -28,18 +69,54 @@ export function SpacerSectionRenderer({
       {/* Spacer Visual */}
       <div
         className="flex-1 flex items-center justify-center border border-dashed border-gray-200 rounded bg-gray-50/50"
-        style={{ height: Math.max(heightPx, 12) }}
+        style={{ height: Math.max(heightPx, 16) }}
       >
-        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="text-[8px] text-gray-400">{section.height}mm</span>
-          <input
-            type="range"
-            min={5}
-            max={50}
-            value={section.height}
-            onChange={(e) => onUpdate({ height: parseInt(e.target.value) })}
-            className="w-16 h-1 appearance-none bg-gray-200 rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:bg-gray-500 [&::-webkit-slider-thumb]:rounded-full"
-          />
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Preset size buttons */}
+          {PRESET_SIZES.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => handlePresetClick(preset.value)}
+              className={cn(
+                "px-1.5 py-0.5 text-[8px] font-medium rounded transition-colors",
+                isPresetActive(preset.value)
+                  ? "bg-gray-700 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              )}
+            >
+              {preset.label}
+            </button>
+          ))}
+
+          {/* Custom input toggle/display */}
+          {showCustomInput ? (
+            <input
+              type="number"
+              value={customValue}
+              onChange={(e) => setCustomValue(e.target.value)}
+              onBlur={handleCustomSubmit}
+              onKeyDown={handleCustomKeyDown}
+              min={5}
+              max={100}
+              autoFocus
+              className="w-10 px-1 py-0.5 text-[8px] text-center bg-white border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+            />
+          ) : (
+            <button
+              onClick={() => {
+                setCustomValue(String(section.height));
+                setShowCustomInput(true);
+              }}
+              className={cn(
+                "px-1.5 py-0.5 text-[8px] font-medium rounded transition-colors",
+                isCustomActive
+                  ? "bg-gray-700 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              )}
+            >
+              {isCustomActive ? `${section.height}` : "..."}
+            </button>
+          )}
         </div>
       </div>
 

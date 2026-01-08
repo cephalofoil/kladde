@@ -4,55 +4,27 @@ import { useMemo, useEffect, useState, useRef } from "react";
 import {
   GripVertical,
   X,
-  Type,
-  StickyNote,
-  Code2,
-  GitBranch,
-  Image,
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardElement, TileContentSection } from "@/lib/board-types";
+import { getTileIcon, getTileTypeColor } from "../tile-card";
+
+const MERMAID_BASE_MAX_HEIGHT_PX = 180;
+const MERMAID_BASE_MAX_WIDTH_PX = 606;
+const MERMAID_SCALE_MIN = 0.5;
+const MERMAID_SCALE_MAX = 2;
+const MERMAID_SCALE_STEP = 0.1;
+
+const clampMermaidScale = (value: number) =>
+  Math.min(MERMAID_SCALE_MAX, Math.max(MERMAID_SCALE_MIN, value));
 
 interface TileContentSectionRendererProps {
   section: TileContentSection;
   allElements: BoardElement[];
   onRemove: () => void;
+  onUpdate: (updates: Partial<TileContentSection>) => void;
 }
-
-const getTileIcon = (tileType: string | undefined) => {
-  switch (tileType) {
-    case "tile-text":
-      return <Type className="w-3 h-3" />;
-    case "tile-note":
-      return <StickyNote className="w-3 h-3" />;
-    case "tile-code":
-      return <Code2 className="w-3 h-3" />;
-    case "tile-mermaid":
-      return <GitBranch className="w-3 h-3" />;
-    case "tile-image":
-      return <Image className="w-3 h-3" />;
-    default:
-      return <Type className="w-3 h-3" />;
-  }
-};
-
-const getTileTypeColor = (tileType: string | undefined) => {
-  switch (tileType) {
-    case "tile-text":
-      return "bg-blue-500";
-    case "tile-note":
-      return "bg-yellow-500";
-    case "tile-code":
-      return "bg-green-500";
-    case "tile-mermaid":
-      return "bg-purple-500";
-    case "tile-image":
-      return "bg-pink-500";
-    default:
-      return "bg-gray-500";
-  }
-};
 
 // Parse markdown to HTML
 function parseMarkdown(text: string): string {
@@ -64,19 +36,19 @@ function parseMarkdown(text: string): string {
 
     // Headers
     if (html.match(/^### /)) {
-      html = html.replace(/^### (.+)$/, '<h3 class="text-sm font-bold my-1">$1</h3>');
+      html = html.replace(/^### (.+)$/, '<h3 class="text-[17.3px] font-bold my-1">$1</h3>');
     } else if (html.match(/^## /)) {
-      html = html.replace(/^## (.+)$/, '<h2 class="text-base font-bold my-1">$1</h2>');
+      html = html.replace(/^## (.+)$/, '<h2 class="text-[21.3px] font-bold my-1">$1</h2>');
     } else if (html.match(/^# /)) {
-      html = html.replace(/^# (.+)$/, '<h1 class="text-lg font-bold my-2">$1</h1>');
+      html = html.replace(/^# (.+)$/, '<h1 class="text-[26.7px] font-bold my-2">$1</h1>');
     }
     // Unordered list
     else if (html.match(/^[-*] /)) {
-      html = html.replace(/^[-*] (.+)$/, '<li class="ml-3">• $1</li>');
+      html = html.replace(/^[-*] (.+)$/, '<li class="ml-3 text-[14.7px] leading-relaxed">• $1</li>');
     }
     // Ordered list
     else if (html.match(/^\d+\. /)) {
-      html = html.replace(/^(\d+)\. (.+)$/, '<li class="ml-3">$1. $2</li>');
+      html = html.replace(/^(\d+)\. (.+)$/, '<li class="ml-3 text-[14.7px] leading-relaxed">$1. $2</li>');
     }
     // Empty line
     else if (!html.trim()) {
@@ -84,7 +56,7 @@ function parseMarkdown(text: string): string {
     }
     // Regular paragraph
     else {
-      html = `<p class="my-0.5">${html}</p>`;
+      html = `<p class="my-0.5 text-[14.7px] leading-relaxed">${html}</p>`;
     }
 
     // Inline formatting
@@ -95,7 +67,7 @@ function parseMarkdown(text: string): string {
     html = html.replace(/~~(.+?)~~/g, '<del class="line-through">$1</del>');
     html = html.replace(
       /`(.+?)`/g,
-      '<code class="bg-gray-200 px-0.5 rounded text-[8px] font-mono">$1</code>'
+      '<code class="bg-gray-200 px-0.5 rounded text-[12px] font-mono">$1</code>'
     );
 
     return html;
@@ -105,10 +77,11 @@ function parseMarkdown(text: string): string {
 }
 
 // Mermaid renderer component for document preview
-function MermaidPreview({ chart }: { chart: string }) {
+function MermaidPreview({ chart, scale }: { chart: string; scale: number }) {
   const [svgContent, setSvgContent] = useState<string>("");
   const [error, setError] = useState<string>("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const [svgSize, setSvgSize] = useState<{ width: number; height: number } | null>(null);
 
   useEffect(() => {
     if (!chart) return;
@@ -127,6 +100,27 @@ function MermaidPreview({ chart }: { chart: string }) {
         const { svg } = await mermaid.render(id, chart);
 
         setSvgContent(svg);
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svg, "image/svg+xml");
+        const svgElement = svgDoc.querySelector("svg");
+        let width = 400;
+        let height = 300;
+        if (svgElement) {
+          const viewBox = svgElement.getAttribute("viewBox");
+          if (viewBox) {
+            const parts = viewBox.split(/\s+/).map(Number);
+            if (parts.length === 4 && parts.every((value) => Number.isFinite(value))) {
+              width = parts[2];
+              height = parts[3];
+            }
+          } else {
+            const widthAttr = svgElement.getAttribute("width");
+            const heightAttr = svgElement.getAttribute("height");
+            if (widthAttr) width = parseFloat(widthAttr) || width;
+            if (heightAttr) height = parseFloat(heightAttr) || height;
+          }
+        }
+        setSvgSize({ width, height });
         setError("");
       } catch (err) {
         console.error("Mermaid rendering error:", err);
@@ -154,14 +148,22 @@ function MermaidPreview({ chart }: { chart: string }) {
     );
   }
 
+  const maxWidth = MERMAID_BASE_MAX_WIDTH_PX;
+  const maxHeight = MERMAID_BASE_MAX_HEIGHT_PX * scale;
+  const widthScale = svgSize ? maxWidth / svgSize.width : 1;
+  const heightScale = svgSize ? maxHeight / svgSize.height : 1;
+  const displayScale = svgSize ? Math.min(1, widthScale, heightScale) : 1;
+  const displayWidth = svgSize ? svgSize.width * displayScale : maxWidth;
+  const displayHeight = svgSize ? svgSize.height * displayScale : maxHeight;
+
   return (
     <div
       ref={containerRef}
-      className="bg-white border border-gray-200 rounded p-2 overflow-hidden"
-      style={{ maxHeight: "200px" }}
+      className="bg-white border border-gray-200 rounded p-2"
+      style={{ width: displayWidth, height: displayHeight }}
     >
       <div
-        className="w-full flex items-center justify-center [&_svg]:max-w-full [&_svg]:max-h-[180px] [&_svg]:w-auto [&_svg]:h-auto"
+        className="w-full h-full flex items-center justify-center [&_svg]:w-full [&_svg]:h-full"
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     </div>
@@ -172,6 +174,7 @@ export function TileContentSectionRenderer({
   section,
   allElements,
   onRemove,
+  onUpdate,
 }: TileContentSectionRendererProps) {
   // Try to find the live tile, fall back to cached content
   const liveTile = useMemo(
@@ -183,11 +186,17 @@ export function TileContentSectionRenderer({
   const tileTitle = liveTile?.tileTitle || section.cachedTileTitle || "Untitled";
   const tileContent = liveTile?.tileContent || section.cachedContent;
   const isDeleted = !liveTile && section.cachedContent;
+  const mermaidScale = clampMermaidScale(section.mermaidScale ?? 1);
+
+  const handleMermaidScaleChange = (nextScale: number) => {
+    const clamped = clampMermaidScale(nextScale);
+    onUpdate({ mermaidScale: Number(clamped.toFixed(2)) });
+  };
 
   // Render tile content based on type
   const renderContent = () => {
     if (!tileContent) {
-      return <p className="text-gray-400 italic text-[9px]">Empty content</p>;
+      return <p className="text-gray-400 italic text-[14.7px]">Empty content</p>;
     }
 
     switch (tileType) {
@@ -195,7 +204,7 @@ export function TileContentSectionRenderer({
         if (tileContent.richText) {
           return (
             <div
-              className="text-gray-700 text-[9px] leading-relaxed prose prose-sm max-w-none"
+              className="text-gray-700 text-[14.7px] leading-relaxed prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: parseMarkdown(tileContent.richText) }}
             />
           );
@@ -205,9 +214,19 @@ export function TileContentSectionRenderer({
       case "tile-note":
         if (tileContent.noteText) {
           return (
-            <div className="bg-yellow-50 border-l-2 border-yellow-400 pl-2 py-1">
+            <div
+              className="bg-yellow-50 border-yellow-400"
+              style={{
+                borderLeftWidth: "4px",
+                paddingLeft: "10.7px",
+                paddingTop: "8px",
+                paddingBottom: "8px",
+                marginTop: "5.3px",
+                marginBottom: "5.3px",
+              }}
+            >
               <div
-                className="text-gray-700 text-[9px] leading-relaxed"
+                className="text-gray-700 text-[14.7px] leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: parseMarkdown(tileContent.noteText) }}
               />
             </div>
@@ -219,11 +238,11 @@ export function TileContentSectionRenderer({
         if (tileContent.code) {
           return (
             <div className="bg-gray-800 rounded p-2 overflow-x-auto">
-              <pre className="text-[8px] font-mono text-gray-100 whitespace-pre-wrap">
+              <pre className="text-[12px] font-mono text-gray-100 whitespace-pre-wrap">
                 {tileContent.code}
               </pre>
               {tileContent.language && (
-                <span className="text-[7px] text-gray-400 mt-1 block">
+                <span className="text-[10.7px] text-gray-400 mt-1 block">
                   {tileContent.language}
                 </span>
               )}
@@ -234,7 +253,11 @@ export function TileContentSectionRenderer({
 
       case "tile-mermaid":
         if (tileContent.chart) {
-          return <MermaidPreview chart={tileContent.chart} />;
+          return (
+            <div className="flex justify-center">
+              <MermaidPreview chart={tileContent.chart} scale={mermaidScale} />
+            </div>
+          );
         }
         return null;
 
@@ -246,7 +269,7 @@ export function TileContentSectionRenderer({
                 src={tileContent.imageSrc}
                 alt={tileContent.imageAlt || "Image"}
                 className="max-w-full h-auto rounded"
-                style={{ maxHeight: "150px" }}
+                style={{ maxHeight: "300px" }}
               />
             </div>
           );
@@ -255,7 +278,7 @@ export function TileContentSectionRenderer({
 
       default:
         return (
-          <p className="text-gray-400 italic text-[9px]">
+          <p className="text-gray-400 italic text-[14.7px]">
             Unknown tile type: {tileType}
           </p>
         );
@@ -284,13 +307,41 @@ export function TileContentSectionRenderer({
               getTileTypeColor(tileType)
             )}
           >
-            {getTileIcon(tileType)}
+            {getTileIcon(tileType, "w-3 h-3")}
           </div>
-          <span className="text-[9px] font-medium text-gray-600 truncate">
+          <span className="text-[13.3px] font-medium text-gray-600 truncate">
             {tileTitle}
           </span>
+          {tileType === "tile-mermaid" && tileContent?.chart && (
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleMermaidScaleChange(mermaidScale - MERMAID_SCALE_STEP)}
+                className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                title="Reduce diagram size"
+              >
+                -
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMermaidScaleChange(1)}
+                className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                title="Reset size"
+              >
+                {Math.round(mermaidScale * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMermaidScaleChange(mermaidScale + MERMAID_SCALE_STEP)}
+                className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                title="Increase diagram size"
+              >
+                +
+              </button>
+            </div>
+          )}
           {isDeleted && (
-            <div className="flex items-center gap-0.5 text-amber-600 text-[8px]">
+            <div className="flex items-center gap-0.5 text-amber-600 text-[12px]">
               <AlertTriangle className="w-2.5 h-2.5" />
               <span>Source deleted</span>
             </div>

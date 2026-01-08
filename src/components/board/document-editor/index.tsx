@@ -19,6 +19,7 @@ import {
   updateSection,
   moveSection,
 } from "@/lib/tile-utils";
+import { tileHasContent } from "./tile-card";
 
 interface DocumentEditorPanelProps {
   documentElement: BoardElement;
@@ -110,6 +111,10 @@ export function DocumentEditorPanel({
 
   const handleAddTileToDocument = useCallback(
     (tile: BoardElement) => {
+      // Prevent adding empty tiles
+      if (!tileHasContent(tile)) {
+        return;
+      }
       const newSection = createTileContentSection(
         tile.id,
         tile.tileType,
