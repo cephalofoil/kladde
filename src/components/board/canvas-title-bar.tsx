@@ -18,7 +18,7 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
 
     const [isRenaming, setIsRenaming] = useState(false);
     const [newName, setNewName] = useState("");
-    const inputRef = useRef<HTMLInputElement>(null);
+    const spanRef = useRef<HTMLSpanElement>(null);
     const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const { boardName, workstreamName, workstreamColor, workstreamId } =
@@ -34,11 +34,15 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
         }, [boards, workstreams, boardId]);
 
     useEffect(() => {
-        if (isRenaming && inputRef.current) {
-            inputRef.current.focus();
-            // Place cursor at the end instead of selecting all
-            const len = inputRef.current.value.length;
-            inputRef.current.setSelectionRange(len, len);
+        if (isRenaming && spanRef.current) {
+            spanRef.current.focus();
+            // Place cursor at the end
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(spanRef.current);
+            range.collapse(false);
+            sel?.removeAllRanges();
+            sel?.addRange(range);
         }
     }, [isRenaming]);
 
@@ -76,7 +80,7 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
     return (
         <div
             className={cn(
-                "inline-flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md px-2 h-10 shadow-2xl min-w-[200px]",
+                "inline-flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md px-2 h-10 shadow-2xl",
                 className,
             )}
         >
@@ -101,36 +105,46 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
             </span>
 
             {/* Board name (clickable to rename) */}
-            {isRenaming ? (
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onBlur={handleRenameBlur}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                            handleRenameSubmit();
-                        } else if (e.key === "Escape") {
-                            setIsRenaming(false);
-                        }
-                        e.stopPropagation();
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                        width: `${Math.max(newName.length * 8 + 20, 80)}px`,
-                    }}
-                    className="bg-transparent border-b border-ring outline-none text-sm font-semibold text-foreground px-2 py-1 font-[var(--font-heading)]"
-                />
-            ) : (
-                <button
-                    onClick={handleBoardNameClick}
-                    className="text-sm font-semibold text-foreground px-2 py-1 rounded-md hover:bg-muted/60 transition-colors cursor-text font-[var(--font-heading)]"
-                    title="Click to rename"
-                >
-                    {boardName}
-                </button>
-            )}
+            <span
+                ref={spanRef}
+                role="textbox"
+                contentEditable={isRenaming}
+                suppressContentEditableWarning
+                onBlur={(e) => {
+                    if (isRenaming) {
+                        setNewName(e.currentTarget.textContent || "");
+                        handleRenameBlur();
+                    }
+                }}
+                onKeyDown={(e) => {
+                    if (!isRenaming) return;
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        setNewName(e.currentTarget.textContent || "");
+                        handleRenameSubmit();
+                    } else if (e.key === "Escape") {
+                        e.currentTarget.textContent = boardName;
+                        setIsRenaming(false);
+                    }
+                    e.stopPropagation();
+                }}
+                onInput={(e) => setNewName(e.currentTarget.textContent || "")}
+                onClick={(e) => {
+                    if (!isRenaming) {
+                        handleBoardNameClick();
+                    }
+                    e.stopPropagation();
+                }}
+                className={cn(
+                    "text-sm font-semibold text-foreground px-2 py-1 font-[var(--font-heading)] outline-none",
+                    isRenaming
+                        ? "border-b border-ring"
+                        : "rounded-md hover:bg-muted/60 transition-colors cursor-text",
+                )}
+                title={isRenaming ? undefined : "Click to rename"}
+            >
+                {boardName}
+            </span>
         </div>
     );
 }
