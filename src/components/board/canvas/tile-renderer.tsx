@@ -241,7 +241,7 @@ export function TileRenderer({
         return content?.chart ? (
           <div className="absolute left-2 right-2 bottom-2 top-10 pointer-events-auto rounded-b-lg overflow-hidden">
             {isSelected && (
-              <div className="absolute top-0 right-0 z-10">
+              <div className="absolute top-2 right-2 z-10">
                 <MermaidTileControls
                   scale={mermaidScale}
                   onScaleChange={handleMermaidScaleChange}

@@ -33,6 +33,20 @@ export function MermaidRenderer({
   const [error, setError] = useState<string>("");
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const updateTheme = () => {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    };
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!chart) return;
@@ -44,7 +58,7 @@ export function MermaidRenderer({
 
         mermaid.initialize({
           startOnLoad: false,
-          theme: "default",
+          theme: isDarkMode ? "dark" : "default",
           securityLevel: "loose",
         });
 
@@ -65,7 +79,7 @@ export function MermaidRenderer({
     };
 
     renderMermaid();
-  }, [chart, onSvgReady]);
+  }, [chart, isDarkMode, onSvgReady]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isInteractive) return;
