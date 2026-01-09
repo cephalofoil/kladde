@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import type { Tool, BoardElement, TileType, NoteStyle } from "@/lib/board-types";
+import type {
+    Tool,
+    BoardElement,
+    TileType,
+    NoteStyle,
+} from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
 import { EraserTrail } from "@/lib/eraser-trail";
@@ -1096,7 +1101,7 @@ export function Canvas({
     return (
         <div
             ref={containerRef}
-            className="relative w-full h-full overflow-hidden bg-background"
+            className="relative w-full h-full overflow-hidden bg-background select-none"
             style={{ cursor: cursorStyle }}
             onMouseDownCapture={(e) => {
                 if (!editingTileId) return;
