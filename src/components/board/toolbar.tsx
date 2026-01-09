@@ -693,11 +693,15 @@ export function Toolbar({
     const [lastPenTool, setLastPenTool] = useState<Tool>("pen");
     const [lastLineTool, setLastLineTool] = useState<Tool>("arrow");
     const [lastShapeTool, setLastShapeTool] = useState<Tool>("rectangle");
+    const [lastMoreTool, setLastMoreTool] = useState<Tool | null>(null);
     const [isMoreOpen, setIsMoreOpen] = useState(false);
     const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
     const moreButtonRef = useRef<HTMLDivElement>(null);
     const noteButtonRef = useRef<HTMLDivElement>(null);
     const moreTool = MORE_TOOLS.find((item) => item.tool === currentTool);
+    const lastMoreToolInfo =
+        lastMoreTool &&
+        MORE_TOOLS.find((item) => item.tool === lastMoreTool);
     const noteTileInfo = TILE_TYPES.find((tile) => tile.type === "tile-note");
     const otherTileTypes = TILE_TYPES.filter(
         (tile) => tile.type !== "tile-note",
@@ -731,6 +735,8 @@ export function Toolbar({
             setLastLineTool(currentTool);
         } else if (SHAPE_GROUP.some((t) => t.tool === currentTool)) {
             setLastShapeTool(currentTool);
+        } else if (MORE_TOOLS.some((t) => t.tool === currentTool)) {
+            setLastMoreTool(currentTool);
         }
     }, [currentTool]);
 
@@ -1046,6 +1052,19 @@ export function Toolbar({
                     <div className="h-px w-6 bg-border my-1" />
 
                     {/* More Tools */}
+                    {lastMoreToolInfo && (
+                        <SimpleToolButton
+                            tool={lastMoreToolInfo.tool}
+                            icon={lastMoreToolInfo.icon}
+                            label={lastMoreToolInfo.label}
+                            currentTool={currentTool}
+                            onToolChange={onToolChange}
+                            onPress={() => {
+                                setIsMoreOpen(false);
+                                setOpenSubmenu(null);
+                            }}
+                        />
+                    )}
                     <div ref={moreButtonRef} className="relative">
                         <button
                             onPointerDown={() => {
@@ -1054,19 +1073,20 @@ export function Toolbar({
                             }}
                             className={cn(
                                 "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
-                                moreTool
+                                isMoreOpen
                                     ? "bg-accent text-accent-foreground shadow-sm"
                                     : "text-muted-foreground hover:text-foreground hover:bg-muted",
                             )}
                             title="More tools"
                         >
-                            {moreTool?.icon ?? <Plus className={ICON_CLASS} />}
+                            <Plus className={ICON_CLASS} />
                         </button>
                         <MoreToolsMenu
                             isOpen={isMoreOpen}
                             onClose={() => setIsMoreOpen(false)}
                             onSelect={(tool) => {
                                 onToolChange(tool);
+                                setLastMoreTool(tool);
                                 setOpenSubmenu(null);
                             }}
                             buttonRef={moreButtonRef}
