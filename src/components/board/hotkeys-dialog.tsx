@@ -108,7 +108,7 @@ export function HotkeysDialog({ open, onOpenChange }: HotkeysDialogProps) {
                     <div className="space-y-6">
                         {shortcuts.map((section, idx) => (
                             <div key={section.category}>
-                                <h3 className="text-sm font-semibold mb-3">
+                                <h3 className="text-sm font-semibold mb-3 font-[var(--font-heading)]">
                                     {section.category}
                                 </h3>
                                 <div className="space-y-2">

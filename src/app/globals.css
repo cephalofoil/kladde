@@ -83,8 +83,10 @@
     --note-shadow-value:
         0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
 
-    /* Set default font family at root level */
+    /* Set default font family at root level (Outfit for body text) */
     font-family: var(--font-sans);
+    /* Heading font variable available for components */
+    --font-heading: Switzer, system-ui, sans-serif;
 }
 
 .dark {
@@ -181,10 +183,12 @@
     --shadow-note: var(--note-shadow-value);
 
     /* Font family variables - Tailwind v4 expects these exact names */
-    --font-sans: Switzer, system-ui, sans-serif;
+    /* Outfit for body/general text, Switzer for headings */
+    --font-sans: Outfit, system-ui, sans-serif;
+    --font-heading: Switzer, system-ui, sans-serif;
     --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
     --font-mono:
-        Outfit, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
         "Liberation Mono", "Courier New", monospace;
 }
 
@@ -200,6 +204,16 @@
     body {
         @apply bg-background text-foreground;
         font-family: var(--font-sans);
+    }
+
+    /* Headings use Switzer font */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-heading);
     }
 
     /* Text selection colors matching primary color */

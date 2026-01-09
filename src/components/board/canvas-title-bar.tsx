@@ -90,7 +90,7 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
                     className="inline-block h-3 w-3 rounded-full shrink-0"
                     style={{ backgroundColor: workstreamColor }}
                 />
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-sm font-medium text-foreground font-[var(--font-heading)]">
                     {workstreamName}
                 </span>
             </button>
@@ -120,12 +120,12 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
                     style={{
                         width: `${Math.max(newName.length * 8 + 20, 80)}px`,
                     }}
-                    className="bg-transparent border-b border-ring outline-none text-sm font-semibold text-foreground px-2 py-1"
+                    className="bg-transparent border-b border-ring outline-none text-sm font-semibold text-foreground px-2 py-1 font-[var(--font-heading)]"
                 />
             ) : (
                 <button
                     onClick={handleBoardNameClick}
-                    className="text-sm font-semibold text-foreground px-2 py-1 rounded-md hover:bg-muted/60 transition-colors cursor-text"
+                    className="text-sm font-semibold text-foreground px-2 py-1 rounded-md hover:bg-muted/60 transition-colors cursor-text font-[var(--font-heading)]"
                     title="Click to rename"
                 >
                     {boardName}
