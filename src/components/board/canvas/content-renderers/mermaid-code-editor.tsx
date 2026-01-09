@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Check, X } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
+import {
+  MERMAID_PROMPT_GENERAL,
+  MERMAID_PROMPT_VARIANTS,
+  MermaidPromptVariantKey,
+} from "@/lib/mermaid-prompts";
 import { MermaidRenderer } from "./mermaid-renderer";
 
 interface MermaidCodeEditorProps {
@@ -66,6 +71,19 @@ export function MermaidCodeEditor({
 }: MermaidCodeEditorProps) {
   const [code, setCode] = useState(initialCode);
   const [showPreview, setShowPreview] = useState(true);
+  const [templateValue, setTemplateValue] = useState("");
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
+    "idle"
+  );
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSave = () => {
     onSave(code);
@@ -75,8 +93,41 @@ export function MermaidCodeEditor({
     onCancel?.();
   };
 
-  const handleTemplateSelect = (templateCode: string) => {
-    setCode(templateCode);
+  const handleTemplateSelect = (templateName: string) => {
+    setTemplateValue(templateName);
+    const template = MERMAID_TEMPLATES.find((item) => item.name === templateName);
+    if (template) {
+      setCode(template.code);
+    }
+  };
+
+  const templatePromptMap: Record<string, MermaidPromptVariantKey> = {
+    Flowchart: "flowchart",
+    "Sequence Diagram": "sequence",
+  };
+
+  const getPromptText = () => {
+    const variantKey = templatePromptMap[templateValue];
+    if (!variantKey) {
+      return MERMAID_PROMPT_GENERAL;
+    }
+    return `${MERMAID_PROMPT_GENERAL}\n\n${MERMAID_PROMPT_VARIANTS[variantKey]}`;
+  };
+
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(getPromptText());
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    } finally {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopyState("idle");
+      }, 2000);
+    }
   };
 
   const editorHeight = Math.max(200, height - 100);
@@ -84,45 +135,61 @@ export function MermaidCodeEditor({
   const editorWidth = showPreview ? Math.floor(width * 0.5) : width;
 
   return (
-    <div className={cn("flex flex-col h-full bg-slate-900 rounded", className)}>
+    <div
+      className={cn(
+        "flex flex-col h-full bg-transparent",
+        className
+      )}
+    >
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700">
+      <div className="flex items-center justify-between px-3 pt-4 pb-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-300 font-medium">
-            Mermaid Editor
-          </span>
+          <span className="text-sm font-medium text-gray-700">Mermaid Editor</span>
           <select
             onChange={(e) => handleTemplateSelect(e.target.value)}
-            value=""
-            className="text-xs bg-slate-700 text-slate-200 rounded px-2 py-1 border-none outline-none"
+            value={templateValue}
+            className="h-7 text-xs bg-white text-gray-700 rounded-md px-2 border border-gray-200 outline-none focus:border-gray-300 focus:ring-0"
           >
             <option value="" disabled>
               Insert Template...
             </option>
             {MERMAID_TEMPLATES.map((template) => (
-              <option key={template.name} value={template.code}>
+              <option key={template.name} value={template.name}>
                 {template.name}
               </option>
             ))}
           </select>
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded px-2 py-1 transition-colors"
-          >
-            {showPreview ? "Hide Preview" : "Show Preview"}
-          </button>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleCancel}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors"
+            onClick={() => setShowPreview(!showPreview)}
+            className="h-7 px-2.5 text-xs rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100 transition-colors"
           >
-            <X className="h-3 w-3" />
-            Cancel
+            {showPreview ? "Hide" : "Show"} Preview
           </button>
           <button
+            onClick={handleCopyPrompt}
+            className="flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100 transition-colors"
+          >
+            <Copy className="h-3 w-3" />
+            {copyState === "copied"
+              ? "Copied"
+              : copyState === "error"
+                ? "Copy failed"
+                : "Copy Prompt"}
+          </button>
+          {onCancel && (
+            <button
+              onClick={handleCancel}
+              className="flex items-center gap-1 h-7 px-2.5 text-xs text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Cancel
+            </button>
+          )}
+          <button
             onClick={handleSave}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            className="flex items-center gap-1 h-7 px-2.5 text-xs bg-sky-600 hover:bg-sky-700 text-white rounded-md transition-colors"
           >
             <Check className="h-3 w-3" />
             Save
@@ -131,19 +198,16 @@ export function MermaidCodeEditor({
       </div>
 
       {/* Editor and Preview */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 gap-3 px-3 pb-3 overflow-hidden">
         {/* Code Editor */}
         <div
-          className="flex flex-col border-r border-slate-700"
+          className="flex flex-col flex-1 min-w-0"
           style={{ width: editorWidth }}
         >
-          <div className="px-3 py-1 bg-slate-800 border-b border-slate-700">
-            <span className="text-xs text-slate-400">Code</span>
-          </div>
           <textarea
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="flex-1 bg-slate-900 text-slate-200 font-mono text-xs p-3 border-none outline-none resize-none"
+            className="flex-1 w-full p-3 text-sm font-mono text-gray-900 bg-white rounded-md border border-gray-200 outline-none resize-none focus:border-gray-300 focus:ring-0"
             placeholder="Enter mermaid diagram code here..."
             spellCheck={false}
             style={{ height: editorHeight }}
@@ -152,19 +216,17 @@ export function MermaidCodeEditor({
 
         {/* Preview */}
         {showPreview && (
-          <div className="flex flex-col" style={{ width: previewWidth }}>
-            <div className="px-3 py-1 bg-slate-800 border-b border-slate-700">
-              <span className="text-xs text-slate-400">Preview</span>
-            </div>
-            <div className="flex-1 overflow-auto bg-white dark:bg-neutral-950 p-4">
+          <div className="flex flex-col flex-1 min-w-0" style={{ width: previewWidth }}>
+            <div className="flex-1 overflow-auto bg-white rounded-md border border-gray-200 p-4">
               {code ? (
                 <MermaidRenderer
                   chart={code}
                   width={previewWidth - 32}
                   height={editorHeight - 50}
+                  className="w-full h-full"
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-sm text-slate-500">
+                <div className="flex items-center justify-center h-full text-sm text-gray-500">
                   Type code to see preview
                 </div>
               )}
@@ -174,13 +236,13 @@ export function MermaidCodeEditor({
       </div>
 
       {/* Help Text */}
-      <div className="px-3 py-2 bg-slate-800 border-t border-slate-700 text-xs text-slate-400">
+      <div className="px-3 py-2 border-t border-gray-200 text-xs text-gray-500">
         Learn more about Mermaid syntax at{" "}
         <a
           href="https://mermaid.js.org"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-400 hover:underline"
+          className="text-sky-600 hover:underline"
         >
           mermaid.js.org
         </a>
