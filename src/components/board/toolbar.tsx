@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
     StickyNote,
     GitBranch,
@@ -420,6 +420,76 @@ function ToolSubmenu({
     );
 }
 
+function NoteStyleSubmenu({
+    options,
+    selectedStyle,
+    onStyleSelect,
+    isOpen,
+    onClose,
+    buttonRef,
+}: {
+    options: Array<{ style: NoteStyle; label: string; icon: React.ReactNode }>;
+    selectedStyle: NoteStyle;
+    onStyleSelect: (style: NoteStyle) => void;
+    isOpen: boolean;
+    onClose: () => void;
+    buttonRef: React.RefObject<HTMLDivElement | null>;
+}) {
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(e.target as Node) &&
+                buttonRef.current &&
+                !buttonRef.current.contains(e.target as Node)
+            ) {
+                onClose();
+            }
+        };
+
+        const timer = setTimeout(() => {
+            document.addEventListener("mousedown", handleClickOutside);
+        }, 0);
+
+        return () => {
+            clearTimeout(timer);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isOpen, onClose, buttonRef]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            ref={menuRef}
+            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-card border border-border/60 dark:border-transparent rounded-lg shadow-2xl p-1 z-50 flex flex-col gap-0.5"
+        >
+            {options.map((option) => (
+                <button
+                    key={option.style}
+                    onPointerDown={() => {
+                        onStyleSelect(option.style);
+                        onClose();
+                    }}
+                    className={cn(
+                        "flex items-center justify-center w-8 h-8 rounded-md transition-all",
+                        selectedStyle === option.style
+                            ? "bg-accent text-accent-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    )}
+                    title={option.label}
+                >
+                    {option.icon}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 function MoreToolsMenu({
     isOpen,
     onClose,
@@ -626,7 +696,27 @@ export function Toolbar({
     const [isMoreOpen, setIsMoreOpen] = useState(false);
     const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
     const moreButtonRef = useRef<HTMLDivElement>(null);
+    const noteButtonRef = useRef<HTMLDivElement>(null);
     const moreTool = MORE_TOOLS.find((item) => item.tool === currentTool);
+    const noteTileInfo = TILE_TYPES.find((tile) => tile.type === "tile-note");
+    const otherTileTypes = TILE_TYPES.filter(
+        (tile) => tile.type !== "tile-note",
+    );
+    const noteStyleOptions = useMemo(
+        () => [
+            {
+                style: "classic" as NoteStyle,
+                label: "Sticky Note",
+                icon: <StickyNote className={`${ICON_CLASS} rotate-90`} />,
+            },
+            {
+                style: "torn" as NoteStyle,
+                label: "Torn Note",
+                icon: <TornNoteIcon className={ICON_CLASS} />,
+            },
+        ],
+        [],
+    );
 
     // Close submenus when selecting tools outside their groups
     const handleSubmenuChange = useCallback((id: string | null) => {
@@ -652,6 +742,12 @@ export function Toolbar({
         },
         [currentTool],
     );
+
+    const cycleNoteStyle = useCallback(() => {
+        const nextStyle: NoteStyle =
+            selectedNoteStyle === "classic" ? "torn" : "classic";
+        onNoteStyleChange?.(nextStyle);
+    }, [selectedNoteStyle, onNoteStyleChange]);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -692,6 +788,18 @@ export function Toolbar({
                         getNextToolInGroup(SHAPE_GROUP, lastShapeTool),
                     );
                     break;
+                case "5":
+                    e.preventDefault();
+                    if (
+                        selectedTileType === "tile-note" &&
+                        currentTool === "tile"
+                    ) {
+                        cycleNoteStyle();
+                        return;
+                    }
+                    onTileTypeSelect("tile-note");
+                    onToolChange("tile");
+                    return;
                 case "F":
                     e.preventDefault();
                     onToolChange("frame");
@@ -715,6 +823,9 @@ export function Toolbar({
         lastLineTool,
         lastShapeTool,
         getNextToolInGroup,
+        cycleNoteStyle,
+        currentTool,
+        selectedTileType,
     ]);
 
     const handleTileTypeClick = useCallback(
@@ -727,9 +838,7 @@ export function Toolbar({
                 selectedTileType === "tile-note" &&
                 currentTool === "tile"
             ) {
-                const nextStyle: NoteStyle =
-                    selectedNoteStyle === "classic" ? "torn" : "classic";
-                onNoteStyleChange?.(nextStyle);
+                cycleNoteStyle();
                 return;
             }
             onTileTypeSelect(tileType);
@@ -740,9 +849,33 @@ export function Toolbar({
             onToolChange,
             selectedTileType,
             currentTool,
-            selectedNoteStyle,
-            onNoteStyleChange,
+            cycleNoteStyle,
         ],
+    );
+
+    const handleNoteTilePress = useCallback(() => {
+        setOpenSubmenu("tile-note");
+        if (selectedTileType === "tile-note" && currentTool === "tile") {
+            cycleNoteStyle();
+            return;
+        }
+        onTileTypeSelect("tile-note");
+        onToolChange("tile");
+    }, [
+        selectedTileType,
+        currentTool,
+        cycleNoteStyle,
+        onTileTypeSelect,
+        onToolChange,
+    ]);
+
+    const handleNoteStyleSelect = useCallback(
+        (style: NoteStyle) => {
+            onNoteStyleChange?.(style);
+            onTileTypeSelect("tile-note");
+            onToolChange("tile");
+        },
+        [onNoteStyleChange, onTileTypeSelect, onToolChange],
     );
 
     return (
@@ -837,50 +970,78 @@ export function Toolbar({
                     <div className="h-px w-6 bg-border my-1" />
 
                     {/* Tiles */}
-                    {TILE_TYPES.map((tileType) => {
-                        // For note tiles, show the appropriate icon based on selected style
-                        const isNoteTile = tileType.type === "tile-note";
-                        const noteIcon =
-                            isNoteTile && selectedNoteStyle === "torn" ? (
-                                <TornNoteIcon className={ICON_CLASS} />
-                            ) : (
-                                tileType.icon
-                            );
-                        const noteLabel =
-                            isNoteTile && selectedNoteStyle === "torn"
-                                ? "Torn Note"
-                                : tileType.label;
-
-                        return (
+                    {noteTileInfo && (
+                        <div ref={noteButtonRef} className="relative">
                             <button
-                                key={tileType.type}
-                                onPointerDown={() =>
-                                    handleTileTypeClick(tileType.type)
-                                }
+                                onPointerDown={handleNoteTilePress}
                                 className={cn(
                                     "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
-                                    selectedTileType === tileType.type &&
+                                    selectedTileType === "tile-note" &&
                                         currentTool === "tile"
                                         ? "bg-accent text-accent-foreground shadow-sm"
                                         : "text-muted-foreground hover:text-foreground hover:bg-muted",
                                 )}
-                                title={`${noteLabel} (${tileType.hotkey})`}
+                                title={`${selectedNoteStyle === "torn" ? "Torn Note" : noteTileInfo.label} (${noteTileInfo.hotkey})`}
                             >
-                                {noteIcon}
+                                {selectedNoteStyle === "torn" ? (
+                                    <TornNoteIcon className={ICON_CLASS} />
+                                ) : (
+                                    noteTileInfo.icon
+                                )}
                                 <span
                                     className={cn(
                                         "text-[9px] font-mono absolute right-1 bottom-0.5",
-                                        selectedTileType === tileType.type &&
+                                        selectedTileType === "tile-note" &&
                                             currentTool === "tile"
                                             ? "opacity-70"
                                             : "opacity-40",
                                     )}
                                 >
-                                    {tileType.hotkey}
+                                    {noteTileInfo.hotkey}
                                 </span>
                             </button>
-                        );
-                    })}
+                            <NoteStyleSubmenu
+                                options={noteStyleOptions}
+                                selectedStyle={selectedNoteStyle}
+                                onStyleSelect={(style) => {
+                                    handleNoteStyleSelect(style);
+                                    setOpenSubmenu(null);
+                                }}
+                                isOpen={openSubmenu === "tile-note"}
+                                onClose={() => setOpenSubmenu(null)}
+                                buttonRef={noteButtonRef}
+                            />
+                        </div>
+                    )}
+                    {otherTileTypes.map((tileType) => (
+                        <button
+                            key={tileType.type}
+                            onPointerDown={() =>
+                                handleTileTypeClick(tileType.type)
+                            }
+                            className={cn(
+                                "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all group relative",
+                                selectedTileType === tileType.type &&
+                                    currentTool === "tile"
+                                    ? "bg-accent text-accent-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                            )}
+                            title={`${tileType.label} (${tileType.hotkey})`}
+                        >
+                            {tileType.icon}
+                            <span
+                                className={cn(
+                                    "text-[9px] font-mono absolute right-1 bottom-0.5",
+                                    selectedTileType === tileType.type &&
+                                        currentTool === "tile"
+                                        ? "opacity-70"
+                                        : "opacity-40",
+                                )}
+                            >
+                                {tileType.hotkey}
+                            </span>
+                        </button>
+                    ))}
 
                     <div className="h-px w-6 bg-border my-1" />
 
