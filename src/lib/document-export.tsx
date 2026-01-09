@@ -12,11 +12,16 @@ import type {
   DocumentSection,
   BoardElement,
   TileContentSection,
+  FrameImageSection,
   HeadingSection,
   TextSection,
   SpacerSection,
   TileContent,
 } from "./board-types";
+import {
+  renderFrameImageDataUrl,
+  type FrameImageResult,
+} from "./frame-image";
 
 // A4 dimensions in points (72 points per inch)
 const MM_TO_POINTS = 2.835;
@@ -300,10 +305,15 @@ interface PreRenderedContent {
   };
 }
 
+interface PreRenderedFrameImages {
+  [sectionId: string]: FrameImageResult;
+}
+
 interface DocumentPdfProps {
   documentContent: DocumentContent;
   allElements: BoardElement[];
   preRenderedContent: PreRenderedContent;
+  preRenderedFrames: PreRenderedFrameImages;
 }
 
 function getTileData(
@@ -402,10 +412,12 @@ function RenderSection({
   section,
   allElements,
   preRenderedContent,
+  preRenderedFrames,
 }: {
   section: DocumentSection;
   allElements: BoardElement[];
   preRenderedContent: PreRenderedContent;
+  preRenderedFrames: PreRenderedFrameImages;
 }) {
   switch (section.type) {
     case "heading": {
@@ -439,6 +451,35 @@ function RenderSection({
       );
     }
 
+    case "frame-image": {
+      const frameSection = section as FrameImageSection;
+      const frameImage = preRenderedFrames[frameSection.id];
+      if (!frameImage) {
+        return (
+          <Text style={styles.text}>
+            Frame image unavailable.
+          </Text>
+        );
+      }
+      const maxWidth = CONTENT_WIDTH_PT;
+      const widthScale =
+        frameImage.sourceWidth > 0
+          ? maxWidth / frameImage.sourceWidth
+          : 1;
+      const scale = Math.min(1, widthScale);
+      const displayWidth = frameImage.sourceWidth * scale;
+      const displayHeight = frameImage.sourceHeight * scale;
+
+      return (
+        <View style={styles.imageContainer}>
+          <Image
+            src={frameImage.dataUrl}
+            style={{ width: displayWidth, height: displayHeight }}
+          />
+        </View>
+      );
+    }
+
     default:
       return null;
   }
@@ -448,6 +489,7 @@ function DocumentPdf({
   documentContent,
   allElements,
   preRenderedContent,
+  preRenderedFrames,
 }: DocumentPdfProps) {
   const timestamp = new Date().toLocaleString();
 
@@ -472,6 +514,7 @@ function DocumentPdf({
               section={section}
               allElements={allElements}
               preRenderedContent={preRenderedContent}
+              preRenderedFrames={preRenderedFrames}
             />
           </View>
         ))}
@@ -592,6 +635,7 @@ export async function exportDocumentToPdf(
   try {
     // Pre-render all Mermaid diagrams
     const preRenderedContent: PreRenderedContent = {};
+    const preRenderedFrames: PreRenderedFrameImages = {};
 
     for (const section of documentContent.layout.sections) {
       if (section.type === "tile-content") {
@@ -611,6 +655,17 @@ export async function exportDocumentToPdf(
           }
         }
       }
+      if (section.type === "frame-image") {
+        const frameSection = section as FrameImageSection;
+        const result = renderFrameImageDataUrl({
+          frameId: frameSection.frameId,
+          elements: allElements,
+          scale: 2,
+        });
+        if (result) {
+          preRenderedFrames[frameSection.id] = result;
+        }
+      }
     }
 
     const blob = await pdf(
@@ -618,6 +673,7 @@ export async function exportDocumentToPdf(
         documentContent={documentContent}
         allElements={allElements}
         preRenderedContent={preRenderedContent}
+        preRenderedFrames={preRenderedFrames}
       />
     ).toBlob();
 

@@ -4,6 +4,7 @@ export const SELECTORS = {
     elementId: "[data-element-id]",
     tileHeader: '[data-tile-header="true"]',
     frameLabel: '[data-frame-label="true"]',
+    frameHandle: '[data-frame-handle="true"]',
     interactive:
         '[data-canvas-interactive="true"], [contenteditable="true"], input, textarea',
 } as const;
@@ -18,6 +19,7 @@ export function getEventTargetInfo(e: MouseEvent | ReactMouseEvent) {
         isInteractive: !!target?.closest?.(SELECTORS.interactive),
         isTileHeader: !!target?.closest?.(SELECTORS.tileHeader),
         frameLabel: target?.closest?.(SELECTORS.frameLabel),
+        frameHandle: target?.closest?.(SELECTORS.frameHandle),
         target,
     };
 }

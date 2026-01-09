@@ -6,6 +6,7 @@ import type {
     BoardElement,
     TileType,
     NoteStyle,
+    FrameStyle,
 } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
@@ -25,6 +26,9 @@ import {
 import { getEventTargetInfo } from "./utils/eventTargeting";
 import { isInViewport } from "./utils/viewport";
 import { TrashDropZone } from "./trash-drop-zone";
+import { getFrameMembershipUpdates } from "./utils/frameSections";
+import { GripVertical } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CanvasProps {
     tool: Tool;
@@ -44,6 +48,7 @@ interface CanvasProps {
     letterSpacing?: number;
     lineHeight?: number;
     fillPattern?: "none" | "solid";
+    frameStyle?: FrameStyle;
     selectedTileType?: TileType | null;
     selectedNoteStyle?: NoteStyle;
     handDrawnMode?: boolean;
@@ -99,6 +104,7 @@ export function Canvas({
     letterSpacing = 0,
     lineHeight = 1.5,
     fillPattern = "none",
+    frameStyle = "minimal",
     selectedTileType = null,
     selectedNoteStyle = "classic",
     handDrawnMode = false,
@@ -702,6 +708,7 @@ export function Canvas({
         letterSpacing,
         lineHeight,
         fillPattern,
+        frameStyle,
         selectedTileType,
         selectedNoteStyle,
         handDrawnMode,
@@ -999,7 +1006,6 @@ export function Canvas({
         strokeStyle,
         arrowStart,
         arrowEnd,
-        editingFrameLabelId,
     });
 
     const cursorStyle = getCanvasCursorStyle({
@@ -1025,20 +1031,24 @@ export function Canvas({
             ? `M ${lassoPoints.map((p) => `${p.x} ${p.y}`).join(" L ")}`
             : null;
 
-    const editingFrame = useMemo(
-        () =>
-            editingFrameLabelId
-                ? (elements.find(
-                      (el) =>
-                          el.id === editingFrameLabelId && el.type === "frame",
-                  ) ?? null)
-                : null,
-        [editingFrameLabelId, elements],
-    );
-
-    const handleFrameLabelCommit = useCallback(() => {
+    useEffect(() => {
         if (!editingFrameLabelId) return;
-        const nextLabel = frameLabelValue.trim() || "Frame";
+        const labelEl = document.querySelector(
+            `[data-frame-label-input="true"][data-element-id="${editingFrameLabelId}"]`,
+        ) as HTMLElement | null;
+        if (!labelEl) return;
+        labelEl.focus();
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(labelEl);
+        range.collapse(false);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+    }, [editingFrameLabelId]);
+
+    const handleFrameLabelCommit = useCallback((value?: string) => {
+        if (!editingFrameLabelId) return;
+        const nextLabel = (value ?? frameLabelValue).trim() || "Frame";
         onUpdateElement(editingFrameLabelId, { label: nextLabel });
         setEditingFrameLabelId(null);
     }, [
@@ -1057,6 +1067,29 @@ export function Canvas({
             onSelectionChange(selected);
         }
     }, [selectedIds, elements, onSelectionChange]);
+
+    useEffect(() => {
+        if (isReadOnly) return;
+        if (isDragging || isResizing || isDrawing || isPanning) return;
+        const updates = getFrameMembershipUpdates(elements);
+        if (updates.length === 0) return;
+        if (onBatchUpdateElements) {
+            onBatchUpdateElements(updates);
+        } else {
+            updates.forEach(({ id, updates: elementUpdates }) => {
+                onUpdateElement(id, elementUpdates);
+            });
+        }
+    }, [
+        elements,
+        isDragging,
+        isResizing,
+        isDrawing,
+        isPanning,
+        isReadOnly,
+        onBatchUpdateElements,
+        onUpdateElement,
+    ]);
 
     // Ensure selected text boxes never clip their content (e.g. after style changes like letterSpacing).
     useEffect(() => {
@@ -1338,40 +1371,139 @@ export function Canvas({
                 </div>
             </div>
 
-            {/* Frame label editor */}
-            {editingFrame && (
+            {/* Frame labels + handles */}
+            <div className="absolute inset-0 pointer-events-none z-35">
                 <div
-                    className="absolute z-40"
+                    className="absolute inset-0 pointer-events-none"
                     style={{
-                        left: (editingFrame.x ?? 0) * zoom + pan.x + 6 * zoom,
-                        top: (editingFrame.y ?? 0) * zoom + pan.y - 32 * zoom,
+                        transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                        transformOrigin: "0 0",
                     }}
-                    data-canvas-interactive="true"
                 >
-                    <input
-                        value={frameLabelValue}
-                        onChange={(e) => setFrameLabelValue(e.target.value)}
-                        onBlur={handleFrameLabelCommit}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleFrameLabelCommit();
-                            } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                setEditingFrameLabelId(null);
-                            }
-                        }}
-                        className="rounded-sm bg-transparent px-1.5 py-0.5 text-xs outline-none border border-border shadow-sm"
-                        style={{
-                            width: 160 * zoom,
-                            fontSize: 12 * zoom,
-                            lineHeight: `${14 * zoom}px`,
-                            color: editingFrame.strokeColor,
-                        }}
-                        autoFocus
-                    />
+                    {[...visibleElements]
+                        .filter((el) => el.type === "frame")
+                        .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
+                        .map((el) => {
+                            const labelText =
+                                (el.label ?? "Frame").trim() || "Frame";
+                            const isEditing = editingFrameLabelId === el.id;
+                            const isSelected = selectedIds.includes(el.id);
+                            const labelX = (el.x ?? 0) + 8;
+                            const labelY = (el.y ?? 0) - 36;
+
+                            return (
+                                <div
+                                    key={`frame-label-${el.id}`}
+                                    className="absolute pointer-events-auto"
+                                    style={{
+                                        left: labelX,
+                                        top: labelY,
+                                        zIndex: (el.zIndex || 0) + 1,
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            data-frame-handle="true"
+                                            data-element-id={el.id}
+                                            className={cn(
+                                                "h-5 w-5 rounded-sm flex items-center justify-center text-muted-foreground/80 bg-transparent transition-colors cursor-grab active:cursor-grabbing",
+                                                isSelected
+                                                    ? "text-foreground"
+                                                    : "hover:text-foreground hover:bg-muted/40",
+                                            )}
+                                            title="Drag frame"
+                                            aria-label="Drag frame"
+                                        >
+                                            <GripVertical className="h-3.5 w-3.5" />
+                                        </button>
+                                        <span
+                                            role="textbox"
+                                            data-frame-label="true"
+                                            data-element-id={el.id}
+                                            data-frame-label-input={
+                                                isEditing ? "true" : undefined
+                                            }
+                                            contentEditable={isEditing}
+                                            suppressContentEditableWarning
+                                            onPointerDown={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedIds([el.id]);
+                                                if (!isEditing) {
+                                                    setFrameLabelValue(
+                                                        labelText,
+                                                    );
+                                                    setEditingFrameLabelId(
+                                                        el.id,
+                                                    );
+                                                }
+                                            }}
+                                            onInput={(e) =>
+                                                setFrameLabelValue(
+                                                    e.currentTarget
+                                                        .textContent || "",
+                                                )
+                                            }
+                                            onBlur={(e) => {
+                                                if (isEditing) {
+                                                    const nextValue =
+                                                        e.currentTarget
+                                                            .textContent || "";
+                                                    setFrameLabelValue(
+                                                        nextValue,
+                                                    );
+                                                    handleFrameLabelCommit(
+                                                        nextValue,
+                                                    );
+                                                }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (!isEditing) return;
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const nextValue =
+                                                        e.currentTarget
+                                                            .textContent || "";
+                                                    setFrameLabelValue(
+                                                        nextValue,
+                                                    );
+                                                    handleFrameLabelCommit(
+                                                        nextValue,
+                                                    );
+                                                } else if (e.key === "Escape") {
+                                                    e.preventDefault();
+                                                    setEditingFrameLabelId(
+                                                        null,
+                                                    );
+                                                    setFrameLabelValue(
+                                                        labelText,
+                                                    );
+                                                }
+                                                e.stopPropagation();
+                                            }}
+                                            className={cn(
+                                                "min-w-[120px] max-w-[240px] h-6 inline-flex items-center px-2 text-[14px] leading-none font-semibold font-[var(--font-heading)] bg-card/90 backdrop-blur-md outline-none",
+                                                isEditing
+                                                    ? "border-b border-ring bg-background"
+                                                    : "rounded-md hover:bg-muted/60 transition-colors cursor-text",
+                                                !isEditing && "truncate",
+                                            )}
+                                            style={{
+                                                color: el.strokeColor,
+                                                borderColor:
+                                                    isEditing || isSelected
+                                                        ? el.strokeColor
+                                                        : undefined,
+                                            }}
+                                        >
+                                            {labelText}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
                 </div>
-            )}
+            </div>
 
             {/* Canvas Overlay (selection, in-progress drawings, cursors) */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">

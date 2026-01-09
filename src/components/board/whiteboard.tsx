@@ -30,6 +30,7 @@ import type {
     TileType,
     LayerFolder,
     NoteStyle,
+    FrameStyle,
 } from "@/lib/board-types";
 import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import {
@@ -62,6 +63,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         null,
     );
     const [selectedNoteStyle, setSelectedNoteStyle] = useState<NoteStyle>("classic");
+    const [frameStyle, setFrameStyle] = useState<FrameStyle>("minimal");
 
     // Default color based on theme: black in light mode, white in dark mode
     const getDefaultStrokeColor = () => {
@@ -1015,6 +1017,22 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         [selectedElements, saveToUndoStack, handleUpdateElement],
     );
 
+    const handleFrameStyleChange = useCallback(
+        (style: FrameStyle) => {
+            const frameSelection = selectedElements.filter(
+                (el) => el.type === "frame",
+            );
+            if (frameSelection.length > 0) {
+                saveToUndoStack();
+                frameSelection.forEach((el) => {
+                    handleUpdateElement(el.id, { frameStyle: style });
+                });
+            }
+            setFrameStyle(style);
+        },
+        [selectedElements, saveToUndoStack, handleUpdateElement],
+    );
+
     const handleLineCapChange = useCallback(
         (cap: "butt" | "round") => {
             if (selectedElements.length > 0) {
@@ -1701,6 +1719,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         [layerFolders],
     );
 
+    const selectedFrameId =
+        selectedElements.length === 1 && selectedElements[0].type === "frame"
+            ? selectedElements[0].id
+            : null;
+
     const handleMoveToFolder = useCallback(
         (elementId: string, folderId: string | null) => {
             saveToUndoStack();
@@ -2009,6 +2032,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onLineHeightChange={handleLineHeightChange}
                         fillPattern={fillPattern}
                         onFillPatternChange={handleFillPatternChange}
+                        frameStyle={frameStyle}
+                        onFrameStyleChange={handleFrameStyleChange}
                         selectedElements={selectedElements}
                         onBringToFront={handleBringToFront}
                         onSendToBack={handleSendToBack}
@@ -2054,6 +2079,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     letterSpacing={letterSpacing}
                     lineHeight={lineHeight}
                     fillPattern={fillPattern}
+                    frameStyle={frameStyle}
                     selectedTileType={selectedTileType}
                     selectedNoteStyle={selectedNoteStyle}
                     handDrawnMode={handDrawnMode}
@@ -2167,6 +2193,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onClose={() => setShowExportDialog(false)}
                     elements={elements}
                     canvasBackground={canvasBackground}
+                    selectedFrameId={selectedFrameId}
                 />
             </div>
 

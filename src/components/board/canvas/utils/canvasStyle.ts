@@ -69,9 +69,17 @@ export function getCanvasCursorStyle({
         case "eraser":
             return "none";
         case "select":
-            return (
-                hoverCursor ?? (selectedIds.length > 0 ? "grab" : "crosshair")
-            );
+            if (hoverCursor) return hoverCursor;
+            if (selectedIds.length === 0) return "crosshair";
+            {
+                const selectedElements = elements.filter((el) =>
+                    selectedIds.includes(el.id),
+                );
+                const selectionIsFramesOnly =
+                    selectedElements.length > 0 &&
+                    selectedElements.every((el) => el.type === "frame");
+                return selectionIsFramesOnly ? "default" : "grab";
+            }
         case "text":
             return "text";
         case "laser":

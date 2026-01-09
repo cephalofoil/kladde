@@ -7,6 +7,8 @@ import type {
   TextSection,
   SpacerSection,
   TileContentSection,
+  FrameImageSection,
+  FrameStyle,
 } from "./board-types";
 
 /**
@@ -152,6 +154,23 @@ export function createTileContentSection(
     cachedTileType,
     cachedTileTitle,
     cachedContent,
+  };
+}
+
+/**
+ * Create a frame image section
+ */
+export function createFrameImageSection(
+  frameId: string,
+  cachedFrameLabel?: string,
+  cachedFrameStyle?: FrameStyle
+): FrameImageSection {
+  return {
+    id: generateSectionId(),
+    type: "frame-image",
+    frameId,
+    cachedFrameLabel,
+    cachedFrameStyle,
   };
 }
 

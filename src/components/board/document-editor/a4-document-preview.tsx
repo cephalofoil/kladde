@@ -18,6 +18,7 @@ import { HeadingSectionRenderer } from "./section-renderers/heading-section";
 import { TextSectionRenderer } from "./section-renderers/text-section";
 import { SpacerSectionRenderer } from "./section-renderers/spacer-section";
 import { TileContentSectionRenderer } from "./section-renderers/tile-content-section";
+import { FrameImageSectionRenderer } from "./section-renderers/frame-image-section";
 
 interface A4DocumentPreviewProps {
   documentContent: DocumentContent;
@@ -273,6 +274,14 @@ export function A4DocumentPreview({
                         )}
                         {section.type === "tile-content" && (
                           <TileContentSectionRenderer
+                            section={section}
+                            allElements={allElements}
+                            onUpdate={(updates) => onUpdateSection(section.id, updates)}
+                            onRemove={() => onRemoveSection(section.id)}
+                          />
+                        )}
+                        {section.type === "frame-image" && (
+                          <FrameImageSectionRenderer
                             section={section}
                             allElements={allElements}
                             onUpdate={(updates) => onUpdateSection(section.id, updates)}

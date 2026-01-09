@@ -48,6 +48,7 @@ import {
     FONTS,
     FONT_SIZES,
     BoardElement,
+    FrameStyle,
 } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
@@ -99,6 +100,8 @@ interface ToolSidebarProps {
     onLineHeightChange: (height: number) => void;
     fillPattern?: "none" | "solid";
     onFillPatternChange?: (pattern: "none" | "solid") => void;
+    frameStyle: FrameStyle;
+    onFrameStyleChange?: (style: FrameStyle) => void;
     lineCap?: "butt" | "round";
     onLineCapChange?: (cap: "butt" | "round") => void;
     selectedElements?: BoardElement[];
@@ -144,6 +147,11 @@ const HIGHLIGHT_COLORS = [
     "#93c5fd",
     "#f9a8d4",
 ];
+const FRAME_STYLE_OPTIONS: Array<{ id: FrameStyle; label: string }> = [
+    { id: "minimal", label: "Minimal" },
+    { id: "cutting-mat", label: "Cutting Mat" },
+    { id: "notebook", label: "Notebook" },
+];
 
 const CONTROL_BUTTON =
     "rounded-md border border-input bg-background/50 shadow-xs transition-all duration-200 hover:bg-muted/60 hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
@@ -181,6 +189,8 @@ export function ToolSidebar({
     onLineHeightChange,
     fillPattern = "none",
     onFillPatternChange,
+    frameStyle = "minimal",
+    onFrameStyleChange,
     lineCap = "round",
     onLineCapChange,
     selectedElements = [],
@@ -667,6 +677,16 @@ export function ToolSidebar({
         hasSelectedElements &&
         selectedElements.every((el) => el.type === "frame");
     const isFrameToolActive = !hasSelectedElements && selectedTool === "frame";
+    const selectedFrameStyles = selectedElements
+        .filter((el) => el.type === "frame")
+        .map((el) => el.frameStyle ?? "minimal");
+    const hasFrameSelection = selectedFrameStyles.length > 0;
+    const uniformFrameStyle =
+        selectedFrameStyles.length > 0 &&
+        selectedFrameStyles.every((style) => style === selectedFrameStyles[0])
+            ? selectedFrameStyles[0]
+            : frameStyle;
+    const showFrameStyleControls = isFrameToolActive || hasFrameSelection;
     const showStrokeWidthAndStyle =
         !isTextTool && !isFrameOnlySelection && !isFrameToolActive;
     const showLineCapControls = hasSelectedElements
@@ -832,6 +852,72 @@ export function ToolSidebar({
                             max={3}
                             step={0.1}
                         />
+                    </div>
+                </div>
+            )}
+
+            {showFrameStyleControls && onFrameStyleChange && (
+                <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Frame Style
+                    </label>
+                    <div className="grid grid-cols-3 gap-1">
+                        {FRAME_STYLE_OPTIONS.map((styleOption) => {
+                            const isActive =
+                                uniformFrameStyle === styleOption.id;
+                            return (
+                                <button
+                                    key={styleOption.id}
+                                    type="button"
+                                    onClick={() =>
+                                        onFrameStyleChange(styleOption.id)
+                                    }
+                                    className={cn(
+                                        CONTROL_BUTTON,
+                                        "h-auto py-2 px-1 flex flex-col items-center gap-1",
+                                        isActive
+                                            ? CONTROL_BUTTON_SELECTED
+                                            : undefined,
+                                    )}
+                                    title={styleOption.label}
+                                    aria-pressed={isActive}
+                                >
+                                    <div
+                                        className={cn(
+                                            "relative h-8 w-full rounded-sm border border-border/60 overflow-hidden",
+                                            isActive
+                                                ? "border-foreground/30"
+                                                : "border-border/60",
+                                        )}
+                                    >
+                                        {styleOption.id === "minimal" && (
+                                            <div className="absolute inset-0 bg-background" />
+                                        )}
+                                        {styleOption.id === "cutting-mat" && (
+                                            <div
+                                                className="absolute inset-0"
+                                                style={{
+                                                    backgroundColor:
+                                                        "#2d6f5e",
+                                                    backgroundImage:
+                                                        "linear-gradient(to right, rgba(92, 184, 159, 0.5) 1px, transparent 1px), linear-gradient(to bottom, rgba(92, 184, 159, 0.5) 1px, transparent 1px)",
+                                                    backgroundSize: "6px 6px",
+                                                }}
+                                            />
+                                        )}
+                                        {styleOption.id === "notebook" && (
+                                            <div className="absolute inset-0 bg-[#f5f0e5]">
+                                                <div className="absolute left-0 top-0 bottom-0 w-2 bg-[#1e5a5a]" />
+                                                <div className="absolute right-0 top-2 w-3 h-4 bg-[#e8dcc8]" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground">
+                                        {styleOption.label}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             )}

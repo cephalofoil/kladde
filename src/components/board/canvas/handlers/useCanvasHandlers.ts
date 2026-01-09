@@ -99,6 +99,7 @@ interface UseCanvasHandlersProps {
     letterSpacing: number;
     lineHeight: number;
     fillPattern: "none" | "solid";
+    frameStyle: BoardElement["frameStyle"];
     selectedTileType?: TileType | null;
     selectedNoteStyle?: NoteStyle;
     handDrawnMode?: boolean;
@@ -139,6 +140,7 @@ export function useCanvasHandlers({
     letterSpacing,
     lineHeight,
     fillPattern,
+    frameStyle = "minimal",
     selectedTileType,
     selectedNoteStyle = "classic",
     handDrawnMode = false,
@@ -2344,6 +2346,7 @@ export function useCanvasHandlers({
                 elementId: clickedElementId,
                 isInteractive,
                 frameLabel,
+                frameHandle,
             } = getEventTargetInfo(e);
 
             const clickedElement = clickedElementId
@@ -2374,9 +2377,34 @@ export function useCanvasHandlers({
                       )
                     : null;
                 if (frameElement) {
+                    setSelectedIds([frameElement.id]);
                     setEditingFrameLabelId(frameElement.id);
                     setFrameLabelValue(frameElement.label ?? "Frame");
                 }
+                return;
+            }
+
+            const frameHandleTarget = frameHandle as HTMLElement | null;
+            if (frameHandleTarget && selectableClickedElement?.type === "frame") {
+                e.preventDefault();
+                const frameId = selectableClickedElement.id;
+                const containedElements = currentElements.filter(
+                    (el) =>
+                        el.frameId === frameId &&
+                        el.type !== "laser" &&
+                        !el.hidden &&
+                        !el.locked &&
+                        !remotelySelectedIds.has(el.id),
+                );
+                const dragElements = [
+                    selectableClickedElement,
+                    ...containedElements,
+                ];
+                onStartTransform?.();
+                setSelectedIds([selectableClickedElement.id]);
+                setIsDragging(true);
+                setDragStart(point);
+                setOriginalElements(dragElements.map((el) => ({ ...el })));
                 return;
             }
 
@@ -2403,6 +2431,13 @@ export function useCanvasHandlers({
             }
 
             if (tool === "select") {
+                const selectionHasFrame = selectedElements.some(
+                    (el) => el.type === "frame",
+                );
+                const dragSelectionElements = selectionHasFrame
+                    ? selectedElements.filter((el) => el.type !== "frame")
+                    : selectedElements;
+
                 // Double-click text to edit (Excalidraw-style).
                 if (
                     e.detail === 2 &&
@@ -2712,12 +2747,17 @@ export function useCanvasHandlers({
                         point.y >= visualBounds.y &&
                         point.y <= visualBounds.y + visualBounds.height;
 
-                    if (pointInSelectionFrame && clickedIsInSelection) {
+                    if (
+                        pointInSelectionFrame &&
+                        clickedIsInSelection &&
+                        dragSelectionElements.length > 0 &&
+                        selectableClickedElement?.type !== "frame"
+                    ) {
                         onStartTransform?.();
                         setIsDragging(true);
                         setDragStart(point);
                         setOriginalElements(
-                            selectedElements.map((el) => ({ ...el })),
+                            dragSelectionElements.map((el) => ({ ...el })),
                         );
                         return;
                     }
@@ -2731,6 +2771,10 @@ export function useCanvasHandlers({
                     );
                     const clickedAllSelected = clickedIds.every((id) =>
                         selectedIds.includes(id),
+                    );
+                    const dragClickedElements = currentElements.filter(
+                        (el) =>
+                            clickedIds.includes(el.id) && el.type !== "frame",
                     );
 
                     // Shift-click to add to selection
@@ -2750,24 +2794,32 @@ export function useCanvasHandlers({
                             ]);
                         }
                     } else {
+                        if (selectableClickedElement.type === "frame") {
+                            setSelectedIds(clickedIds);
+                            return;
+                        }
                         // If clicked element is already in selection, drag all selected elements
                         if (clickedAllSelected) {
+                            if (dragSelectionElements.length === 0) {
+                                return;
+                            }
                             onStartTransform?.();
                             setIsDragging(true);
                             setDragStart(point);
                             setOriginalElements(
-                                selectedElements.map((el) => ({ ...el })),
+                                dragSelectionElements.map((el) => ({ ...el })),
                             );
                         } else {
                             // Otherwise, select only the clicked element and start dragging it
                             setSelectedIds(clickedIds);
+                            if (dragClickedElements.length === 0) {
+                                return;
+                            }
                             onStartTransform?.();
                             setIsDragging(true);
                             setDragStart(point);
                             setOriginalElements(
-                                currentElements
-                                    .filter((el) => clickedIds.includes(el.id))
-                                    .map((el) => ({ ...el })),
+                                dragClickedElements.map((el) => ({ ...el })),
                             );
                         }
                     }
@@ -2976,6 +3028,7 @@ export function useCanvasHandlers({
                 newElement.strokeColor = "#94a3b8";
                 newElement.fillColor = "transparent";
                 newElement.label = "Frame";
+                newElement.frameStyle = frameStyle ?? "minimal";
             }
 
             if (tool === "pen") {
@@ -3029,6 +3082,7 @@ export function useCanvasHandlers({
             arrowEnd,
             cornerRadius,
             fillPattern,
+            frameStyle,
             getMousePosition,
             elementsRef,
             pan,

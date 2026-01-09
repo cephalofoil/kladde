@@ -101,7 +101,6 @@ interface UseCanvasRenderersProps {
     strokeStyle: "solid" | "dashed" | "dotted";
     arrowStart: NonNullable<BoardElement["arrowStart"]>;
     arrowEnd: NonNullable<BoardElement["arrowEnd"]>;
-    editingFrameLabelId?: string | null;
 }
 
 interface RenderElementOptions {
@@ -190,7 +189,6 @@ export function useCanvasRenderers({
     strokeStyle,
     arrowStart,
     arrowEnd,
-    editingFrameLabelId,
 }: UseCanvasRenderersProps) {
     const getConnectorDragPreviewElement = useCallback(
         (element: BoardElement): BoardElement => {
@@ -2042,13 +2040,30 @@ export function useCanvasRenderers({
                           ? "2,6"
                           : "none";
                 const elCornerRadius = element.cornerRadius ?? 8;
+                const frameStyle = element.frameStyle ?? "minimal";
+                const frameCornerRadius =
+                    frameStyle === "notebook"
+                        ? Math.max(elCornerRadius, 18)
+                        : frameStyle === "cutting-mat"
+                          ? Math.max(elCornerRadius, 6)
+                          : elCornerRadius;
                 const elFillColor = element.fillColor || "none";
+                const styledFillColor =
+                    frameStyle === "cutting-mat"
+                        ? "#2d6f5e"
+                        : frameStyle === "notebook"
+                          ? "#f5f0e5"
+                          : elFillColor;
+                const allowFramePointerEvents = false;
                 // Treat 'transparent' same as 'none' for hit detection - invisible fills shouldn't be clickable
                 const hasVisibleFill =
-                    elFillColor !== "none" && elFillColor !== "transparent";
+                    styledFillColor !== "none" &&
+                    styledFillColor !== "transparent";
                 // Convert transparent to none for proper pointer-events behavior in SVG
                 const fillValue =
-                    elFillColor === "transparent" ? "none" : elFillColor;
+                    styledFillColor === "transparent"
+                        ? "none"
+                        : styledFillColor;
                 // Only visible parts should be clickable: if has fill AND stroke, allow both; if only stroke, only stroke; if only fill, only fill
                 const pointerEventsValue =
                     hasVisibleFill && element.strokeWidth > 0
@@ -2058,6 +2073,40 @@ export function useCanvasRenderers({
                           : element.strokeWidth > 0
                             ? "stroke"
                             : "none";
+                const frameX = element.x ?? 0;
+                const frameY = element.y ?? 0;
+                const frameWidth = element.width ?? 0;
+                const frameHeight = element.height ?? 0;
+                const overlayInset = Math.max(element.strokeWidth, 1);
+                const overlayX = frameX + overlayInset;
+                const overlayY = frameY + overlayInset;
+                const overlayWidth = Math.max(
+                    frameWidth - overlayInset * 2,
+                    0,
+                );
+                const overlayHeight = Math.max(
+                    frameHeight - overlayInset * 2,
+                    0,
+                );
+                const overlayClipId = `frame-overlay-${element.id}`;
+                const gridId = `frame-grid-${element.id}`;
+                const noiseId = `frame-noise-${element.id}`;
+                const gridSize = 20;
+                const measurementBarSize = 16;
+                const gridColor = "#5cb89f";
+                const barColor = "#2a685a";
+                const scratchColor = "#1a4a3d";
+                const gridColumns = Math.max(
+                    0,
+                    Math.floor(overlayWidth / gridSize),
+                );
+                const gridRows = Math.max(
+                    0,
+                    Math.floor(overlayHeight / gridSize),
+                );
+                const majorTickEvery = 5;
+                const majorTickLength = Math.max(measurementBarSize - 4, 2);
+                const minorTickLength = Math.max(measurementBarSize - 8, 2);
                 // Create wider invisible hitbox for easier clicking on stroke-only shapes
                 const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
                 const hitboxOffset =
@@ -2065,38 +2114,91 @@ export function useCanvasRenderers({
                 return (
                     <g key={element.id} transform={rotationTransform}>
                         {/* Invisible wider hitbox for easier clicking (stroke-only shapes) */}
-                        {!hasVisibleFill && element.strokeWidth > 0 && (
+                        {allowFramePointerEvents &&
+                            !hasVisibleFill &&
+                            element.strokeWidth > 0 && (
                             <rect
                                 data-element-id={element.id}
-                                x={(element.x ?? 0) - hitboxOffset}
-                                y={(element.y ?? 0) - hitboxOffset}
-                                width={(element.width ?? 0) + hitboxOffset * 2}
+                                x={frameX - hitboxOffset}
+                                y={frameY - hitboxOffset}
+                                width={frameWidth + hitboxOffset * 2}
                                 height={
-                                    (element.height ?? 0) + hitboxOffset * 2
+                                    frameHeight + hitboxOffset * 2
                                 }
                                 stroke="transparent"
                                 strokeWidth={hitboxStrokeWidth}
                                 fill="none"
-                                rx={elCornerRadius}
+                                rx={frameCornerRadius}
                                 strokeDasharray={strokeDasharray}
                                 pointerEvents="stroke"
                             />
                         )}
+                        {frameStyle !== "minimal" &&
+                            overlayWidth > 0 &&
+                            overlayHeight > 0 && (
+                                <defs>
+                                    {frameStyle === "cutting-mat" && (
+                                        <pattern
+                                            id={gridId}
+                                            width={20}
+                                            height={20}
+                                            patternUnits="userSpaceOnUse"
+                                            x={overlayX}
+                                            y={overlayY}
+                                        >
+                                            <path
+                                                d="M 20 0 L 0 0 0 20"
+                                                fill="none"
+                                                stroke={gridColor}
+                                                strokeWidth="1"
+                                                opacity="0.45"
+                                            />
+                                        </pattern>
+                                    )}
+                                    {frameStyle === "cutting-mat" && (
+                                        <filter id={noiseId}>
+                                            <feTurbulence
+                                                type="fractalNoise"
+                                                baseFrequency="2"
+                                                numOctaves="3"
+                                                stitchTiles="stitch"
+                                            />
+                                        </filter>
+                                    )}
+                                    <clipPath id={overlayClipId}>
+                                        <rect
+                                            x={overlayX}
+                                            y={overlayY}
+                                            width={overlayWidth}
+                                            height={overlayHeight}
+                                            rx={Math.max(
+                                                frameCornerRadius -
+                                                    overlayInset,
+                                                0,
+                                            )}
+                                        />
+                                    </clipPath>
+                                </defs>
+                            )}
                         {/* Visible frame */}
                         <rect
                             data-element-id={
-                                !hasVisibleFill && element.strokeWidth > 0
+                                allowFramePointerEvents &&
+                                !hasVisibleFill &&
+                                element.strokeWidth > 0
                                     ? undefined
-                                    : element.id
+                                    : allowFramePointerEvents
+                                      ? element.id
+                                      : undefined
                             }
-                            x={element.x}
-                            y={element.y}
-                            width={element.width}
-                            height={element.height}
+                            x={frameX}
+                            y={frameY}
+                            width={frameWidth}
+                            height={frameHeight}
                             stroke={element.strokeColor}
                             strokeWidth={element.strokeWidth}
                             fill={fillValue}
-                            rx={elCornerRadius}
+                            rx={frameCornerRadius}
                             opacity={
                                 isMarkedForDeletion
                                     ? elOpacity * 0.3
@@ -2104,58 +2206,385 @@ export function useCanvasRenderers({
                             }
                             strokeDasharray={strokeDasharray}
                             pointerEvents={
-                                !hasVisibleFill && element.strokeWidth > 0
-                                    ? "none"
-                                    : pointerEventsValue
+                                allowFramePointerEvents
+                                    ? !hasVisibleFill &&
+                                      element.strokeWidth > 0
+                                        ? "none"
+                                        : pointerEventsValue
+                                    : "none"
                             }
                         />
-                        {element.label &&
-                            element.id !== editingFrameLabelId && (
+                        {frameStyle === "cutting-mat" &&
+                            overlayWidth > 0 &&
+                            overlayHeight > 0 && (
                                 <>
                                     <rect
-                                        data-frame-label="true"
-                                        data-element-id={element.id}
-                                        x={(element.x ?? 0) + 4}
-                                        y={(element.y ?? 0) - 24}
-                                        width={Math.max(
-                                            120,
-                                            Math.min(element.width ?? 0, 220),
-                                        )}
-                                        height={20}
-                                        fill="none"
-                                        stroke="transparent"
-                                        strokeWidth={18}
-                                        pointerEvents="stroke"
+                                        x={overlayX}
+                                        y={overlayY}
+                                        width={overlayWidth}
+                                        height={overlayHeight}
+                                        fill={`url(#${gridId})`}
+                                        clipPath={`url(#${overlayClipId})`}
+                                        pointerEvents="none"
                                     />
-                                    <text
-                                        data-frame-label="true"
-                                        data-element-id={element.id}
-                                        x={(element.x ?? 0) + 8}
-                                        y={(element.y ?? 0) - 8}
-                                        fill={element.strokeColor}
-                                        fontSize={12}
-                                        fontFamily="inherit"
-                                        fontWeight="400"
-                                        opacity={
-                                            isMarkedForDeletion
-                                                ? elOpacity * 0.3
-                                                : elOpacity
+                                    <rect
+                                        x={overlayX}
+                                        y={overlayY}
+                                        width={overlayWidth}
+                                        height={Math.min(
+                                            measurementBarSize,
+                                            overlayHeight,
+                                        )}
+                                        fill={barColor}
+                                        opacity={0.75}
+                                        clipPath={`url(#${overlayClipId})`}
+                                        pointerEvents="none"
+                                    />
+                                    <rect
+                                        x={
+                                            overlayX +
+                                            Math.max(
+                                                overlayWidth -
+                                                    measurementBarSize,
+                                                0,
+                                            )
                                         }
-                                        pointerEvents="all"
-                                        style={{ userSelect: "none" }}
+                                        y={overlayY}
+                                        width={Math.min(
+                                            measurementBarSize,
+                                            overlayWidth,
+                                        )}
+                                        height={overlayHeight}
+                                        fill={barColor}
+                                        opacity={0.75}
+                                        clipPath={`url(#${overlayClipId})`}
+                                        pointerEvents="none"
+                                    />
+                                    <rect
+                                        x={overlayX}
+                                        y={overlayY}
+                                        width={overlayWidth}
+                                        height={overlayHeight}
+                                        fill="#ffffff"
+                                        opacity={0.16}
+                                        filter={`url(#${noiseId})`}
+                                        clipPath={`url(#${overlayClipId})`}
+                                        pointerEvents="none"
+                                    />
+                                    <line
+                                        x1={overlayX + 40}
+                                        y1={overlayY + 70}
+                                        x2={overlayX + 160}
+                                        y2={overlayY + 90}
+                                        stroke={scratchColor}
+                                        strokeWidth={2}
+                                        opacity={0.25}
+                                        pointerEvents="none"
+                                    />
+                                    <line
+                                        x1={overlayX + 120}
+                                        y1={
+                                            overlayY +
+                                            overlayHeight -
+                                            80
+                                        }
+                                        x2={overlayX + 220}
+                                        y2={
+                                            overlayY +
+                                            overlayHeight -
+                                            60
+                                        }
+                                        stroke={scratchColor}
+                                        strokeWidth={1.5}
+                                        opacity={0.2}
+                                        pointerEvents="none"
+                                    />
+                                    <line
+                                        x1={overlayX + 200}
+                                        y1={overlayY + 160}
+                                        x2={overlayX + 260}
+                                        y2={overlayY + 140}
+                                        stroke={scratchColor}
+                                        strokeWidth={1}
+                                        opacity={0.25}
+                                        pointerEvents="none"
+                                    />
+                                    {Array.from({
+                                        length: gridColumns,
+                                    }).map((_, idx) => {
+                                        const i = idx + 1;
+                                        const x = overlayX + i * gridSize;
+                                        const isMajor =
+                                            i % majorTickEvery === 0;
+                                        const tickLength = Math.min(
+                                            isMajor
+                                                ? majorTickLength
+                                                : minorTickLength,
+                                            overlayHeight,
+                                        );
+                                        return (
+                                            <line
+                                                key={`cm-x-${element.id}-${idx}`}
+                                                x1={x}
+                                                y1={overlayY + 2}
+                                                x2={x}
+                                                y2={
+                                                    overlayY +
+                                                    Math.min(
+                                                        tickLength,
+                                                        overlayHeight,
+                                                    )
+                                                }
+                                                stroke={gridColor}
+                                                strokeWidth={1}
+                                                opacity={0.7}
+                                                pointerEvents="none"
+                                            />
+                                        );
+                                    })}
+                                    {Array.from({
+                                        length: gridColumns,
+                                    }).map((_, idx) => {
+                                        const i = idx + 1;
+                                        if (i % majorTickEvery !== 0) {
+                                            return null;
+                                        }
+                                        const x = overlayX + i * gridSize;
+                                        if (
+                                            x >
+                                            overlayX +
+                                                overlayWidth -
+                                                measurementBarSize
+                                        ) {
+                                            return null;
+                                        }
+                                        return (
+                                            <text
+                                                key={`cm-x-label-${element.id}-${idx}`}
+                                                x={x}
+                                                y={
+                                                    overlayY +
+                                                    Math.min(
+                                                        measurementBarSize - 4,
+                                                        overlayHeight,
+                                                    )
+                                                }
+                                                fill={gridColor}
+                                                fontSize={8}
+                                                fontWeight="700"
+                                                textAnchor="middle"
+                                                dominantBaseline="hanging"
+                                                opacity={0.8}
+                                                pointerEvents="none"
+                                            >
+                                                {i}
+                                            </text>
+                                        );
+                                    })}
+                                    {Array.from({
+                                        length: gridRows,
+                                    }).map((_, idx) => {
+                                        const i = idx + 1;
+                                        const y = overlayY + i * gridSize;
+                                        const isMajor =
+                                            i % majorTickEvery === 0;
+                                        const tickLength = Math.min(
+                                            isMajor
+                                                ? majorTickLength
+                                                : minorTickLength,
+                                            overlayWidth,
+                                        );
+                                        return (
+                                            <line
+                                                key={`cm-y-${element.id}-${idx}`}
+                                                x1={
+                                                    overlayX +
+                                                    overlayWidth -
+                                                    Math.min(
+                                                        tickLength,
+                                                        overlayWidth,
+                                                    )
+                                                }
+                                                y1={y}
+                                                x2={overlayX + overlayWidth - 2}
+                                                y2={y}
+                                                stroke={gridColor}
+                                                strokeWidth={1}
+                                                opacity={0.7}
+                                                pointerEvents="none"
+                                            />
+                                        );
+                                    })}
+                                    {Array.from({
+                                        length: gridRows,
+                                    }).map((_, idx) => {
+                                        const i = idx + 1;
+                                        if (i % majorTickEvery !== 0) {
+                                            return null;
+                                        }
+                                        const y = overlayY + i * gridSize;
+                                        if (
+                                            y >
+                                            overlayY +
+                                                overlayHeight -
+                                                measurementBarSize
+                                        ) {
+                                            return null;
+                                        }
+                                        return (
+                                            <text
+                                                key={`cm-y-label-${element.id}-${idx}`}
+                                                x={
+                                                    overlayX +
+                                                    overlayWidth -
+                                                    Math.min(
+                                                        measurementBarSize -
+                                                            4,
+                                                        overlayWidth,
+                                                    )
+                                                }
+                                                y={y}
+                                                fill={gridColor}
+                                                fontSize={8}
+                                                fontWeight="700"
+                                                textAnchor="end"
+                                                dominantBaseline="middle"
+                                                opacity={0.8}
+                                                pointerEvents="none"
+                                            >
+                                                {i}
+                                            </text>
+                                        );
+                                    })}
+                                    <text
+                                        x={overlayX + 8}
+                                        y={
+                                            overlayY +
+                                            overlayHeight -
+                                            16
+                                        }
+                                        fill={gridColor}
+                                        fontSize={24}
+                                        fontWeight="800"
+                                        opacity={0.6}
+                                        pointerEvents="none"
                                     >
-                                        {element.label}
+                                        kladde
                                     </text>
+                                    <text
+                                        x={overlayX + 8}
+                                        y={
+                                            overlayY +
+                                            overlayHeight -
+                                            6
+                                        }
+                                        fill={gridColor}
+                                        fontSize={12}
+                                        fontWeight="700"
+                                        opacity={0.6}
+                                        pointerEvents="none"
+                                    >
+                                        CUTTING MAT
+                                    </text>
+                                </>
+                            )}
+                        {frameStyle === "notebook" &&
+                            overlayWidth > 0 &&
+                            overlayHeight > 0 && (
+                                <>
+                                    <rect
+                                        x={frameX + overlayInset}
+                                        y={frameY + overlayInset}
+                                        width={Math.min(
+                                            24,
+                                            overlayWidth * 0.18,
+                                        )}
+                                        height={overlayHeight}
+                                        fill="#1e5a5a"
+                                        opacity={0.65}
+                                        clipPath={`url(#${overlayClipId})`}
+                                        pointerEvents="none"
+                                    />
+                                    {Array.from({ length: 6 }).map(
+                                        (_, idx) => (
+                                            <line
+                                                key={`nb-stitch-${element.id}-${idx}`}
+                                                x1={
+                                                    frameX +
+                                                    overlayInset +
+                                                    Math.min(
+                                                        24,
+                                                        overlayWidth * 0.18,
+                                                    ) /
+                                                        2
+                                                }
+                                                y1={
+                                                    frameY +
+                                                    overlayInset +
+                                                    (idx + 1) *
+                                                        (overlayHeight / 7)
+                                                }
+                                                x2={
+                                                    frameX +
+                                                    overlayInset +
+                                                    Math.min(
+                                                        24,
+                                                        overlayWidth * 0.18,
+                                                    ) /
+                                                        2
+                                                }
+                                                y2={
+                                                    frameY +
+                                                    overlayInset +
+                                                    (idx + 1) *
+                                                        (overlayHeight / 7) +
+                                                    6
+                                                }
+                                                stroke="#8b7355"
+                                                strokeWidth={1}
+                                                opacity={0.6}
+                                                pointerEvents="none"
+                                            />
+                                        ),
+                                    )}
+                                    <rect
+                                        x={
+                                            frameX +
+                                            overlayInset +
+                                            overlayWidth -
+                                            Math.min(
+                                                24,
+                                                overlayWidth * 0.2,
+                                            )
+                                        }
+                                        y={
+                                            frameY +
+                                            overlayInset +
+                                            overlayHeight * 0.3
+                                        }
+                                        width={Math.min(
+                                            24,
+                                            overlayWidth * 0.2,
+                                        )}
+                                        height={Math.min(
+                                            36,
+                                            overlayHeight * 0.2,
+                                        )}
+                                        fill="#e8dcc8"
+                                        opacity={0.9}
+                                        clipPath={`url(#${overlayClipId})`}
+                                        pointerEvents="none"
+                                    />
                                 </>
                             )}
                         {isMarkedForDeletion && (
                             <rect
-                                x={element.x}
-                                y={element.y}
-                                width={element.width}
-                                height={element.height}
+                                x={frameX}
+                                y={frameY}
+                                width={frameWidth}
+                                height={frameHeight}
                                 fill="rgba(0, 0, 0, 0.7)"
-                                rx={elCornerRadius}
+                                rx={frameCornerRadius}
                                 pointerEvents="none"
                             />
                         )}

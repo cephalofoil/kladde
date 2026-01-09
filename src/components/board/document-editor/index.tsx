@@ -9,12 +9,14 @@ import type {
   DocumentSection,
 } from "@/lib/board-types";
 import { TilesPicker } from "./tiles-picker";
+import { FramesPicker } from "./frames-picker";
 import { A4DocumentPreview } from "./a4-document-preview";
 import {
   createHeadingSection,
   createTextSection,
   createSpacerSection,
   createTileContentSection,
+  createFrameImageSection,
   removeSection,
   updateSection,
   moveSection,
@@ -151,6 +153,21 @@ export function DocumentEditorPanel({
     [documentContent, updateDocumentContent]
   );
 
+  const handleAddFrameToDocument = useCallback(
+    (frame: BoardElement) => {
+      const newSection = createFrameImageSection(
+        frame.id,
+        frame.label,
+        frame.frameStyle
+      );
+      const newSections = [...documentContent.layout.sections, newSection];
+      updateDocumentContent({
+        layout: { ...documentContent.layout, sections: newSections },
+      });
+    },
+    [documentContent, updateDocumentContent]
+  );
+
   const handleRemoveSection = useCallback(
     (sectionId: string) => {
       const newSections = removeSection(
@@ -211,6 +228,7 @@ export function DocumentEditorPanel({
       el.id !== documentElement.id &&
       el.tileType !== "tile-document"
   );
+  const availableFrames = allElements.filter((el) => el.type === "frame");
 
   return (
     <div
@@ -260,11 +278,22 @@ export function DocumentEditorPanel({
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel: Tiles Picker (1/3 width) */}
           <div className="w-1/3 border-r border-border flex-shrink-0 overflow-hidden">
-            <TilesPicker
-              tiles={availableTiles}
-              onAddTile={handleAddTileToDocument}
-              documentSections={documentContent.layout.sections}
-            />
+            <div className="h-full flex flex-col">
+              <div className="flex-1 overflow-hidden">
+                <TilesPicker
+                  tiles={availableTiles}
+                  onAddTile={handleAddTileToDocument}
+                  documentSections={documentContent.layout.sections}
+                />
+              </div>
+              <div className="flex-1 overflow-hidden border-t border-border">
+                <FramesPicker
+                  frames={availableFrames}
+                  onAddFrame={handleAddFrameToDocument}
+                  documentSections={documentContent.layout.sections}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Right Panel: A4 Document Preview (2/3 width) */}

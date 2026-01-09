@@ -17,6 +17,13 @@ import { Separator } from "@/components/ui/separator";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -27,7 +34,10 @@ interface ExportImageModalProps {
   onClose: () => void;
   elements: BoardElement[];
   canvasBackground: "none" | "dots" | "lines" | "grid";
+  selectedFrameId?: string | null;
 }
+
+type ExportScope = "scene" | "frame";
 
 // Get bounding box for any element
 function getBoundingBox(
@@ -229,6 +239,41 @@ function getSceneBounds(elements: BoardElement[]): {
   };
 }
 
+function getFrameBounds(
+  elements: BoardElement[],
+  frameId: string,
+): { x: number; y: number; width: number; height: number } | null {
+  const frame = elements.find((el) => el.type === "frame" && el.id === frameId);
+  if (!frame) return null;
+  return getBoundingBox(frame);
+}
+
+function getFrameElements(elements: BoardElement[], frameId: string) {
+  return elements.filter(
+    (el) => el.id === frameId || el.frameId === frameId,
+  );
+}
+
+function resolveExportTargets(
+  elements: BoardElement[],
+  scope: ExportScope,
+  frameId: string | null,
+) {
+  if (scope === "frame" && frameId) {
+    const bounds = getFrameBounds(elements, frameId);
+    if (bounds) {
+      return {
+        bounds,
+        elements: getFrameElements(elements, frameId),
+      };
+    }
+  }
+  return {
+    bounds: getSceneBounds(elements),
+    elements,
+  };
+}
+
 function degToRad(deg: number) {
   return (deg * Math.PI) / 180;
 }
@@ -246,6 +291,292 @@ function getStrokeDash(el: BoardElement) {
   if (style === "dashed") return [10, 10];
   if (style === "dotted") return [2, 6];
   return [];
+}
+
+function seededRandom(seed: number) {
+  let value = seed % 2147483647;
+  if (value <= 0) value += 2147483646;
+  return () => {
+    value = (value * 16807) % 2147483647;
+    return (value - 1) / 2147483646;
+  };
+}
+
+function drawFrameToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
+  if (el.type !== "frame") return;
+  const x = el.x ?? 0;
+  const y = el.y ?? 0;
+  const width = el.width ?? 0;
+  const height = el.height ?? 0;
+  const strokeWidth = el.strokeWidth || 2;
+  const cornerRadius = el.cornerRadius ?? 8;
+  const frameStyle = el.frameStyle ?? "minimal";
+  const baseFill =
+    frameStyle === "cutting-mat"
+      ? "#2d6f5e"
+      : frameStyle === "notebook"
+        ? "#f5f0e5"
+        : el.fillColor || "transparent";
+
+  ctx.save();
+  ctx.lineWidth = strokeWidth;
+  ctx.strokeStyle = el.strokeColor;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, cornerRadius);
+  if (baseFill !== "transparent") {
+    ctx.fillStyle = baseFill;
+    ctx.fill();
+  }
+  ctx.stroke();
+
+  if (frameStyle === "cutting-mat") {
+    const inset = Math.max(strokeWidth, 1);
+    const innerX = x + inset;
+    const innerY = y + inset;
+    const innerW = Math.max(width - inset * 2, 0);
+    const innerH = Math.max(height - inset * 2, 0);
+    const gridSize = 20;
+    const barSize = 16;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(innerX, innerY, innerW, innerH);
+    ctx.clip();
+
+    ctx.strokeStyle = "rgba(92, 184, 159, 0.45)";
+    ctx.lineWidth = 1;
+    for (let gx = innerX; gx <= innerX + innerW; gx += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(gx, innerY);
+      ctx.lineTo(gx, innerY + innerH);
+      ctx.stroke();
+    }
+    for (let gy = innerY; gy <= innerY + innerH; gy += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(innerX, gy);
+      ctx.lineTo(innerX + innerW, gy);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "rgba(42, 104, 90, 0.75)";
+    ctx.fillRect(innerX, innerY, innerW, Math.min(barSize, innerH));
+    ctx.fillRect(
+      innerX + Math.max(innerW - barSize, 0),
+      innerY,
+      Math.min(barSize, innerW),
+      innerH,
+    );
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
+    const rand = seededRandom(el.id.length * 9973);
+    for (let i = 0; i < 120; i += 1) {
+      const rx = innerX + rand() * innerW;
+      const ry = innerY + rand() * innerH;
+      ctx.fillRect(rx, ry, 1, 1);
+    }
+
+    ctx.strokeStyle = "rgba(26, 74, 61, 0.25)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(innerX + 40, innerY + 70);
+    ctx.lineTo(innerX + 160, innerY + 90);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(26, 74, 61, 0.2)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(innerX + 120, innerY + innerH - 80);
+    ctx.lineTo(innerX + 220, innerY + innerH - 60);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(26, 74, 61, 0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(innerX + 200, innerY + 160);
+    ctx.lineTo(innerX + 260, innerY + 140);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(92, 184, 159, 0.8)";
+    ctx.font = "700 8px sans-serif";
+    const markerStep = gridSize * 5;
+    const topMarkers = Math.floor(innerW / markerStep);
+    for (let i = 1; i <= topMarkers; i += 1) {
+      const labelX = innerX + i * markerStep;
+      if (labelX > innerX + innerW - barSize) continue;
+      ctx.fillText(String(i * 5), labelX - 4, innerY + 10);
+    }
+    const rightMarkers = Math.floor(innerH / markerStep);
+    for (let i = 1; i <= rightMarkers; i += 1) {
+      const labelY = innerY + i * markerStep;
+      if (labelY > innerY + innerH - barSize) continue;
+      ctx.fillText(
+        String(i * 5),
+        innerX + innerW - barSize + 2,
+        labelY + 3,
+      );
+    }
+
+    ctx.fillStyle = "rgba(92, 184, 159, 0.6)";
+    ctx.font = "800 10px sans-serif";
+    ctx.fillText("SDi", innerX + 8, innerY + innerH - 10);
+    ctx.font = "700 6px sans-serif";
+    ctx.fillText("CUTTING MAT", innerX + 8, innerY + innerH - 2);
+
+    ctx.restore();
+  }
+
+  if (frameStyle === "notebook") {
+    const inset = Math.max(strokeWidth, 1);
+    const innerX = x + inset;
+    const innerY = y + inset;
+    const innerW = Math.max(width - inset * 2, 0);
+    const innerH = Math.max(height - inset * 2, 0);
+    const spineWidth = Math.min(24, innerW * 0.18);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(innerX, innerY, innerW, innerH);
+    ctx.clip();
+
+    ctx.fillStyle = "rgba(30, 90, 90, 0.65)";
+    ctx.fillRect(innerX, innerY, spineWidth, innerH);
+    ctx.strokeStyle = "rgba(139, 115, 85, 0.6)";
+    for (let i = 1; i <= 6; i += 1) {
+      const stitchY = innerY + (i * innerH) / 7;
+      ctx.beginPath();
+      ctx.moveTo(innerX + spineWidth / 2, stitchY);
+      ctx.lineTo(innerX + spineWidth / 2, stitchY + 6);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#e8dcc8";
+    ctx.fillRect(
+      innerX + innerW - Math.min(24, innerW * 0.2),
+      innerY + innerH * 0.3,
+      Math.min(24, innerW * 0.2),
+      Math.min(36, innerH * 0.2),
+    );
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function frameToSvg(el: BoardElement) {
+  if (el.type !== "frame") return "";
+  const x = el.x ?? 0;
+  const y = el.y ?? 0;
+  const width = el.width ?? 0;
+  const height = el.height ?? 0;
+  const strokeWidth = el.strokeWidth || 2;
+  const cornerRadius = el.cornerRadius ?? 8;
+  const frameStyle = el.frameStyle ?? "minimal";
+  const baseFill =
+    frameStyle === "cutting-mat"
+      ? "#2d6f5e"
+      : frameStyle === "notebook"
+        ? "#f5f0e5"
+        : el.fillColor || "none";
+  const frameId = el.id.replace(/[^a-zA-Z0-9_-]/g, "");
+  const defs: string[] = [];
+  const overlays: string[] = [];
+
+  if (frameStyle === "cutting-mat") {
+    const gridSize = 20;
+    const markerStep = gridSize * 5;
+    const innerW = Math.max(width - strokeWidth * 2, 0);
+    const innerH = Math.max(height - strokeWidth * 2, 0);
+    defs.push(
+      `<pattern id="cm-grid-${frameId}" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#5cb89f" stroke-width="1" opacity="0.45"/>
+      </pattern>`,
+    );
+    defs.push(
+      `<filter id="cm-noise-${frameId}">
+        <feTurbulence type="fractalNoise" baseFrequency="2" numOctaves="3" stitchTiles="stitch"/>
+      </filter>`,
+    );
+    overlays.push(
+      `<rect x="${x + strokeWidth}" y="${y + strokeWidth}" width="${innerW}" height="${innerH}" fill="url(#cm-grid-${frameId})"/>`,
+    );
+    overlays.push(
+      `<rect x="${x + strokeWidth}" y="${y + strokeWidth}" width="${innerW}" height="${Math.min(
+        16,
+        innerH,
+      )}" fill="#2a685a" opacity="0.75"/>`,
+    );
+    overlays.push(
+      `<rect x="${
+        x + strokeWidth + Math.max(innerW - 16, 0)
+      }" y="${y + strokeWidth}" width="${Math.min(
+        16,
+        innerW,
+      )}" height="${Math.max(
+        innerH,
+        0,
+      )}" fill="#2a685a" opacity="0.75"/>`,
+    );
+    overlays.push(
+      `<rect x="${x + strokeWidth}" y="${y + strokeWidth}" width="${innerW}" height="${innerH}" fill="#ffffff" opacity="0.16" filter="url(#cm-noise-${frameId})"/>`,
+    );
+    overlays.push(
+      `<line x1="${x + strokeWidth + 40}" y1="${
+        y + strokeWidth + 70
+      }" x2="${x + strokeWidth + 160}" y2="${
+        y + strokeWidth + 90
+      }" stroke="#1a4a3d" stroke-width="2" opacity="0.25"/>`,
+    );
+    overlays.push(
+      `<text x="${x + strokeWidth + 8}" y="${
+        y + height - strokeWidth - 12
+      }" fill="#5cb89f" font-size="10" font-weight="800" opacity="0.6">SDi</text>`,
+    );
+    overlays.push(
+      `<text x="${x + strokeWidth + 8}" y="${
+        y + height - strokeWidth - 4
+      }" fill="#5cb89f" font-size="6" font-weight="700" opacity="0.6">CUTTING MAT</text>`,
+    );
+
+    const topMarkers = Math.floor(innerW / markerStep);
+    for (let i = 1; i <= topMarkers; i += 1) {
+      const labelX = x + strokeWidth + i * markerStep;
+      if (labelX > x + strokeWidth + innerW - 16) continue;
+      overlays.push(
+        `<text x="${labelX}" y="${y + strokeWidth + 11}" fill="#5cb89f" font-size="8" font-weight="700" opacity="0.8" text-anchor="middle">${i * 5}</text>`,
+      );
+    }
+    const rightMarkers = Math.floor(innerH / markerStep);
+    for (let i = 1; i <= rightMarkers; i += 1) {
+      const labelY = y + strokeWidth + i * markerStep;
+      if (labelY > y + strokeWidth + innerH - 16) continue;
+      overlays.push(
+        `<text x="${
+          x + strokeWidth + innerW - 4
+        }" y="${labelY}" fill="#5cb89f" font-size="8" font-weight="700" opacity="0.8" text-anchor="end" dominant-baseline="middle">${i * 5}</text>`,
+      );
+    }
+  }
+
+  if (frameStyle === "notebook") {
+    const spineWidth = Math.min(24, width * 0.18);
+    overlays.push(
+      `<rect x="${x + strokeWidth}" y="${y + strokeWidth}" width="${spineWidth}" height="${Math.max(
+        height - strokeWidth * 2,
+        0,
+      )}" fill="#1e5a5a" opacity="0.65"/>`,
+    );
+    overlays.push(
+      `<rect x="${
+        x + width - strokeWidth - Math.min(24, width * 0.2)
+      }" y="${y + strokeWidth + height * 0.3}" width="${Math.min(
+        24,
+        width * 0.2,
+      )}" height="${Math.min(36, height * 0.2)}" fill="#e8dcc8"/>`,
+    );
+  }
+
+  return `
+    ${defs.length ? `<defs>${defs.join("")}</defs>` : ""}
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" stroke="${el.strokeColor}" stroke-width="${strokeWidth}" fill="${baseFill}" rx="${cornerRadius}" opacity="${(el.opacity ?? 100) / 100}"/>
+    ${overlays.join("")}
+  `;
 }
 
 function getConnectorRoute(el: BoardElement, start: Point, end: Point) {
@@ -708,14 +1039,42 @@ export function ExportImageModal({
   onClose,
   elements,
   canvasBackground,
+  selectedFrameId = null,
 }: ExportImageModalProps) {
   const [includeBackground, setIncludeBackground] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [embedScene, setEmbedScene] = useState(false);
   const [scale, setScale] = useState<1 | 2 | 3>(2);
   const [fileName, setFileName] = useState("");
+  const [exportScope, setExportScope] = useState<ExportScope>("scene");
+  const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const frameOptions = elements.filter((el) => el.type === "frame");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (frameOptions.length === 0) {
+      setExportScope("scene");
+      setActiveFrameId(null);
+      return;
+    }
+    if (selectedFrameId && frameOptions.some((f) => f.id === selectedFrameId)) {
+      setExportScope("frame");
+      setActiveFrameId(selectedFrameId);
+      return;
+    }
+    if (frameOptions.length > 0 && !activeFrameId) {
+      setActiveFrameId(frameOptions[0].id);
+    }
+  }, [isOpen, selectedFrameId, frameOptions, activeFrameId]);
+
+  useEffect(() => {
+    if (exportScope !== "frame") return;
+    if (activeFrameId) return;
+    if (frameOptions.length === 0) return;
+    setActiveFrameId(frameOptions[0].id);
+  }, [exportScope, activeFrameId, frameOptions]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -729,7 +1088,16 @@ export function ExportImageModal({
       updatePreview();
     });
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, includeBackground, darkMode, elements, canvasBackground, scale]);
+  }, [
+    isOpen,
+    includeBackground,
+    darkMode,
+    elements,
+    canvasBackground,
+    scale,
+    exportScope,
+    activeFrameId,
+  ]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -747,7 +1115,14 @@ export function ExportImageModal({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const bounds = getSceneBounds(elements);
+    const { bounds, elements: exportElements } = resolveExportTargets(
+      elements,
+      exportScope,
+      activeFrameId,
+    );
+    const orderedElements = [...exportElements].sort(
+      (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+    );
     const maxPreviewWidth = 520;
     const maxPreviewHeight = 320;
     const exportWidth = bounds.width * scale;
@@ -821,7 +1196,7 @@ export function ExportImageModal({
     ctx.scale(previewScale, previewScale);
     ctx.translate(-bounds.x, -bounds.y);
 
-    elements.forEach((el) => {
+    orderedElements.forEach((el) => {
       ctx.save();
       ctx.globalAlpha = (el.opacity ?? 100) / 100;
 
@@ -832,7 +1207,9 @@ export function ExportImageModal({
         ctx.translate(-rot.cx, -rot.cy);
       }
 
-      if (el.type === "rectangle") {
+      if (el.type === "frame") {
+        drawFrameToCanvas(ctx, el);
+      } else if (el.type === "rectangle") {
         ctx.strokeStyle = el.strokeColor;
         ctx.lineWidth = el.strokeWidth;
         ctx.fillStyle = el.fillColor || "transparent";
@@ -895,7 +1272,14 @@ export function ExportImageModal({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const bounds = getSceneBounds(elements);
+    const { bounds, elements: exportElements } = resolveExportTargets(
+      elements,
+      exportScope,
+      activeFrameId,
+    );
+    const orderedElements = [...exportElements].sort(
+      (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+    );
 
     canvas.width = bounds.width * scale;
     canvas.height = bounds.height * scale;
@@ -957,7 +1341,7 @@ export function ExportImageModal({
     // Draw elements
     ctx.translate(-bounds.x, -bounds.y);
 
-    elements.forEach((el) => {
+    orderedElements.forEach((el) => {
       ctx.save();
       ctx.globalAlpha = (el.opacity ?? 100) / 100;
 
@@ -968,7 +1352,9 @@ export function ExportImageModal({
         ctx.translate(-rot.cx, -rot.cy);
       }
 
-      if (el.type === "rectangle") {
+      if (el.type === "frame") {
+        drawFrameToCanvas(ctx, el);
+      } else if (el.type === "rectangle") {
         ctx.strokeStyle = el.strokeColor;
         ctx.lineWidth = el.strokeWidth;
         ctx.fillStyle = el.fillColor || "transparent";
@@ -1051,7 +1437,14 @@ export function ExportImageModal({
   };
 
   const exportSVG = async () => {
-    const bounds = getSceneBounds(elements);
+    const { bounds, elements: exportElements } = resolveExportTargets(
+      elements,
+      exportScope,
+      activeFrameId,
+    );
+    const orderedElements = [...exportElements].sort(
+      (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+    );
 
     let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${bounds.width * scale}" height="${bounds.height * scale}" viewBox="0 0 ${bounds.width} ${bounds.height}" xmlns="http://www.w3.org/2000/svg">`;
@@ -1095,12 +1488,14 @@ export function ExportImageModal({
     // Add elements
     svgContent += `\n  <g transform="translate(${-bounds.x}, ${-bounds.y})">`;
 
-    elements.forEach((el) => {
+    orderedElements.forEach((el) => {
       const opacity = (el.opacity ?? 100) / 100;
       const rot = getRotationTransform(el);
 
       let content = "";
-      if (el.type === "rectangle") {
+      if (el.type === "frame") {
+        content = frameToSvg(el);
+      } else if (el.type === "rectangle") {
         content = `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" stroke="${el.strokeColor}" stroke-width="${el.strokeWidth}" fill="${el.fillColor || "none"}" rx="${el.cornerRadius ?? 0}" opacity="${opacity}"/>`;
       } else if (el.type === "ellipse") {
         const cx = (el.x ?? 0) + (el.width ?? 0) / 2;
@@ -1135,8 +1530,10 @@ export function ExportImageModal({
       const sceneData = JSON.stringify({
         type: "kladde",
         version: 1,
-        elements,
+        elements: exportElements,
         appState: { canvasBackground },
+        exportScope,
+        frameId: exportScope === "frame" ? activeFrameId : null,
       });
       svgContent += `\n  <metadata>
     <kladde>${sceneData}</kladde>
@@ -1162,7 +1559,14 @@ export function ExportImageModal({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const bounds = getSceneBounds(elements);
+    const { bounds, elements: exportElements } = resolveExportTargets(
+      elements,
+      exportScope,
+      activeFrameId,
+    );
+    const orderedElements = [...exportElements].sort(
+      (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+    );
 
     canvas.width = bounds.width * scale;
     canvas.height = bounds.height * scale;
@@ -1177,10 +1581,20 @@ export function ExportImageModal({
 
     ctx.translate(-bounds.x, -bounds.y);
 
-    elements.forEach((el) => {
+    orderedElements.forEach((el) => {
+      ctx.save();
       ctx.globalAlpha = (el.opacity ?? 100) / 100;
 
-      if (el.type === "rectangle") {
+      const rot = getRotationTransform(el);
+      if (rot) {
+        ctx.translate(rot.cx, rot.cy);
+        ctx.rotate(degToRad(rot.rotationDeg));
+        ctx.translate(-rot.cx, -rot.cy);
+      }
+
+      if (el.type === "frame") {
+        drawFrameToCanvas(ctx, el);
+      } else if (el.type === "rectangle") {
         ctx.strokeStyle = el.strokeColor;
         ctx.lineWidth = el.strokeWidth;
         ctx.fillStyle = el.fillColor || "transparent";
@@ -1194,7 +1608,60 @@ export function ExportImageModal({
         );
         if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
         ctx.stroke();
+      } else if (el.type === "ellipse") {
+        ctx.strokeStyle = el.strokeColor;
+        ctx.lineWidth = el.strokeWidth;
+        ctx.fillStyle = el.fillColor || "transparent";
+        ctx.beginPath();
+        ctx.ellipse(
+          (el.x ?? 0) + (el.width ?? 0) / 2,
+          (el.y ?? 0) + (el.height ?? 0) / 2,
+          (el.width ?? 0) / 2,
+          (el.height ?? 0) / 2,
+          0,
+          0,
+          Math.PI * 2,
+        );
+        if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
+        ctx.stroke();
+      } else if (
+        (el.type === "line" || el.type === "arrow") &&
+        el.points.length >= 2
+      ) {
+        drawConnector(ctx, el);
+      } else if (el.type === "pen") {
+        ctx.strokeStyle = el.strokeColor;
+        ctx.lineWidth = el.strokeWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        el.points.forEach((p, i) => {
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      } else if (el.type === "text") {
+        const fontSize = (el.strokeWidth || 1) * 4 + 12;
+        ctx.fillStyle = el.strokeColor;
+        ctx.font = `${fontSize}px sans-serif`;
+        ctx.textBaseline = "top";
+
+        if (el.isTextBox && el.width && el.height) {
+          const padding = 8;
+          const lineHeight = fontSize * 1.4;
+          const lines = (el.text || "").split("\n");
+          let yOffset = (el.y ?? 0) + padding;
+
+          lines.forEach((line) => {
+            ctx.fillText(line, (el.x ?? 0) + padding, yOffset);
+            yOffset += lineHeight;
+          });
+        } else {
+          ctx.fillText(el.text || "", el.x ?? 0, el.y ?? 0);
+        }
       }
+
+      ctx.restore();
     });
 
     canvas.toBlob(async (blob) => {
@@ -1219,7 +1686,7 @@ export function ExportImageModal({
         <DialogHeader>
           <DialogTitle>Export image</DialogTitle>
           <DialogDescription>
-            Export the current canvas as PNG or SVG.
+            Export the canvas or a frame as PNG or SVG.
           </DialogDescription>
         </DialogHeader>
 
@@ -1245,6 +1712,50 @@ export function ExportImageModal({
           </div>
 
           <div className="flex flex-col gap-4">
+            {frameOptions.length > 0 && (
+              <div className="space-y-2">
+                <Label>Scope</Label>
+                <ToggleGroup
+                  type="single"
+                  value={exportScope}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    setExportScope(value as ExportScope);
+                  }}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  <ToggleGroupItem
+                    value="scene"
+                    className={toggleGroupItemClassName}
+                  >
+                    Canvas
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="frame"
+                    className={toggleGroupItemClassName}
+                  >
+                    Frame
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                {exportScope === "frame" && (
+                  <Select
+                    value={activeFrameId ?? ""}
+                    onValueChange={(value) => setActiveFrameId(value)}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select frame" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {frameOptions.map((frame, index) => (
+                        <SelectItem key={frame.id} value={frame.id}>
+                          {(frame.label ?? "Frame").trim() || `Frame ${index + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4">
               <div>
                 <Label>Background</Label>

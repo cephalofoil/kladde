@@ -26,6 +26,7 @@ export type TileType =
 // Document section types for tile-document
 export type DocumentSectionType =
     | "tile-content"
+    | "frame-image"
     | "heading"
     | "text"
     | "spacer";
@@ -42,6 +43,13 @@ export interface TileContentSection extends DocumentSectionBase {
     cachedTileType?: TileType;
     cachedTileTitle?: string;
     mermaidScale?: number;
+}
+
+export interface FrameImageSection extends DocumentSectionBase {
+    type: "frame-image";
+    frameId: string;
+    cachedFrameLabel?: string;
+    cachedFrameStyle?: FrameStyle;
 }
 
 export interface HeadingSection extends DocumentSectionBase {
@@ -62,6 +70,7 @@ export interface SpacerSection extends DocumentSectionBase {
 
 export type DocumentSection =
     | TileContentSection
+    | FrameImageSection
     | HeadingSection
     | TextSection
     | SpacerSection;
@@ -98,6 +107,7 @@ export interface Point {
 
 export type NoteColor = "butter" | "mint" | "lavender" | "natural-tan";
 export type NoteStyle = "classic" | "torn";
+export type FrameStyle = "minimal" | "cutting-mat" | "notebook";
 
 export interface TileContent {
     // Text tile
@@ -192,6 +202,8 @@ export interface BoardElement {
     isTextBox?: boolean;
     // For frame tool
     label?: string;
+    frameStyle?: FrameStyle;
+    frameId?: string;
     // For web embed
     url?: string;
     // For laser pointer
