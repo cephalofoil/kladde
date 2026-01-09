@@ -2,12 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Check, Copy, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Eraser,
+  LayoutGrid,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import {
   MERMAID_PROMPT_GENERAL,
   MERMAID_PROMPT_VARIANTS,
   MermaidPromptVariantKey,
 } from "@/lib/mermaid-prompts";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -84,6 +97,8 @@ export function MermaidCodeEditor({
     "idle"
   );
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [canRestore, setCanRestore] = useState(false);
+  const clearSnapshotRef = useRef<string>("");
 
   useEffect(() => {
     return () => {
@@ -101,11 +116,18 @@ export function MermaidCodeEditor({
     onCancel?.();
   };
 
-  const handleTemplateSelect = (templateName: string) => {
+  const handleTemplateSelect = (templateName: string, forceApply = false) => {
     setTemplateValue(templateName);
     const template = MERMAID_TEMPLATES.find((item) => item.name === templateName);
     if (template) {
-      setCode(template.code);
+      const shouldApply = forceApply || !code.trim();
+      if (shouldApply) {
+        setCode(template.code);
+        if (canRestore) {
+          setCanRestore(false);
+          clearSnapshotRef.current = "";
+        }
+      }
     }
   };
 
@@ -114,7 +136,10 @@ export function MermaidCodeEditor({
     "Sequence Diagram": "sequence",
   };
 
-  const getPromptText = () => {
+  const getPromptText = (variant?: MermaidPromptVariantKey) => {
+    if (variant) {
+      return `${MERMAID_PROMPT_GENERAL}\n\n${MERMAID_PROMPT_VARIANTS[variant]}`;
+    }
     if (!templateValue) {
       return MERMAID_PROMPT_GENERAL;
     }
@@ -125,9 +150,9 @@ export function MermaidCodeEditor({
     return `${MERMAID_PROMPT_GENERAL}\n\n${MERMAID_PROMPT_VARIANTS[variantKey]}`;
   };
 
-  const handleCopyPrompt = async () => {
+  const handleCopyPrompt = async (variant?: MermaidPromptVariantKey) => {
     try {
-      await navigator.clipboard.writeText(getPromptText());
+      await navigator.clipboard.writeText(getPromptText(variant));
       setCopyState("copied");
     } catch {
       setCopyState("error");
@@ -139,6 +164,29 @@ export function MermaidCodeEditor({
         setCopyState("idle");
       }, 2000);
     }
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const nextValue = e.target.value;
+    if (canRestore && nextValue.trim()) {
+      setCanRestore(false);
+      clearSnapshotRef.current = "";
+    }
+    setCode(nextValue);
+  };
+
+  const handleClear = () => {
+    if (!code.trim()) return;
+    clearSnapshotRef.current = code;
+    setCode("");
+    setCanRestore(true);
+  };
+
+  const handleRestore = () => {
+    if (!canRestore || !clearSnapshotRef.current) return;
+    setCode(clearSnapshotRef.current);
+    clearSnapshotRef.current = "";
+    setCanRestore(false);
   };
 
   const editorHeight = Math.max(200, height - 100);
@@ -171,16 +219,59 @@ export function MermaidCodeEditor({
           >
             {showPreview ? "Hide" : "Show"} Preview
           </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+              >
+                <Copy className="h-3 w-3" />
+                {copyState === "copied"
+                  ? "Copied"
+                  : copyState === "error"
+                    ? "Copy failed"
+                    : "Copy Prompt"}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-40">
+              <DropdownMenuItem onClick={() => handleCopyPrompt()}>
+                General prompt
+              </DropdownMenuItem>
+              {templateValue && templatePromptMap[templateValue] && (
+                <DropdownMenuItem
+                  onClick={() =>
+                    handleCopyPrompt(templatePromptMap[templateValue])
+                  }
+                >
+                  Selected template prompt
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => handleCopyPrompt("flowchart")}>
+                Flowchart prompt
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCopyPrompt("sequence")}>
+                Sequence prompt
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCopyPrompt("er")}>
+                ER prompt
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
-            onClick={handleCopyPrompt}
+            onClick={canRestore ? handleRestore : handleClear}
             className="flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+            disabled={!code.trim() && !canRestore}
           >
-            <Copy className="h-3 w-3" />
-            {copyState === "copied"
-              ? "Copied"
-              : copyState === "error"
-                ? "Copy failed"
-                : "Copy Prompt"}
+            {canRestore ? (
+              <>
+                <RotateCcw className="h-3 w-3" />
+                Restore
+              </>
+            ) : (
+              <>
+                <Eraser className="h-3 w-3" />
+                Clear
+              </>
+            )}
           </button>
           {onCancel && (
             <button
@@ -210,7 +301,7 @@ export function MermaidCodeEditor({
         >
           <textarea
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={handleCodeChange}
             className="flex-1 w-full p-3 text-sm font-mono bg-background text-foreground rounded-md border border-border outline-none resize-none focus:border-ring focus:ring-0 scrollbar-thin scrollbar-thumb-muted-foreground/40 scrollbar-track-transparent"
             placeholder="Enter mermaid diagram code here..."
             spellCheck={false}
@@ -236,8 +327,26 @@ export function MermaidCodeEditor({
                     className="w-full h-full"
                   />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                    Type code to see preview
+                  <div className="h-full flex items-center justify-center">
+                    <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+                      {MERMAID_TEMPLATES.map((template) => (
+                        <button
+                          key={template.name}
+                          onClick={() => handleTemplateSelect(template.name, true)}
+                          className="group flex flex-col items-center gap-2 rounded-md border border-dashed border-border bg-background/80 px-3 py-4 text-center text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+                        >
+                          <span className="flex items-center justify-center w-9 h-9 rounded-md border border-border bg-background">
+                            <LayoutGrid className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                          </span>
+                          <span className="text-sm font-medium text-foreground">
+                            {template.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Start with a {template.name.toLowerCase()} template
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

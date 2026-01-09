@@ -72,7 +72,6 @@ export function MermaidRenderer({
         setError("");
         onSvgReady?.(svg);
       } catch (err) {
-        console.error("Mermaid rendering error:", err);
         setError(err instanceof Error ? err.message : "Failed to render diagram");
         setSvgContent("");
       }
