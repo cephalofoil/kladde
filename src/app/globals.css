@@ -87,6 +87,9 @@
     font-family: var(--font-sans);
     /* Heading font variable available for components */
     --font-heading: Switzer, system-ui, sans-serif;
+
+    /* Selection text color - darker in light mode for contrast */
+    --selection-text: oklch(0.62 0.18 55);
 }
 
 .dark {
@@ -133,6 +136,9 @@
     --note-tape: #c9bd8e;
     --note-shadow-value:
         0 2px 12px rgba(255, 255, 255, 0.12), 0 0 20px rgba(255, 255, 255, 0.08);
+
+    /* Selection text color - brighter in dark mode */
+    --selection-text: var(--accent);
 }
 
 @theme inline {
@@ -216,25 +222,15 @@
         font-family: var(--font-heading);
     }
 
-    /* Text selection colors matching primary color */
-    *::selection {
-        background-color: var(--accent) !important;
-        color: var(--accent-foreground) !important;
-    }
-
-    *::-moz-selection {
-        background-color: var(--accent) !important;
-        color: var(--accent-foreground) !important;
-    }
-
+    /* Text selection - v0-style with subtle background and accent text */
     ::selection {
-        background-color: var(--accent) !important;
-        color: var(--accent-foreground) !important;
+        background-color: color-mix(in oklch, var(--accent) 10%, transparent);
+        color: var(--selection-text);
     }
 
     ::-moz-selection {
-        background-color: var(--accent) !important;
-        color: var(--accent-foreground) !important;
+        background-color: color-mix(in oklch, var(--accent) 10%, transparent);
+        color: var(--selection-text);
     }
 }
 
