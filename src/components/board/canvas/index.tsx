@@ -54,6 +54,7 @@ interface CanvasProps {
   handDrawnMode?: boolean;
   collaboration: CollaborationManager | null;
   elements: BoardElement[];
+  viewerTheme?: "dark" | "light";
   onAddElement: (element: BoardElement) => void;
   onUpdateElement: (id: string, updates: Partial<BoardElement>) => void;
   onBatchUpdateElements?: (
@@ -111,6 +112,7 @@ export function Canvas({
   handDrawnMode = false,
   collaboration,
   elements,
+  viewerTheme,
   onAddElement,
   onUpdateElement,
   onBatchUpdateElements,
@@ -977,6 +979,7 @@ export function Canvas({
     isRotating,
     nameTagWidthCacheRef,
     handDrawnMode,
+    viewerTheme,
     onStartTransform,
     onUpdateElement,
     onDeleteElement,

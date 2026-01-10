@@ -2308,6 +2308,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           handDrawnMode={handDrawnMode}
           collaboration={collaboration}
           elements={previewElements || elements}
+          viewerTheme={(resolvedTheme || theme) as "dark" | "light" | undefined}
           onAddElement={handleAddElement}
           onUpdateElement={handleUpdateElement}
           onBatchUpdateElements={handleBatchUpdateElements}
