@@ -348,6 +348,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             );
             await manager.initialize();
             historyManagerRef.current = manager;
+            // Initialize prevElementsRef to current elements to avoid logging existing elements as "added"
+            prevElementsRef.current = elements;
             setHistoryEntries(manager.getEntries());
         };
 
@@ -979,7 +981,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             })
             .map((e) => e.id);
 
-        const logOperations = async () => {
+        // Update prevElementsRef before async operations
+        prevElementsRef.current = elements;
+
+        // Log operations asynchronously
+        (async () => {
             if (addedIds.length > 0) {
                 await historyManagerRef.current!.logAdd(
                     addedIds,
@@ -1002,20 +1008,19 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 );
             }
 
-            // Update entries state immediately after logging
+            // Update entries state after all logging completes
             if (
                 addedIds.length > 0 ||
                 deletedIds.length > 0 ||
                 updatedIds.length > 0
             ) {
                 if (historyManagerRef.current) {
-                    setHistoryEntries(historyManagerRef.current.getEntries());
+                    setHistoryEntries([
+                        ...historyManagerRef.current.getEntries(),
+                    ]);
                 }
             }
-        };
-
-        logOperations();
-        prevElementsRef.current = elements;
+        })();
     }, [elements, isOwner]);
 
     const handleBringToFront = useCallback(() => {

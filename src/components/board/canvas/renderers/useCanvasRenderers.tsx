@@ -4144,15 +4144,50 @@ export function useCanvasRenderers({
 
         return (
             <g>
+                <defs>
+                    <filter
+                        id="highlight-glow"
+                        x="-50%"
+                        y="-50%"
+                        width="200%"
+                        height="200%"
+                    >
+                        <feGaussianBlur stdDeviation="4" result="blur" />
+                        <feFlood
+                            floodColor="var(--accent)"
+                            floodOpacity="0.8"
+                        />
+                        <feComposite in2="blur" operator="in" />
+                        <feMerge>
+                            <feMergeNode />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <filter
+                        id="highlight-glow-strong"
+                        x="-50%"
+                        y="-50%"
+                        width="200%"
+                        height="200%"
+                    >
+                        <feGaussianBlur stdDeviation="6" result="blur" />
+                        <feFlood floodColor="var(--accent)" floodOpacity="1" />
+                        <feComposite in2="blur" operator="in" />
+                        <feMerge>
+                            <feMergeNode />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
                 <style>
                     {`
                         @keyframes pulse-highlight {
                             0%, 100% { opacity: 0.4; }
                             50% { opacity: 1; }
                         }
-                        @keyframes pulse-highlight-stroke {
-                            0%, 100% { opacity: 0.5; stroke-width: 6; }
-                            50% { opacity: 1; stroke-width: 10; }
+                        @keyframes pulse-glow {
+                            0%, 100% { opacity: 0.6; }
+                            50% { opacity: 1; }
                         }
                         .history-highlight {
                             animation: pulse-highlight 1.5s ease-in-out infinite;
@@ -4160,11 +4195,11 @@ export function useCanvasRenderers({
                         .history-highlight-current {
                             animation: pulse-highlight 1s ease-in-out infinite;
                         }
-                        .history-highlight-stroke {
-                            animation: pulse-highlight-stroke 1.5s ease-in-out infinite;
+                        .history-glow {
+                            animation: pulse-glow 1.5s ease-in-out infinite;
                         }
-                        .history-highlight-stroke-current {
-                            animation: pulse-highlight-stroke 1s ease-in-out infinite;
+                        .history-glow-current {
+                            animation: pulse-glow 1s ease-in-out infinite;
                         }
                     `}
                 </style>
@@ -4174,7 +4209,7 @@ export function useCanvasRenderers({
 
                     const isCurrent = id === currentHighlightId;
 
-                    // For pen, highlighter, line, and arrow - highlight the actual stroke
+                    // For pen, highlighter, line, and arrow - use glow filter on a thicker stroke
                     if (
                         element.type === "pen" ||
                         element.type === "line" ||
@@ -4182,23 +4217,30 @@ export function useCanvasRenderers({
                     ) {
                         if (element.points.length < 2) return null;
 
-                        // Create path from points
+                        // Create smooth path from points
                         const pathData = `M ${element.points.map((p) => `${p.x},${p.y}`).join(" L ")}`;
+                        const strokeWidth =
+                            (element.strokeWidth || 2) + (isCurrent ? 8 : 4);
 
                         return (
                             <path
                                 key={`highlight-${id}`}
                                 className={
                                     isCurrent
-                                        ? "history-highlight-stroke-current"
-                                        : "history-highlight-stroke"
+                                        ? "history-glow-current"
+                                        : "history-glow"
                                 }
                                 d={pathData}
                                 fill="none"
                                 stroke="var(--accent)"
-                                strokeWidth={isCurrent ? 10 : 6}
+                                strokeWidth={strokeWidth}
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                filter={
+                                    isCurrent
+                                        ? "url(#highlight-glow-strong)"
+                                        : "url(#highlight-glow)"
+                                }
                                 pointerEvents="none"
                             />
                         );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
     X,
     History,
@@ -11,7 +11,6 @@ import {
     Plus,
     Pencil,
     Trash2,
-    Eye,
     Minimize2,
     Maximize2,
 } from "lucide-react";
@@ -28,20 +27,23 @@ interface HistorySidebarProps {
     onPreviewEntry?: (entryId: string | null) => void;
 }
 
-function formatTimestamp(timestamp: number): string {
+function formatTimeChunk(timestamp: number): string {
     const date = new Date(timestamp);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
 
+    // Less than a minute ago
     if (diff < 60000) {
         return "Just now";
     }
 
+    // Less than an hour - show minutes ago
     if (diff < 3600000) {
         const mins = Math.floor(diff / 60000);
         return `${mins} min${mins > 1 ? "s" : ""} ago`;
     }
 
+    // Same day - show time
     if (date.toDateString() === now.toDateString()) {
         return date.toLocaleTimeString([], {
             hour: "2-digit",
@@ -49,6 +51,7 @@ function formatTimestamp(timestamp: number): string {
         });
     }
 
+    // Yesterday
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     if (date.toDateString() === yesterday.toDateString()) {
@@ -58,12 +61,36 @@ function formatTimestamp(timestamp: number): string {
         })}`;
     }
 
+    // Older
     return date.toLocaleDateString([], {
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
     });
+}
+
+function getTimeChunkKey(timestamp: number): string {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+
+    // Group by minute for recent changes (last hour)
+    if (diff < 3600000) {
+        const minutesAgo = Math.floor(diff / 60000);
+        if (minutesAgo < 1) return "just-now";
+        return `${minutesAgo}-min-ago`;
+    }
+
+    // Group by 5-minute chunks for today
+    if (date.toDateString() === now.toDateString()) {
+        const hours = date.getHours();
+        const fiveMinChunk = Math.floor(date.getMinutes() / 5) * 5;
+        return `today-${hours}-${fiveMinChunk}`;
+    }
+
+    // Group by hour for older dates
+    return `${date.toDateString()}-${date.getHours()}`;
 }
 
 function getOperationIcon(operation: string) {
@@ -122,8 +149,10 @@ function getElementTypeIcon(type: string): string {
     return iconMap[type] || "•";
 }
 
-interface GroupedEntries {
-    date: string;
+interface TimeChunkGroup {
+    key: string;
+    label: string;
+    timestamp: number;
     entries: HistoryEntry[];
 }
 
@@ -223,63 +252,61 @@ export function HistorySidebar({
     onPreviewEntry,
 }: HistorySidebarProps) {
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-        new Set(["Today"]),
+        new Set(),
     );
     const [expandedEntries, setExpandedEntries] = useState<Set<string>>(
         new Set(),
     );
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
     const [isCompact, setIsCompact] = useState(false);
-    const [previewingEntryId, setPreviewingEntryId] = useState<string | null>(
-        null,
-    );
 
+    // Group entries by time chunks
     const groupedEntries = useMemo(() => {
-        const groups: GroupedEntries[] = [];
-        const today = new Date().toDateString();
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toDateString();
+        const groups: TimeChunkGroup[] = [];
+        const groupMap = new Map<string, HistoryEntry[]>();
 
-        const entriesByDate = new Map<string, HistoryEntry[]>();
+        // Sort entries by timestamp (newest first)
         const sorted = [...entries].sort((a, b) => b.timestamp - a.timestamp);
 
         for (const entry of sorted) {
-            const date = new Date(entry.timestamp);
-            let dateKey: string;
-
-            if (date.toDateString() === today) {
-                dateKey = "Today";
-            } else if (date.toDateString() === yesterdayStr) {
-                dateKey = "Yesterday";
-            } else {
-                dateKey = date.toLocaleDateString([], {
-                    weekday: "long",
-                    month: "short",
-                    day: "numeric",
-                });
+            const key = getTimeChunkKey(entry.timestamp);
+            if (!groupMap.has(key)) {
+                groupMap.set(key, []);
             }
-
-            if (!entriesByDate.has(dateKey)) {
-                entriesByDate.set(dateKey, []);
-            }
-            entriesByDate.get(dateKey)!.push(entry);
+            groupMap.get(key)!.push(entry);
         }
 
-        entriesByDate.forEach((dateEntries, date) => {
-            groups.push({ date, entries: dateEntries });
+        groupMap.forEach((groupEntries, key) => {
+            // Use the first (most recent) entry's timestamp for the label
+            const timestamp = groupEntries[0].timestamp;
+            groups.push({
+                key,
+                label: formatTimeChunk(timestamp),
+                timestamp,
+                entries: groupEntries,
+            });
         });
+
+        // Sort groups by timestamp (newest first)
+        groups.sort((a, b) => b.timestamp - a.timestamp);
 
         return groups;
     }, [entries]);
 
-    const toggleGroup = (date: string) => {
+    // Auto-expand the first group
+    useEffect(() => {
+        if (groupedEntries.length > 0 && expandedGroups.size === 0) {
+            setExpandedGroups(new Set([groupedEntries[0].key]));
+        }
+    }, [groupedEntries, expandedGroups.size]);
+
+    const toggleGroup = (key: string) => {
         setExpandedGroups((prev) => {
             const next = new Set(prev);
-            if (next.has(date)) {
-                next.delete(date);
+            if (next.has(key)) {
+                next.delete(key);
             } else {
-                next.add(date);
+                next.add(key);
             }
             return next;
         });
@@ -297,46 +324,29 @@ export function HistorySidebar({
         });
     };
 
-    const handleRestore = (entryId: string) => {
-        setSelectedEntryId(entryId);
-        onRestore(entryId);
+    // Handle entry click - select and highlight
+    const handleEntryClick = (entryId: string) => {
+        if (selectedEntryId === entryId) {
+            // Clicking same entry deselects it
+            setSelectedEntryId(null);
+            onPreviewEntry?.(null);
+        } else {
+            setSelectedEntryId(entryId);
+            onPreviewEntry?.(entryId);
+        }
     };
 
-    const handlePreview = useCallback(
-        (entryId: string | null) => {
-            setPreviewingEntryId(entryId);
-            onPreviewEntry?.(entryId);
-        },
-        [onPreviewEntry],
-    );
-
-    // Count changes by type
-    const changeCounts = useMemo(() => {
-        let adds = 0;
-        let updates = 0;
-        let deletes = 0;
-
-        for (const entry of entries) {
-            if (entry.changes) {
-                for (const change of entry.changes) {
-                    if (change.operation === "add") adds++;
-                    else if (change.operation === "update") updates++;
-                    else if (change.operation === "delete") deletes++;
-                }
-            } else {
-                // Fallback for old entries without changes array
-                if (entry.operation === "add") adds += entry.elementIds.length;
-                else if (entry.operation === "update")
-                    updates += entry.elementIds.length;
-                else if (entry.operation === "delete")
-                    deletes += entry.elementIds.length;
-            }
+    const handleRestore = () => {
+        if (selectedEntryId) {
+            onRestore(selectedEntryId);
         }
-
-        return { adds, updates, deletes };
-    }, [entries]);
+    };
 
     if (!isOpen) return null;
+
+    const selectedEntry = selectedEntryId
+        ? entries.find((e) => e.id === selectedEntryId)
+        : null;
 
     return (
         <div
@@ -403,36 +413,6 @@ export function HistorySidebar({
                 </div>
             </div>
 
-            {/* Stats bar */}
-            {entries.length > 0 && (
-                <div className="flex items-center justify-center gap-4 px-4 py-2 border-b border-border/40 bg-muted/30">
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded flex items-center justify-center bg-green-500/10 text-green-500">
-                            <Plus className="w-3 h-3" />
-                        </span>
-                        <span className="text-xs font-medium">
-                            {changeCounts.adds}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded flex items-center justify-center bg-blue-500/10 text-blue-500">
-                            <Pencil className="w-3 h-3" />
-                        </span>
-                        <span className="text-xs font-medium">
-                            {changeCounts.updates}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded flex items-center justify-center bg-red-500/10 text-red-500">
-                            <Trash2 className="w-3 h-3" />
-                        </span>
-                        <span className="text-xs font-medium">
-                            {changeCounts.deletes}
-                        </span>
-                    </div>
-                </div>
-            )}
-
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
                 {entries.length === 0 ? (
@@ -448,25 +428,25 @@ export function HistorySidebar({
                 ) : (
                     <div className="p-2">
                         {groupedEntries.map((group) => (
-                            <div key={group.date} className="mb-2">
-                                {/* Date header */}
+                            <div key={group.key} className="mb-2">
+                                {/* Time chunk header */}
                                 <button
-                                    onClick={() => toggleGroup(group.date)}
+                                    onClick={() => toggleGroup(group.key)}
                                     className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                                 >
-                                    {expandedGroups.has(group.date) ? (
+                                    {expandedGroups.has(group.key) ? (
                                         <ChevronDown className="w-3 h-3" />
                                     ) : (
                                         <ChevronRight className="w-3 h-3" />
                                     )}
-                                    {group.date}
+                                    {group.label}
                                     <span className="text-muted-foreground/50">
                                         ({group.entries.length})
                                     </span>
                                 </button>
 
                                 {/* Entries */}
-                                {expandedGroups.has(group.date) && (
+                                {expandedGroups.has(group.key) && (
                                     <div className="ml-2 border-l border-border/40 pl-2 space-y-1">
                                         {group.entries.map((entry) => {
                                             const isExpanded =
@@ -474,29 +454,25 @@ export function HistorySidebar({
                                             const hasChanges =
                                                 entry.changes &&
                                                 entry.changes.length > 0;
+                                            const isSelected =
+                                                selectedEntryId === entry.id;
 
                                             return (
                                                 <div
                                                     key={entry.id}
                                                     className={cn(
-                                                        "group relative rounded-md transition-colors",
-                                                        selectedEntryId ===
-                                                            entry.id
-                                                            ? "bg-primary/10"
-                                                            : previewingEntryId ===
-                                                                entry.id
-                                                              ? "bg-accent/20 ring-1 ring-accent"
-                                                              : "hover:bg-muted/50",
+                                                        "group relative rounded-md transition-colors cursor-pointer",
+                                                        isSelected
+                                                            ? "bg-accent/20 ring-1 ring-accent"
+                                                            : "hover:bg-muted/50",
                                                     )}
+                                                    onClick={() =>
+                                                        handleEntryClick(
+                                                            entry.id,
+                                                        )
+                                                    }
                                                 >
-                                                    <div
-                                                        className="p-2 cursor-pointer"
-                                                        onClick={() =>
-                                                            setSelectedEntryId(
-                                                                entry.id,
-                                                            )
-                                                        }
-                                                    >
+                                                    <div className="p-2">
                                                         <div className="flex items-start gap-2">
                                                             {/* Operation icon */}
                                                             <div
@@ -534,16 +510,8 @@ export function HistorySidebar({
                                                                                     .name ||
                                                                                     "Guest"}
                                                                             </span>
-                                                                            <span className="text-xs text-muted-foreground/50">
-                                                                                &middot;
-                                                                            </span>
                                                                         </>
                                                                     )}
-                                                                    <span className="text-xs text-muted-foreground/70">
-                                                                        {formatTimestamp(
-                                                                            entry.timestamp,
-                                                                        )}
-                                                                    </span>
                                                                 </div>
 
                                                                 {/* Change type badges in compact mode */}
@@ -590,71 +558,31 @@ export function HistorySidebar({
                                                                     )}
                                                             </div>
 
-                                                            {/* Actions */}
-                                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {onPreviewEntry && (
-                                                                    <button
-                                                                        onClick={(
-                                                                            e,
-                                                                        ) => {
-                                                                            e.stopPropagation();
-                                                                            handlePreview(
-                                                                                previewingEntryId ===
-                                                                                    entry.id
-                                                                                    ? null
-                                                                                    : entry.id,
-                                                                            );
-                                                                        }}
-                                                                        className={cn(
-                                                                            "p-1 rounded hover:bg-background transition-all",
-                                                                            previewingEntryId ===
-                                                                                entry.id &&
-                                                                                "bg-accent text-accent-foreground",
-                                                                        )}
-                                                                        title="Preview changes"
-                                                                    >
-                                                                        <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                                                                    </button>
-                                                                )}
+                                                            {/* Expand button for details */}
+                                                            {hasChanges && (
                                                                 <button
                                                                     onClick={(
                                                                         e,
                                                                     ) => {
                                                                         e.stopPropagation();
-                                                                        handleRestore(
+                                                                        toggleEntryExpanded(
                                                                             entry.id,
                                                                         );
                                                                     }}
-                                                                    className="p-1 rounded hover:bg-background transition-all"
-                                                                    title="Restore to this version"
+                                                                    className="p-1 rounded hover:bg-background transition-all opacity-0 group-hover:opacity-100"
+                                                                    title={
+                                                                        isExpanded
+                                                                            ? "Collapse"
+                                                                            : "Show details"
+                                                                    }
                                                                 >
-                                                                    <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                    {isExpanded ? (
+                                                                        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                    ) : (
+                                                                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                    )}
                                                                 </button>
-                                                                {hasChanges && (
-                                                                    <button
-                                                                        onClick={(
-                                                                            e,
-                                                                        ) => {
-                                                                            e.stopPropagation();
-                                                                            toggleEntryExpanded(
-                                                                                entry.id,
-                                                                            );
-                                                                        }}
-                                                                        className="p-1 rounded hover:bg-background transition-all"
-                                                                        title={
-                                                                            isExpanded
-                                                                                ? "Collapse"
-                                                                                : "Show details"
-                                                                        }
-                                                                    >
-                                                                        {isExpanded ? (
-                                                                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                                                                        ) : (
-                                                                            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                                                                        )}
-                                                                    </button>
-                                                                )}
-                                                            </div>
+                                                            )}
                                                         </div>
 
                                                         {/* Expanded details */}
@@ -694,12 +622,23 @@ export function HistorySidebar({
                 )}
             </div>
 
-            {/* Footer */}
+            {/* Footer - shows restore button when entry selected */}
             <div className="p-3 border-t border-border/60">
-                <p className="text-xs text-muted-foreground text-center">
-                    {entries.length} change{entries.length !== 1 ? "s" : ""}{" "}
-                    recorded
-                </p>
+                {selectedEntry ? (
+                    <button
+                        onClick={handleRestore}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-md hover:bg-accent/90 transition-colors"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        <span className="text-sm font-medium">
+                            Restore this version
+                        </span>
+                    </button>
+                ) : (
+                    <p className="text-xs text-muted-foreground text-center">
+                        Select a change to preview and restore
+                    </p>
+                )}
             </div>
         </div>
     );
