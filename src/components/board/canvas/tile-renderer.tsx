@@ -47,12 +47,6 @@ export function TileRenderer({
   const [mermaidScale, setMermaidScale] = useState(
     element.tileContent?.mermaidScale || 1,
   );
-  const [mermaidOffsetX, setMermaidOffsetX] = useState(
-    element.tileContent?.mermaidOffsetX || 0,
-  );
-  const [mermaidOffsetY, setMermaidOffsetY] = useState(
-    element.tileContent?.mermaidOffsetY || 0,
-  );
   const [mermaidSvgContent, setMermaidSvgContent] = useState<string>("");
 
   if (element.type !== "tile" || !element.tileType) {
@@ -67,13 +61,7 @@ export function TileRenderer({
 
   useEffect(() => {
     setMermaidScale(element.tileContent?.mermaidScale || 1);
-    setMermaidOffsetX(element.tileContent?.mermaidOffsetX || 0);
-    setMermaidOffsetY(element.tileContent?.mermaidOffsetY || 0);
-  }, [
-    element.tileContent?.mermaidScale,
-    element.tileContent?.mermaidOffsetX,
-    element.tileContent?.mermaidOffsetY,
-  ]);
+  }, [element.tileContent?.mermaidScale]);
 
   const getTileBackground = () => {
     switch (element.tileType) {
@@ -105,8 +93,9 @@ export function TileRenderer({
     }
   };
 
-  // Double-click to edit (only for code and mermaid tiles)
+  // Double-click to edit (only for code tiles)
   // Text and note tiles have always-on editing via Lexical
+  // Mermaid tiles use explicit edit button
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     // Don't enter edit mode if double-clicking on the header
@@ -115,11 +104,8 @@ export function TileRenderer({
       return;
     }
 
-    // Only toggle edit mode for code and mermaid
-    if (
-      element.tileType === "tile-code" ||
-      element.tileType === "tile-mermaid"
-    ) {
+    // Only toggle edit mode for code tiles
+    if (element.tileType === "tile-code") {
       setIsEditing(true);
     }
   };
@@ -147,21 +133,6 @@ export function TileRenderer({
         tileContent: {
           ...element.tileContent,
           mermaidScale: newScale,
-        },
-      });
-    },
-    [element.tileContent, onUpdate],
-  );
-
-  const handleMermaidOffsetChange = useCallback(
-    (newOffsetX: number, newOffsetY: number) => {
-      setMermaidOffsetX(newOffsetX);
-      setMermaidOffsetY(newOffsetY);
-      onUpdate?.({
-        tileContent: {
-          ...element.tileContent,
-          mermaidOffsetX: newOffsetX,
-          mermaidOffsetY: newOffsetY,
         },
       });
     },
@@ -255,18 +226,20 @@ export function TileRenderer({
               width={width - 16}
               height={height - 48}
               scale={mermaidScale}
-              offsetX={mermaidOffsetX}
-              offsetY={mermaidOffsetY}
-              onOffsetChange={handleMermaidOffsetChange}
-              isInteractive={isSelected}
               onSvgReady={setMermaidSvgContent}
             />
           </div>
         ) : (
-          <div className="absolute left-0 right-0 bottom-0 top-10 flex items-center justify-center pointer-events-none rounded-b-lg">
-            <div className={cn("text-sm text-center", getTileTextColor())}>
-              Double-click to add diagram...
-            </div>
+          <div className="absolute left-0 right-0 bottom-0 top-10 flex items-center justify-center pointer-events-auto rounded-b-lg">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex flex-col items-center justify-center gap-2 px-6 py-4 rounded-lg border-2 border-dashed border-sky-300 dark:border-sky-700 hover:border-sky-400 dark:hover:border-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
+                <span className="text-2xl text-sky-600 dark:text-sky-400">+</span>
+              </div>
+              <span className="text-sm font-medium text-sky-700 dark:text-sky-300">Add Diagram</span>
+            </button>
           </div>
         );
 

@@ -8,10 +8,6 @@ interface MermaidRendererProps {
   width?: number;
   height?: number;
   scale?: number;
-  offsetX?: number;
-  offsetY?: number;
-  onOffsetChange?: (offsetX: number, offsetY: number) => void;
-  isInteractive?: boolean;
   onSvgReady?: (svg: string) => void;
   className?: string;
 }
@@ -21,18 +17,12 @@ export function MermaidRenderer({
   width = 400,
   height = 300,
   scale = 1,
-  offsetX = 0,
-  offsetY = 0,
-  onOffsetChange,
-  isInteractive = false,
   onSvgReady,
   className,
 }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -80,31 +70,6 @@ export function MermaidRenderer({
     renderMermaid();
   }, [chart, isDarkMode, onSvgReady]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isInteractive) return;
-    setIsPanning(true);
-    setPanStart({ x: e.clientX - offsetX, y: e.clientY - offsetY });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isPanning || !isInteractive) return;
-    const newOffsetX = e.clientX - panStart.x;
-    const newOffsetY = e.clientY - panStart.y;
-    onOffsetChange?.(newOffsetX, newOffsetY);
-  };
-
-  const handleMouseUp = () => {
-    setIsPanning(false);
-  };
-
-  useEffect(() => {
-    if (isPanning) {
-      const handleGlobalMouseUp = () => setIsPanning(false);
-      document.addEventListener("mouseup", handleGlobalMouseUp);
-      return () => document.removeEventListener("mouseup", handleGlobalMouseUp);
-    }
-  }, [isPanning]);
-
   if (error) {
     return (
       <div
@@ -139,20 +104,16 @@ export function MermaidRenderer({
     <div
       ref={containerRef}
       className={cn(
-        "w-full h-full overflow-hidden relative",
-        isInteractive && "cursor-move",
+        "w-full h-full overflow-hidden relative flex items-center justify-center",
         className
       )}
-      style={{ width, height }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      style={{ width, height, pointerEvents: "none" }}
     >
       <div
         style={{
-          transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
-          transformOrigin: "top left",
-          transition: isPanning ? "none" : "transform 0.1s ease-out",
+          transform: scale !== 1 ? `scale(${scale})` : undefined,
+          transformOrigin: "center center",
+          transition: "transform 0.1s ease-out",
         }}
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
