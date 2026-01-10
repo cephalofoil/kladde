@@ -480,12 +480,26 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         // Only update state if data actually changed to prevent unnecessary re-renders
         setCollaboratorUsers((prev) => {
           if (prev.length !== users.length) return users;
-          const changed = users.some(
-            (u, i) =>
-              u.id !== prev[i]?.id ||
-              u.name !== prev[i]?.name ||
-              u.color !== prev[i]?.color,
-          );
+          const changed = users.some((u, i) => {
+            const prevUser = prev[i];
+            if (
+              u.id !== prevUser?.id ||
+              u.name !== prevUser?.name ||
+              u.color !== prevUser?.color
+            ) {
+              return true;
+            }
+
+            const nextViewport = u.viewport;
+            const prevViewport = prevUser?.viewport;
+            if (!nextViewport && !prevViewport) return false;
+            if (!nextViewport || !prevViewport) return true;
+            return (
+              nextViewport.zoom !== prevViewport.zoom ||
+              nextViewport.pan.x !== prevViewport.pan.x ||
+              nextViewport.pan.y !== prevViewport.pan.y
+            );
+          });
           return changed ? users : prev;
         });
         setSpectatedUserIds((prev) => {
