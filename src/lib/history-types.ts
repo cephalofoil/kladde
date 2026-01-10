@@ -20,6 +20,20 @@ export interface HistoryUser {
 }
 
 /**
+ * Detailed change for a single element
+ */
+export interface ElementChange {
+    elementId: string;
+    elementType: BoardElement["type"];
+    elementLabel?: string; // For frames, tiles with titles, etc.
+    operation: "add" | "update" | "delete";
+    /** Properties that changed (for updates) */
+    changedProperties?: string[];
+    /** Summary of what changed */
+    changeSummary?: string;
+}
+
+/**
  * A single history entry representing one operation
  */
 export interface HistoryEntry {
@@ -29,6 +43,8 @@ export interface HistoryEntry {
     user: HistoryUser;
     /** Element IDs affected by this operation */
     elementIds: string[];
+    /** Detailed changes for each element */
+    changes: ElementChange[];
     /** Snapshot of elements before the operation (for undo/restore) */
     beforeSnapshot: BoardElement[];
     /** Snapshot of elements after the operation */
@@ -61,10 +77,13 @@ export interface CollabSession {
     /** Default permission for the share link */
     defaultPermission: CollabPermission;
     /** Active participants */
-    participants: Map<string, {
-        userId: string;
-        name: string;
-        permission: CollabPermission;
-        joinedAt: number;
-    }>;
+    participants: Map<
+        string,
+        {
+            userId: string;
+            name: string;
+            permission: CollabPermission;
+            joinedAt: number;
+        }
+    >;
 }

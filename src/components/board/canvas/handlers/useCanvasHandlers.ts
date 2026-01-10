@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { v4 as uuid } from "uuid";
-import type { Tool, BoardElement, Point, TileType, NoteStyle } from "@/lib/board-types";
+import type {
+    Tool,
+    BoardElement,
+    Point,
+    TileType,
+    NoteStyle,
+} from "@/lib/board-types";
 import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import type { CollaborationManager } from "@/lib/collaboration";
 import type { CanvasState } from "../hooks/useCanvasState";
@@ -115,6 +121,7 @@ interface UseCanvasHandlersProps {
     onDeleteElement: (id: string) => void;
     onDeleteMultiple?: (ids: string[]) => void;
     onStartTransform?: () => void;
+    onEndTransform?: () => void;
     onToolChange?: (tool: Tool) => void;
     onManualViewportChange?: () => void;
     isToolLocked: boolean;
@@ -154,6 +161,7 @@ export function useCanvasHandlers({
     onDeleteElement,
     onDeleteMultiple,
     onStartTransform,
+    onEndTransform,
     onToolChange,
     onManualViewportChange,
     isToolLocked,
@@ -2385,7 +2393,10 @@ export function useCanvasHandlers({
             }
 
             const frameHandleTarget = frameHandle as HTMLElement | null;
-            if (frameHandleTarget && selectableClickedElement?.type === "frame") {
+            if (
+                frameHandleTarget &&
+                selectableClickedElement?.type === "frame"
+            ) {
                 e.preventDefault();
                 const frameId = selectableClickedElement.id;
                 const containedElements = currentElements.filter(
@@ -2931,7 +2942,8 @@ export function useCanvasHandlers({
                 if (tileType === "tile-note") {
                     initialTileContent.noteStyle = selectedNoteStyle;
                     // Set default color based on style - natural-tan for torn, butter for classic
-                    initialTileContent.noteColor = selectedNoteStyle === "torn" ? "natural-tan" : "butter";
+                    initialTileContent.noteColor =
+                        selectedNoteStyle === "torn" ? "natural-tan" : "butter";
                 }
 
                 const newTile: BoardElement = {
@@ -3317,6 +3329,7 @@ export function useCanvasHandlers({
         if (isRotating) {
             setIsRotating(false);
             setRotateStart(null);
+            onEndTransform?.();
             return;
         }
 
@@ -3325,6 +3338,7 @@ export function useCanvasHandlers({
             setHasDragMoved(false);
             setDragStart(null);
             setOriginalElements([]);
+            onEndTransform?.();
             return;
         }
 
@@ -3334,6 +3348,7 @@ export function useCanvasHandlers({
             setDragStart(null);
             setOriginalElements([]);
             setOriginalBounds(null);
+            onEndTransform?.();
             return;
         }
 
@@ -3490,6 +3505,7 @@ export function useCanvasHandlers({
         onDeleteMultiple,
         onUpdateElement,
         onToolChange,
+        onEndTransform,
         lastMousePos,
         startPoint,
         textInputRef,

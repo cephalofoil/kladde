@@ -6,28 +6,160 @@ import type {
     BoardHistory,
     HistoryOperationType,
     HistoryUser,
+    ElementChange,
 } from "./history-types";
 
 const HISTORY_STORAGE_KEY_PREFIX = "kladde-history-";
 const DEFAULT_MAX_ENTRIES = 100;
 
 /**
+ * Get a human-readable label for an element
+ */
+function getElementLabel(element: BoardElement): string | undefined {
+    if (element.type === "frame" && element.label) {
+        return element.label;
+    }
+    if (element.type === "tile" && element.tileTitle) {
+        return element.tileTitle;
+    }
+    if (element.type === "text" && element.text) {
+        const text = element.text.trim();
+        return text.length > 30 ? text.substring(0, 30) + "..." : text;
+    }
+    return undefined;
+}
+
+/**
+ * Get a human-readable name for an element type
+ */
+function getElementTypeName(element: BoardElement): string {
+    if (element.type === "tile" && element.tileType) {
+        const tileTypeMap: Record<string, string> = {
+            "tile-text": "Text Tile",
+            "tile-note": "Note",
+            "tile-code": "Code Block",
+            "tile-mermaid": "Diagram",
+            "tile-image": "Image",
+            "tile-document": "Document",
+        };
+        return tileTypeMap[element.tileType] || "Tile";
+    }
+    if (element.type === "pen" && element.penMode === "highlighter") {
+        return "Highlighter";
+    }
+    const typeMap: Record<string, string> = {
+        pen: "Stroke",
+        line: "Line",
+        arrow: "Arrow",
+        rectangle: "Rectangle",
+        diamond: "Diamond",
+        ellipse: "Ellipse",
+        text: "Text",
+        frame: "Frame",
+        "web-embed": "Web Embed",
+        laser: "Laser",
+        tile: "Tile",
+    };
+    return typeMap[element.type] || element.type;
+}
+
+/**
+ * Properties to ignore when detecting changes
+ */
+const IGNORED_PROPERTIES = new Set(["timestamp"]);
+
+/**
+ * Properties that are important to track
+ */
+const IMPORTANT_PROPERTIES: Record<string, string> = {
+    x: "position",
+    y: "position",
+    width: "size",
+    height: "size",
+    rotation: "rotation",
+    strokeColor: "stroke color",
+    strokeWidth: "stroke width",
+    fillColor: "fill color",
+    text: "text content",
+    label: "label",
+    tileTitle: "title",
+    tileContent: "content",
+    noteText: "note text",
+    noteColor: "note color",
+    code: "code",
+    chart: "diagram",
+    opacity: "opacity",
+    hidden: "visibility",
+    locked: "lock state",
+    zIndex: "layer order",
+    points: "shape",
+};
+
+/**
+ * Detect what properties changed between two elements
+ */
+function detectChangedProperties(
+    before: BoardElement,
+    after: BoardElement,
+): { properties: string[]; summary: string } {
+    const changedProperties: string[] = [];
+    const changedDescriptions: string[] = [];
+
+    const allKeys = new Set([
+        ...Object.keys(before),
+        ...Object.keys(after),
+    ]) as Set<keyof BoardElement>;
+
+    for (const key of allKeys) {
+        if (IGNORED_PROPERTIES.has(key)) continue;
+
+        const beforeVal = before[key];
+        const afterVal = after[key];
+
+        // Deep compare for objects/arrays
+        const beforeStr = JSON.stringify(beforeVal);
+        const afterStr = JSON.stringify(afterVal);
+
+        if (beforeStr !== afterStr) {
+            changedProperties.push(key);
+            if (IMPORTANT_PROPERTIES[key]) {
+                changedDescriptions.push(IMPORTANT_PROPERTIES[key]);
+            }
+        }
+    }
+
+    // Generate summary
+    let summary = "";
+    if (changedDescriptions.length > 0) {
+        const unique = [...new Set(changedDescriptions)];
+        if (unique.length <= 2) {
+            summary = `Changed ${unique.join(" and ")}`;
+        } else {
+            summary = `Changed ${unique.slice(0, 2).join(", ")} and ${unique.length - 2} more`;
+        }
+    } else if (changedProperties.length > 0) {
+        summary = `Modified ${changedProperties.length} properties`;
+    }
+
+    return { properties: changedProperties, summary };
+}
+
+/**
  * Manages version history for a board, storing it in IndexedDB
+ * Saves every change immediately (no batching)
  */
 export class HistoryManager {
     private boardId: string;
     private history: BoardHistory | null = null;
     private isOwner: boolean;
     private currentUser: HistoryUser;
-    private pendingBatch: {
-        elementIds: Set<string>;
-        beforeSnapshot: BoardElement[];
-        operations: HistoryOperationType[];
-    } | null = null;
-    private batchTimeout: ReturnType<typeof setTimeout> | null = null;
-    private readonly BATCH_DELAY = 500; // ms to wait before committing batch
 
-    constructor(boardId: string, userId: string, userName: string, isOwner: boolean) {
+    constructor(
+        boardId: string,
+        userId: string,
+        userName: string,
+        isOwner: boolean,
+    ) {
         this.boardId = boardId;
         this.isOwner = isOwner;
         this.currentUser = {
@@ -42,7 +174,6 @@ export class HistoryManager {
      */
     async initialize(): Promise<void> {
         if (!this.isOwner) {
-            // Guests don't load or save history
             return;
         }
 
@@ -64,7 +195,7 @@ export class HistoryManager {
     }
 
     /**
-     * Update the current user info (e.g., when name changes)
+     * Update the current user info
      */
     updateUser(userId: string, userName: string, isOwner: boolean): void {
         this.currentUser = { id: userId, name: userName, isOwner };
@@ -83,57 +214,144 @@ export class HistoryManager {
     }
 
     /**
+     * Generate detailed changes for added elements
+     */
+    private generateAddChanges(
+        elementIds: string[],
+        afterElements: BoardElement[],
+    ): ElementChange[] {
+        return elementIds.map((id) => {
+            const element = afterElements.find((el) => el.id === id);
+            return {
+                elementId: id,
+                elementType: element?.type || "pen",
+                elementLabel: element ? getElementLabel(element) : undefined,
+                operation: "add" as const,
+                changeSummary: element
+                    ? `Added ${getElementTypeName(element)}`
+                    : "Added element",
+            };
+        });
+    }
+
+    /**
+     * Generate detailed changes for deleted elements
+     */
+    private generateDeleteChanges(
+        elementIds: string[],
+        beforeElements: BoardElement[],
+    ): ElementChange[] {
+        return elementIds.map((id) => {
+            const element = beforeElements.find((el) => el.id === id);
+            return {
+                elementId: id,
+                elementType: element?.type || "pen",
+                elementLabel: element ? getElementLabel(element) : undefined,
+                operation: "delete" as const,
+                changeSummary: element
+                    ? `Deleted ${getElementTypeName(element)}`
+                    : "Deleted element",
+            };
+        });
+    }
+
+    /**
+     * Generate detailed changes for updated elements
+     */
+    private generateUpdateChanges(
+        elementIds: string[],
+        beforeElements: BoardElement[],
+        afterElements: BoardElement[],
+    ): ElementChange[] {
+        return elementIds.map((id) => {
+            const before = beforeElements.find((el) => el.id === id);
+            const after = afterElements.find((el) => el.id === id);
+
+            if (!before || !after) {
+                return {
+                    elementId: id,
+                    elementType: (after || before)?.type || "pen",
+                    operation: "update" as const,
+                    changeSummary: "Updated element",
+                };
+            }
+
+            const { properties, summary } = detectChangedProperties(
+                before,
+                after,
+            );
+
+            return {
+                elementId: id,
+                elementType: after.type,
+                elementLabel: getElementLabel(after),
+                operation: "update" as const,
+                changedProperties: properties,
+                changeSummary:
+                    summary || `Updated ${getElementTypeName(after)}`,
+            };
+        });
+    }
+
+    /**
      * Generate a description for the operation
      */
     private generateDescription(
         operation: HistoryOperationType,
-        elementIds: string[],
-        elements: BoardElement[]
+        changes: ElementChange[],
     ): string {
-        const count = elementIds.length;
-        const elementTypes = new Set(
-            elements
-                .filter((el) => elementIds.includes(el.id))
-                .map((el) => el.type)
-        );
-        const typeStr =
-            elementTypes.size === 1
-                ? Array.from(elementTypes)[0]
-                : `${count} elements`;
+        if (changes.length === 0) return "No changes";
 
-        switch (operation) {
-            case "add":
-                return `Added ${count === 1 ? typeStr : `${count} elements`}`;
-            case "update":
-                return `Updated ${count === 1 ? typeStr : `${count} elements`}`;
-            case "delete":
-                return `Deleted ${count === 1 ? typeStr : `${count} elements`}`;
-            case "batch":
-                return `Modified ${count} elements`;
-            default:
-                return `Changed ${count} elements`;
+        if (changes.length === 1) {
+            return changes[0].changeSummary || "Modified element";
         }
+
+        // Group by operation
+        const adds = changes.filter((c) => c.operation === "add");
+        const updates = changes.filter((c) => c.operation === "update");
+        const deletes = changes.filter((c) => c.operation === "delete");
+
+        const parts: string[] = [];
+        if (adds.length > 0) {
+            parts.push(
+                `Added ${adds.length} element${adds.length > 1 ? "s" : ""}`,
+            );
+        }
+        if (updates.length > 0) {
+            parts.push(
+                `Updated ${updates.length} element${updates.length > 1 ? "s" : ""}`,
+            );
+        }
+        if (deletes.length > 0) {
+            parts.push(
+                `Deleted ${deletes.length} element${deletes.length > 1 ? "s" : ""}`,
+            );
+        }
+
+        return parts.join(", ");
     }
 
     /**
-     * Commit any pending batch operations
+     * Create and save a history entry immediately
      */
-    private async commitBatch(afterSnapshot: BoardElement[]): Promise<void> {
-        if (!this.pendingBatch || !this.history || !this.isOwner) return;
+    private async createEntry(
+        operation: HistoryOperationType,
+        changes: ElementChange[],
+        beforeElements: BoardElement[],
+        afterElements: BoardElement[],
+    ): Promise<void> {
+        if (!this.history || !this.isOwner) return;
 
         const entry: HistoryEntry = {
             id: uuid(),
             timestamp: Date.now(),
-            operation: this.pendingBatch.operations.length > 1 ? "batch" : this.pendingBatch.operations[0],
+            operation,
             user: { ...this.currentUser },
-            elementIds: Array.from(this.pendingBatch.elementIds),
-            beforeSnapshot: this.pendingBatch.beforeSnapshot,
-            afterSnapshot: [...afterSnapshot],
-            description: this.generateDescription(
-                this.pendingBatch.operations.length > 1 ? "batch" : this.pendingBatch.operations[0],
-                Array.from(this.pendingBatch.elementIds),
-                afterSnapshot
-            ),
+            elementIds: changes.map((c) => c.elementId),
+            changes,
+            beforeSnapshot: [...beforeElements],
+            afterSnapshot: [...afterElements],
+            description: this.generateDescription(operation, changes),
         };
 
         this.history.entries.push(entry);
@@ -143,97 +361,70 @@ export class HistoryManager {
             this.history.entries.shift();
         }
 
-        this.pendingBatch = null;
-        if (this.batchTimeout) {
-            clearTimeout(this.batchTimeout);
-            this.batchTimeout = null;
-        }
-
         await this.save();
     }
 
     /**
-     * Log an add operation
+     * Log an add operation - saves immediately
      */
     async logAdd(
         elementIds: string[],
         beforeElements: BoardElement[],
-        afterElements: BoardElement[]
+        afterElements: BoardElement[],
     ): Promise<void> {
-        if (!this.isOwner) return;
-        await this.logOperation("add", elementIds, beforeElements, afterElements);
+        if (!this.isOwner || elementIds.length === 0) return;
+
+        const changes = this.generateAddChanges(elementIds, afterElements);
+        await this.createEntry("add", changes, beforeElements, afterElements);
     }
 
     /**
-     * Log an update operation
+     * Log an update operation - saves immediately
      */
     async logUpdate(
         elementIds: string[],
         beforeElements: BoardElement[],
-        afterElements: BoardElement[]
+        afterElements: BoardElement[],
     ): Promise<void> {
-        if (!this.isOwner) return;
-        await this.logOperation("update", elementIds, beforeElements, afterElements);
+        if (!this.isOwner || elementIds.length === 0) return;
+
+        const changes = this.generateUpdateChanges(
+            elementIds,
+            beforeElements,
+            afterElements,
+        );
+        await this.createEntry(
+            "update",
+            changes,
+            beforeElements,
+            afterElements,
+        );
     }
 
     /**
-     * Log a delete operation
+     * Log a delete operation - saves immediately
      */
     async logDelete(
         elementIds: string[],
         beforeElements: BoardElement[],
-        afterElements: BoardElement[]
+        afterElements: BoardElement[],
     ): Promise<void> {
-        if (!this.isOwner) return;
-        await this.logOperation("delete", elementIds, beforeElements, afterElements);
+        if (!this.isOwner || elementIds.length === 0) return;
+
+        const changes = this.generateDeleteChanges(elementIds, beforeElements);
+        await this.createEntry(
+            "delete",
+            changes,
+            beforeElements,
+            afterElements,
+        );
     }
 
     /**
-     * Internal method to log any operation with batching
+     * Flush is now a no-op since we save immediately
      */
-    private async logOperation(
-        operation: HistoryOperationType,
-        elementIds: string[],
-        beforeElements: BoardElement[],
-        afterElements: BoardElement[]
-    ): Promise<void> {
-        if (!this.history || !this.isOwner) return;
-
-        // Start or extend a batch
-        if (!this.pendingBatch) {
-            this.pendingBatch = {
-                elementIds: new Set(elementIds),
-                beforeSnapshot: [...beforeElements],
-                operations: [operation],
-            };
-        } else {
-            elementIds.forEach((id) => this.pendingBatch!.elementIds.add(id));
-            if (!this.pendingBatch.operations.includes(operation)) {
-                this.pendingBatch.operations.push(operation);
-            }
-        }
-
-        // Reset batch timer
-        if (this.batchTimeout) {
-            clearTimeout(this.batchTimeout);
-        }
-
-        this.batchTimeout = setTimeout(() => {
-            this.commitBatch(afterElements);
-        }, this.BATCH_DELAY);
-    }
-
-    /**
-     * Force commit any pending batch immediately
-     */
-    async flush(currentElements: BoardElement[]): Promise<void> {
-        if (this.pendingBatch) {
-            if (this.batchTimeout) {
-                clearTimeout(this.batchTimeout);
-                this.batchTimeout = null;
-            }
-            await this.commitBatch(currentElements);
-        }
+    async flush(_currentElements: BoardElement[]): Promise<void> {
+        // No-op - we save immediately now
     }
 
     /**
@@ -252,7 +443,6 @@ export class HistoryManager {
 
     /**
      * Restore board to a specific history entry state
-     * Returns the elements from that snapshot
      */
     restoreToEntry(entryId: string): BoardElement[] | null {
         const entry = this.getEntry(entryId);
@@ -261,7 +451,7 @@ export class HistoryManager {
     }
 
     /**
-     * Get the state before a specific entry (for undo)
+     * Get the state before a specific entry
      */
     getStateBefore(entryId: string): BoardElement[] | null {
         const entry = this.getEntry(entryId);
@@ -274,13 +464,12 @@ export class HistoryManager {
      */
     async clearHistory(): Promise<void> {
         if (!this.isOwner || !this.history) return;
-
         this.history.entries = [];
         await this.save();
     }
 
     /**
-     * Delete history from storage (when board is deleted)
+     * Delete history from storage
      */
     static async deleteHistory(boardId: string): Promise<void> {
         const { del } = await import("idb-keyval");
@@ -289,7 +478,7 @@ export class HistoryManager {
     }
 
     /**
-     * Export history as JSON for debugging or backup
+     * Export history as JSON
      */
     exportHistory(): string {
         return JSON.stringify(this.history, null, 2);

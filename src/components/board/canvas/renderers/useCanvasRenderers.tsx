@@ -2080,10 +2080,7 @@ export function useCanvasRenderers({
                 const overlayInset = Math.max(element.strokeWidth, 1);
                 const overlayX = frameX + overlayInset;
                 const overlayY = frameY + overlayInset;
-                const overlayWidth = Math.max(
-                    frameWidth - overlayInset * 2,
-                    0,
-                );
+                const overlayWidth = Math.max(frameWidth - overlayInset * 2, 0);
                 const overlayHeight = Math.max(
                     frameHeight - overlayInset * 2,
                     0,
@@ -2117,22 +2114,20 @@ export function useCanvasRenderers({
                         {allowFramePointerEvents &&
                             !hasVisibleFill &&
                             element.strokeWidth > 0 && (
-                            <rect
-                                data-element-id={element.id}
-                                x={frameX - hitboxOffset}
-                                y={frameY - hitboxOffset}
-                                width={frameWidth + hitboxOffset * 2}
-                                height={
-                                    frameHeight + hitboxOffset * 2
-                                }
-                                stroke="transparent"
-                                strokeWidth={hitboxStrokeWidth}
-                                fill="none"
-                                rx={frameCornerRadius}
-                                strokeDasharray={strokeDasharray}
-                                pointerEvents="stroke"
-                            />
-                        )}
+                                <rect
+                                    data-element-id={element.id}
+                                    x={frameX - hitboxOffset}
+                                    y={frameY - hitboxOffset}
+                                    width={frameWidth + hitboxOffset * 2}
+                                    height={frameHeight + hitboxOffset * 2}
+                                    stroke="transparent"
+                                    strokeWidth={hitboxStrokeWidth}
+                                    fill="none"
+                                    rx={frameCornerRadius}
+                                    strokeDasharray={strokeDasharray}
+                                    pointerEvents="stroke"
+                                />
+                            )}
                         {frameStyle !== "minimal" &&
                             overlayWidth > 0 &&
                             overlayHeight > 0 && (
@@ -2207,8 +2202,7 @@ export function useCanvasRenderers({
                             strokeDasharray={strokeDasharray}
                             pointerEvents={
                                 allowFramePointerEvents
-                                    ? !hasVisibleFill &&
-                                      element.strokeWidth > 0
+                                    ? !hasVisibleFill && element.strokeWidth > 0
                                         ? "none"
                                         : pointerEventsValue
                                     : "none"
@@ -2283,17 +2277,9 @@ export function useCanvasRenderers({
                                     />
                                     <line
                                         x1={overlayX + 120}
-                                        y1={
-                                            overlayY +
-                                            overlayHeight -
-                                            80
-                                        }
+                                        y1={overlayY + overlayHeight - 80}
                                         x2={overlayX + 220}
-                                        y2={
-                                            overlayY +
-                                            overlayHeight -
-                                            60
-                                        }
+                                        y2={overlayY + overlayHeight - 60}
                                         stroke={scratchColor}
                                         strokeWidth={1.5}
                                         opacity={0.2}
@@ -2438,8 +2424,7 @@ export function useCanvasRenderers({
                                                     overlayX +
                                                     overlayWidth -
                                                     Math.min(
-                                                        measurementBarSize -
-                                                            4,
+                                                        measurementBarSize - 4,
                                                         overlayWidth,
                                                     )
                                                 }
@@ -2458,11 +2443,7 @@ export function useCanvasRenderers({
                                     })}
                                     <text
                                         x={overlayX + 8}
-                                        y={
-                                            overlayY +
-                                            overlayHeight -
-                                            16
-                                        }
+                                        y={overlayY + overlayHeight - 16}
                                         fill={gridColor}
                                         fontSize={24}
                                         fontWeight="800"
@@ -2473,11 +2454,7 @@ export function useCanvasRenderers({
                                     </text>
                                     <text
                                         x={overlayX + 8}
-                                        y={
-                                            overlayY +
-                                            overlayHeight -
-                                            6
-                                        }
+                                        y={overlayY + overlayHeight - 6}
                                         fill={gridColor}
                                         fontSize={12}
                                         fontWeight="700"
@@ -2505,67 +2482,58 @@ export function useCanvasRenderers({
                                         clipPath={`url(#${overlayClipId})`}
                                         pointerEvents="none"
                                     />
-                                    {Array.from({ length: 6 }).map(
-                                        (_, idx) => (
-                                            <line
-                                                key={`nb-stitch-${element.id}-${idx}`}
-                                                x1={
-                                                    frameX +
-                                                    overlayInset +
-                                                    Math.min(
-                                                        24,
-                                                        overlayWidth * 0.18,
-                                                    ) /
-                                                        2
-                                                }
-                                                y1={
-                                                    frameY +
-                                                    overlayInset +
-                                                    (idx + 1) *
-                                                        (overlayHeight / 7)
-                                                }
-                                                x2={
-                                                    frameX +
-                                                    overlayInset +
-                                                    Math.min(
-                                                        24,
-                                                        overlayWidth * 0.18,
-                                                    ) /
-                                                        2
-                                                }
-                                                y2={
-                                                    frameY +
-                                                    overlayInset +
-                                                    (idx + 1) *
-                                                        (overlayHeight / 7) +
-                                                    6
-                                                }
-                                                stroke="#8b7355"
-                                                strokeWidth={1}
-                                                opacity={0.6}
-                                                pointerEvents="none"
-                                            />
-                                        ),
-                                    )}
+                                    {Array.from({ length: 6 }).map((_, idx) => (
+                                        <line
+                                            key={`nb-stitch-${element.id}-${idx}`}
+                                            x1={
+                                                frameX +
+                                                overlayInset +
+                                                Math.min(
+                                                    24,
+                                                    overlayWidth * 0.18,
+                                                ) /
+                                                    2
+                                            }
+                                            y1={
+                                                frameY +
+                                                overlayInset +
+                                                (idx + 1) * (overlayHeight / 7)
+                                            }
+                                            x2={
+                                                frameX +
+                                                overlayInset +
+                                                Math.min(
+                                                    24,
+                                                    overlayWidth * 0.18,
+                                                ) /
+                                                    2
+                                            }
+                                            y2={
+                                                frameY +
+                                                overlayInset +
+                                                (idx + 1) *
+                                                    (overlayHeight / 7) +
+                                                6
+                                            }
+                                            stroke="#8b7355"
+                                            strokeWidth={1}
+                                            opacity={0.6}
+                                            pointerEvents="none"
+                                        />
+                                    ))}
                                     <rect
                                         x={
                                             frameX +
                                             overlayInset +
                                             overlayWidth -
-                                            Math.min(
-                                                24,
-                                                overlayWidth * 0.2,
-                                            )
+                                            Math.min(24, overlayWidth * 0.2)
                                         }
                                         y={
                                             frameY +
                                             overlayInset +
                                             overlayHeight * 0.3
                                         }
-                                        width={Math.min(
-                                            24,
-                                            overlayWidth * 0.2,
-                                        )}
+                                        width={Math.min(24, overlayWidth * 0.2)}
                                         height={Math.min(
                                             36,
                                             overlayHeight * 0.2,
@@ -4176,31 +4144,90 @@ export function useCanvasRenderers({
 
         return (
             <g>
+                <style>
+                    {`
+                        @keyframes pulse-highlight {
+                            0%, 100% { opacity: 0.4; }
+                            50% { opacity: 1; }
+                        }
+                        @keyframes pulse-highlight-stroke {
+                            0%, 100% { opacity: 0.5; stroke-width: 6; }
+                            50% { opacity: 1; stroke-width: 10; }
+                        }
+                        .history-highlight {
+                            animation: pulse-highlight 1.5s ease-in-out infinite;
+                        }
+                        .history-highlight-current {
+                            animation: pulse-highlight 1s ease-in-out infinite;
+                        }
+                        .history-highlight-stroke {
+                            animation: pulse-highlight-stroke 1.5s ease-in-out infinite;
+                        }
+                        .history-highlight-stroke-current {
+                            animation: pulse-highlight-stroke 1s ease-in-out infinite;
+                        }
+                    `}
+                </style>
                 {highlightedElementIds.map((id) => {
                     const element = elements.find((el) => el.id === id);
                     if (!element) return null;
 
+                    const isCurrent = id === currentHighlightId;
+
+                    // For pen, highlighter, line, and arrow - highlight the actual stroke
+                    if (
+                        element.type === "pen" ||
+                        element.type === "line" ||
+                        element.type === "arrow"
+                    ) {
+                        if (element.points.length < 2) return null;
+
+                        // Create path from points
+                        const pathData = `M ${element.points.map((p) => `${p.x},${p.y}`).join(" L ")}`;
+
+                        return (
+                            <path
+                                key={`highlight-${id}`}
+                                className={
+                                    isCurrent
+                                        ? "history-highlight-stroke-current"
+                                        : "history-highlight-stroke"
+                                }
+                                d={pathData}
+                                fill="none"
+                                stroke="var(--accent)"
+                                strokeWidth={isCurrent ? 10 : 6}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                pointerEvents="none"
+                            />
+                        );
+                    }
+
+                    // For other elements, use bounding box
                     const bounds = getBoundingBox(element);
                     if (!bounds) return null;
 
-                    const isCurrent = id === currentHighlightId;
-                    const padding = isCurrent ? 6 : 8;
+                    const padding = isCurrent ? 8 : 6;
 
                     return (
                         <rect
                             key={`highlight-${id}`}
+                            className={
+                                isCurrent
+                                    ? "history-highlight-current"
+                                    : "history-highlight"
+                            }
                             x={bounds.x - padding}
                             y={bounds.y - padding}
                             width={bounds.width + padding * 2}
                             height={bounds.height + padding * 2}
                             fill={isCurrent ? "var(--accent)" : "none"}
-                            fillOpacity={isCurrent ? 0.1 : 0}
+                            fillOpacity={isCurrent ? 0.15 : 0}
                             stroke="var(--accent)"
                             strokeWidth={isCurrent ? 3 : 2}
-                            strokeDasharray={isCurrent ? "none" : "4,4"}
                             pointerEvents="none"
-                            opacity={isCurrent ? 1 : 0.6}
-                            rx={4}
+                            rx={6}
                         />
                     );
                 })}

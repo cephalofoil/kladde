@@ -62,6 +62,7 @@ interface CanvasProps {
     onDeleteElement: (id: string) => void;
     onDeleteMultiple?: (ids: string[]) => void;
     onStartTransform?: () => void;
+    onEndTransform?: () => void;
     onUndo?: () => void;
     onRedo?: () => void;
     onToolChange?: (tool: Tool) => void;
@@ -116,6 +117,7 @@ export function Canvas({
     onDeleteElement,
     onDeleteMultiple,
     onStartTransform,
+    onEndTransform,
     onUndo,
     onRedo,
     onToolChange,
@@ -722,6 +724,7 @@ export function Canvas({
         onDeleteElement,
         onDeleteMultiple,
         onStartTransform,
+        onEndTransform,
         onToolChange,
         onManualViewportChange,
         isToolLocked,
@@ -1046,17 +1049,20 @@ export function Canvas({
         sel?.addRange(range);
     }, [editingFrameLabelId]);
 
-    const handleFrameLabelCommit = useCallback((value?: string) => {
-        if (!editingFrameLabelId) return;
-        const nextLabel = (value ?? frameLabelValue).trim() || "Frame";
-        onUpdateElement(editingFrameLabelId, { label: nextLabel });
-        setEditingFrameLabelId(null);
-    }, [
-        editingFrameLabelId,
-        frameLabelValue,
-        onUpdateElement,
-        setEditingFrameLabelId,
-    ]);
+    const handleFrameLabelCommit = useCallback(
+        (value?: string) => {
+            if (!editingFrameLabelId) return;
+            const nextLabel = (value ?? frameLabelValue).trim() || "Frame";
+            onUpdateElement(editingFrameLabelId, { label: nextLabel });
+            setEditingFrameLabelId(null);
+        },
+        [
+            editingFrameLabelId,
+            frameLabelValue,
+            onUpdateElement,
+            setEditingFrameLabelId,
+        ],
+    );
 
     // Update parent component when selection changes
     useEffect(() => {

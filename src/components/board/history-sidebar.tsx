@@ -1,20 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
     X,
     History,
     RotateCcw,
     User,
-    Crown,
     ChevronDown,
     ChevronRight,
     Plus,
     Pencil,
     Trash2,
+    Eye,
+    Minimize2,
+    Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { HistoryEntry } from "@/lib/history-types";
+import type { HistoryEntry, ElementChange } from "@/lib/history-types";
 
 interface HistorySidebarProps {
     isOpen: boolean;
@@ -23,6 +25,7 @@ interface HistorySidebarProps {
     onRestore: (entryId: string) => void;
     isPinned: boolean;
     onTogglePin: () => void;
+    onPreviewEntry?: (entryId: string | null) => void;
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -30,18 +33,15 @@ function formatTimestamp(timestamp: number): string {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
 
-    // Less than a minute
     if (diff < 60000) {
         return "Just now";
     }
 
-    // Less than an hour
     if (diff < 3600000) {
         const mins = Math.floor(diff / 60000);
         return `${mins} min${mins > 1 ? "s" : ""} ago`;
     }
 
-    // Same day
     if (date.toDateString() === now.toDateString()) {
         return date.toLocaleTimeString([], {
             hour: "2-digit",
@@ -49,7 +49,6 @@ function formatTimestamp(timestamp: number): string {
         });
     }
 
-    // Yesterday
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     if (date.toDateString() === yesterday.toDateString()) {
@@ -59,7 +58,6 @@ function formatTimestamp(timestamp: number): string {
         })}`;
     }
 
-    // Older
     return date.toLocaleDateString([], {
         month: "short",
         day: "numeric",
@@ -94,9 +92,125 @@ function getOperationColor(operation: string) {
     }
 }
 
+function getOperationBgColor(operation: string) {
+    switch (operation) {
+        case "add":
+            return "bg-green-500/10";
+        case "update":
+            return "bg-blue-500/10";
+        case "delete":
+            return "bg-red-500/10";
+        default:
+            return "bg-muted/50";
+    }
+}
+
+function getElementTypeIcon(type: string): string {
+    const iconMap: Record<string, string> = {
+        pen: "✏️",
+        line: "📏",
+        arrow: "➡️",
+        rectangle: "▢",
+        diamond: "◇",
+        ellipse: "○",
+        text: "T",
+        frame: "⬜",
+        tile: "📄",
+        "web-embed": "🌐",
+        laser: "✨",
+    };
+    return iconMap[type] || "•";
+}
+
 interface GroupedEntries {
     date: string;
     entries: HistoryEntry[];
+}
+
+function ChangeDetail({
+    change,
+    isCompact,
+}: {
+    change: ElementChange;
+    isCompact: boolean;
+}) {
+    if (isCompact) {
+        return (
+            <div className="flex items-center gap-1.5 text-xs">
+                <span
+                    className={cn(
+                        "w-4 h-4 rounded flex items-center justify-center text-[10px]",
+                        getOperationBgColor(change.operation),
+                        getOperationColor(change.operation),
+                    )}
+                >
+                    {getOperationIcon(change.operation)}
+                </span>
+                <span className="text-muted-foreground">
+                    {getElementTypeIcon(change.elementType)}
+                </span>
+                {change.elementLabel && (
+                    <span className="truncate max-w-[100px] text-foreground/80">
+                        {change.elementLabel}
+                    </span>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-start gap-2 py-1 px-2 rounded-md bg-muted/30">
+            <span
+                className={cn(
+                    "w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5",
+                    getOperationBgColor(change.operation),
+                    getOperationColor(change.operation),
+                )}
+            >
+                {getOperationIcon(change.operation)}
+            </span>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">
+                        {getElementTypeIcon(change.elementType)}
+                    </span>
+                    <span className="text-xs font-medium capitalize">
+                        {change.elementType.replace("tile-", "")}
+                    </span>
+                    {change.elementLabel && (
+                        <span className="text-xs text-muted-foreground truncate">
+                            "{change.elementLabel}"
+                        </span>
+                    )}
+                </div>
+                {change.changeSummary && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                        {change.changeSummary}
+                    </p>
+                )}
+                {change.changedProperties &&
+                    change.changedProperties.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {change.changedProperties
+                                .slice(0, 4)
+                                .map((prop) => (
+                                    <span
+                                        key={prop}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                                    >
+                                        {prop}
+                                    </span>
+                                ))}
+                            {change.changedProperties.length > 4 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                    +{change.changedProperties.length - 4} more
+                                </span>
+                            )}
+                        </div>
+                    )}
+            </div>
+        </div>
+    );
 }
 
 export function HistorySidebar({
@@ -106,13 +220,20 @@ export function HistorySidebar({
     onRestore,
     isPinned,
     onTogglePin,
+    onPreviewEntry,
 }: HistorySidebarProps) {
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-        new Set(["Today"])
+        new Set(["Today"]),
+    );
+    const [expandedEntries, setExpandedEntries] = useState<Set<string>>(
+        new Set(),
     );
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+    const [isCompact, setIsCompact] = useState(false);
+    const [previewingEntryId, setPreviewingEntryId] = useState<string | null>(
+        null,
+    );
 
-    // Group entries by date
     const groupedEntries = useMemo(() => {
         const groups: GroupedEntries[] = [];
         const today = new Date().toDateString();
@@ -121,8 +242,6 @@ export function HistorySidebar({
         const yesterdayStr = yesterday.toDateString();
 
         const entriesByDate = new Map<string, HistoryEntry[]>();
-
-        // Sort entries by timestamp (newest first)
         const sorted = [...entries].sort((a, b) => b.timestamp - a.timestamp);
 
         for (const entry of sorted) {
@@ -166,10 +285,56 @@ export function HistorySidebar({
         });
     };
 
+    const toggleEntryExpanded = (entryId: string) => {
+        setExpandedEntries((prev) => {
+            const next = new Set(prev);
+            if (next.has(entryId)) {
+                next.delete(entryId);
+            } else {
+                next.add(entryId);
+            }
+            return next;
+        });
+    };
+
     const handleRestore = (entryId: string) => {
         setSelectedEntryId(entryId);
         onRestore(entryId);
     };
+
+    const handlePreview = useCallback(
+        (entryId: string | null) => {
+            setPreviewingEntryId(entryId);
+            onPreviewEntry?.(entryId);
+        },
+        [onPreviewEntry],
+    );
+
+    // Count changes by type
+    const changeCounts = useMemo(() => {
+        let adds = 0;
+        let updates = 0;
+        let deletes = 0;
+
+        for (const entry of entries) {
+            if (entry.changes) {
+                for (const change of entry.changes) {
+                    if (change.operation === "add") adds++;
+                    else if (change.operation === "update") updates++;
+                    else if (change.operation === "delete") deletes++;
+                }
+            } else {
+                // Fallback for old entries without changes array
+                if (entry.operation === "add") adds += entry.elementIds.length;
+                else if (entry.operation === "update")
+                    updates += entry.elementIds.length;
+                else if (entry.operation === "delete")
+                    deletes += entry.elementIds.length;
+            }
+        }
+
+        return { adds, updates, deletes };
+    }, [entries]);
 
     if (!isOpen) return null;
 
@@ -177,7 +342,9 @@ export function HistorySidebar({
         <div
             className={cn(
                 "flex flex-col h-full bg-card/95 backdrop-blur-md border-l border-border/60 dark:border-transparent shadow-2xl",
-                isPinned ? "w-80" : "fixed right-0 top-0 bottom-0 w-80 z-50"
+                isPinned
+                    ? "w-80"
+                    : "fixed right-0 top-0 bottom-0 w-80 z-[9999]",
             )}
         >
             {/* Header */}
@@ -188,12 +355,28 @@ export function HistorySidebar({
                 </div>
                 <div className="flex items-center gap-1">
                     <button
+                        onClick={() => setIsCompact((prev) => !prev)}
+                        className={cn(
+                            "p-1.5 rounded-md transition-colors",
+                            isCompact
+                                ? "bg-primary/10 text-primary"
+                                : "hover:bg-muted text-muted-foreground",
+                        )}
+                        title={isCompact ? "Expand view" : "Compact view"}
+                    >
+                        {isCompact ? (
+                            <Maximize2 className="w-4 h-4" />
+                        ) : (
+                            <Minimize2 className="w-4 h-4" />
+                        )}
+                    </button>
+                    <button
                         onClick={onTogglePin}
                         className={cn(
                             "p-1.5 rounded-md transition-colors",
                             isPinned
                                 ? "bg-primary/10 text-primary"
-                                : "hover:bg-muted text-muted-foreground"
+                                : "hover:bg-muted text-muted-foreground",
                         )}
                         title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
                     >
@@ -219,6 +402,36 @@ export function HistorySidebar({
                     </button>
                 </div>
             </div>
+
+            {/* Stats bar */}
+            {entries.length > 0 && (
+                <div className="flex items-center justify-center gap-4 px-4 py-2 border-b border-border/40 bg-muted/30">
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded flex items-center justify-center bg-green-500/10 text-green-500">
+                            <Plus className="w-3 h-3" />
+                        </span>
+                        <span className="text-xs font-medium">
+                            {changeCounts.adds}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded flex items-center justify-center bg-blue-500/10 text-blue-500">
+                            <Pencil className="w-3 h-3" />
+                        </span>
+                        <span className="text-xs font-medium">
+                            {changeCounts.updates}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded flex items-center justify-center bg-red-500/10 text-red-500">
+                            <Trash2 className="w-3 h-3" />
+                        </span>
+                        <span className="text-xs font-medium">
+                            {changeCounts.deletes}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
@@ -255,81 +468,224 @@ export function HistorySidebar({
                                 {/* Entries */}
                                 {expandedGroups.has(group.date) && (
                                     <div className="ml-2 border-l border-border/40 pl-2 space-y-1">
-                                        {group.entries.map((entry) => (
-                                            <div
-                                                key={entry.id}
-                                                className={cn(
-                                                    "group relative rounded-md p-2 transition-colors cursor-pointer",
-                                                    selectedEntryId ===
-                                                        entry.id
-                                                        ? "bg-primary/10"
-                                                        : "hover:bg-muted/50"
-                                                )}
-                                                onClick={() =>
-                                                    setSelectedEntryId(
-                                                        entry.id
-                                                    )
-                                                }
-                                            >
-                                                <div className="flex items-start gap-2">
-                                                    {/* Operation icon */}
-                                                    <div
-                                                        className={cn(
-                                                            "mt-0.5",
-                                                            getOperationColor(
-                                                                entry.operation
-                                                            )
-                                                        )}
-                                                    >
-                                                        {getOperationIcon(
-                                                            entry.operation
-                                                        )}
-                                                    </div>
+                                        {group.entries.map((entry) => {
+                                            const isExpanded =
+                                                expandedEntries.has(entry.id);
+                                            const hasChanges =
+                                                entry.changes &&
+                                                entry.changes.length > 0;
 
-                                                    {/* Content */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium truncate">
-                                                            {entry.description}
-                                                        </p>
-                                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                                            {entry.user
-                                                                .isOwner ? (
-                                                                <Crown className="w-3 h-3 text-amber-500" />
-                                                            ) : (
-                                                                <User className="w-3 h-3 text-muted-foreground" />
-                                                            )}
-                                                            <span className="text-xs text-muted-foreground truncate">
-                                                                {entry.user
-                                                                    .name ||
-                                                                    "Unknown"}
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground/50">
-                                                                &middot;
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground/70">
-                                                                {formatTimestamp(
-                                                                    entry.timestamp
-                                                                )}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Restore button */}
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleRestore(
+                                            return (
+                                                <div
+                                                    key={entry.id}
+                                                    className={cn(
+                                                        "group relative rounded-md transition-colors",
+                                                        selectedEntryId ===
+                                                            entry.id
+                                                            ? "bg-primary/10"
+                                                            : previewingEntryId ===
                                                                 entry.id
-                                                            );
-                                                        }}
-                                                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-background transition-all"
-                                                        title="Restore to this version"
+                                                              ? "bg-accent/20 ring-1 ring-accent"
+                                                              : "hover:bg-muted/50",
+                                                    )}
+                                                >
+                                                    <div
+                                                        className="p-2 cursor-pointer"
+                                                        onClick={() =>
+                                                            setSelectedEntryId(
+                                                                entry.id,
+                                                            )
+                                                        }
                                                     >
-                                                        <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
-                                                    </button>
+                                                        <div className="flex items-start gap-2">
+                                                            {/* Operation icon */}
+                                                            <div
+                                                                className={cn(
+                                                                    "mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0",
+                                                                    getOperationBgColor(
+                                                                        entry.operation,
+                                                                    ),
+                                                                    getOperationColor(
+                                                                        entry.operation,
+                                                                    ),
+                                                                )}
+                                                            >
+                                                                {getOperationIcon(
+                                                                    entry.operation,
+                                                                )}
+                                                            </div>
+
+                                                            {/* Content */}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium truncate">
+                                                                    {
+                                                                        entry.description
+                                                                    }
+                                                                </p>
+                                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                                    {/* Only show user info for guest changes */}
+                                                                    {!entry.user
+                                                                        .isOwner && (
+                                                                        <>
+                                                                            <User className="w-3 h-3 text-muted-foreground" />
+                                                                            <span className="text-xs text-muted-foreground truncate">
+                                                                                {entry
+                                                                                    .user
+                                                                                    .name ||
+                                                                                    "Guest"}
+                                                                            </span>
+                                                                            <span className="text-xs text-muted-foreground/50">
+                                                                                &middot;
+                                                                            </span>
+                                                                        </>
+                                                                    )}
+                                                                    <span className="text-xs text-muted-foreground/70">
+                                                                        {formatTimestamp(
+                                                                            entry.timestamp,
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Change type badges in compact mode */}
+                                                                {isCompact &&
+                                                                    hasChanges && (
+                                                                        <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                            {entry.changes
+                                                                                .slice(
+                                                                                    0,
+                                                                                    3,
+                                                                                )
+                                                                                .map(
+                                                                                    (
+                                                                                        change,
+                                                                                        idx,
+                                                                                    ) => (
+                                                                                        <ChangeDetail
+                                                                                            key={
+                                                                                                idx
+                                                                                            }
+                                                                                            change={
+                                                                                                change
+                                                                                            }
+                                                                                            isCompact={
+                                                                                                true
+                                                                                            }
+                                                                                        />
+                                                                                    ),
+                                                                                )}
+                                                                            {entry
+                                                                                .changes
+                                                                                .length >
+                                                                                3 && (
+                                                                                <span className="text-xs text-muted-foreground">
+                                                                                    +
+                                                                                    {entry
+                                                                                        .changes
+                                                                                        .length -
+                                                                                        3}{" "}
+                                                                                    more
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                            </div>
+
+                                                            {/* Actions */}
+                                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                {onPreviewEntry && (
+                                                                    <button
+                                                                        onClick={(
+                                                                            e,
+                                                                        ) => {
+                                                                            e.stopPropagation();
+                                                                            handlePreview(
+                                                                                previewingEntryId ===
+                                                                                    entry.id
+                                                                                    ? null
+                                                                                    : entry.id,
+                                                                            );
+                                                                        }}
+                                                                        className={cn(
+                                                                            "p-1 rounded hover:bg-background transition-all",
+                                                                            previewingEntryId ===
+                                                                                entry.id &&
+                                                                                "bg-accent text-accent-foreground",
+                                                                        )}
+                                                                        title="Preview changes"
+                                                                    >
+                                                                        <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={(
+                                                                        e,
+                                                                    ) => {
+                                                                        e.stopPropagation();
+                                                                        handleRestore(
+                                                                            entry.id,
+                                                                        );
+                                                                    }}
+                                                                    className="p-1 rounded hover:bg-background transition-all"
+                                                                    title="Restore to this version"
+                                                                >
+                                                                    <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                </button>
+                                                                {hasChanges && (
+                                                                    <button
+                                                                        onClick={(
+                                                                            e,
+                                                                        ) => {
+                                                                            e.stopPropagation();
+                                                                            toggleEntryExpanded(
+                                                                                entry.id,
+                                                                            );
+                                                                        }}
+                                                                        className="p-1 rounded hover:bg-background transition-all"
+                                                                        title={
+                                                                            isExpanded
+                                                                                ? "Collapse"
+                                                                                : "Show details"
+                                                                        }
+                                                                    >
+                                                                        {isExpanded ? (
+                                                                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                        ) : (
+                                                                            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                        )}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Expanded details */}
+                                                        {!isCompact &&
+                                                            isExpanded &&
+                                                            hasChanges && (
+                                                                <div className="mt-2 space-y-1 pl-7">
+                                                                    {entry.changes.map(
+                                                                        (
+                                                                            change,
+                                                                            idx,
+                                                                        ) => (
+                                                                            <ChangeDetail
+                                                                                key={
+                                                                                    idx
+                                                                                }
+                                                                                change={
+                                                                                    change
+                                                                                }
+                                                                                isCompact={
+                                                                                    false
+                                                                                }
+                                                                            />
+                                                                        ),
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
