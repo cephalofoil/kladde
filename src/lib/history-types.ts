@@ -25,6 +25,8 @@ export interface HistoryUser {
 export interface ElementChange {
     elementId: string;
     elementType: BoardElement["type"];
+    /** Optional subtype (tileType or penMode) for more specific icons */
+    elementSubType?: string;
     elementLabel?: string; // For frames, tiles with titles, etc.
     operation: "add" | "update" | "delete";
     /** Properties that changed (for updates) */

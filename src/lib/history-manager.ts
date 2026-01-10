@@ -63,6 +63,19 @@ function getElementTypeName(element: BoardElement): string {
     return typeMap[element.type] || element.type;
 }
 
+function getElementSubType(
+    element: BoardElement | undefined,
+): string | undefined {
+    if (!element) return undefined;
+    if (element.type === "tile" && element.tileType) {
+        return element.tileType;
+    }
+    if (element.type === "pen" && element.penMode === "highlighter") {
+        return "highlighter";
+    }
+    return undefined;
+}
+
 /**
  * Properties to ignore when detecting changes
  */
@@ -121,7 +134,14 @@ function detectChangedProperties(
         const afterStr = JSON.stringify(afterVal);
 
         if (beforeStr !== afterStr) {
-            changedProperties.push(key);
+            // Store human-readable property name
+            const readableName =
+                IMPORTANT_PROPERTIES[key] ||
+                key
+                    .replace(/([A-Z])/g, " $1")
+                    .toLowerCase()
+                    .trim();
+            changedProperties.push(readableName);
             if (IMPORTANT_PROPERTIES[key]) {
                 changedDescriptions.push(IMPORTANT_PROPERTIES[key]);
             }
@@ -130,6 +150,8 @@ function detectChangedProperties(
 
     // Generate summary
     let summary = "";
+    // Deduplicate (e.g., x and y both map to "position")
+    const uniqueProps = [...new Set(changedProperties)];
     if (changedDescriptions.length > 0) {
         const unique = [...new Set(changedDescriptions)];
         if (unique.length <= 2) {
@@ -137,11 +159,11 @@ function detectChangedProperties(
         } else {
             summary = `Changed ${unique.slice(0, 2).join(", ")} and ${unique.length - 2} more`;
         }
-    } else if (changedProperties.length > 0) {
-        summary = `Modified ${changedProperties.length} properties`;
+    } else if (uniqueProps.length > 0) {
+        summary = `Modified ${uniqueProps.length} properties`;
     }
 
-    return { properties: changedProperties, summary };
+    return { properties: uniqueProps, summary };
 }
 
 /**
@@ -225,6 +247,7 @@ export class HistoryManager {
             return {
                 elementId: id,
                 elementType: element?.type || "pen",
+                elementSubType: getElementSubType(element),
                 elementLabel: element ? getElementLabel(element) : undefined,
                 operation: "add" as const,
                 changeSummary: element
@@ -246,6 +269,7 @@ export class HistoryManager {
             return {
                 elementId: id,
                 elementType: element?.type || "pen",
+                elementSubType: getElementSubType(element),
                 elementLabel: element ? getElementLabel(element) : undefined,
                 operation: "delete" as const,
                 changeSummary: element
@@ -271,6 +295,7 @@ export class HistoryManager {
                 return {
                     elementId: id,
                     elementType: (after || before)?.type || "pen",
+                    elementSubType: getElementSubType(after || before),
                     operation: "update" as const,
                     changeSummary: "Updated element",
                 };
@@ -284,6 +309,7 @@ export class HistoryManager {
             return {
                 elementId: id,
                 elementType: after.type,
+                elementSubType: getElementSubType(after),
                 elementLabel: getElementLabel(after),
                 operation: "update" as const,
                 changedProperties: properties,

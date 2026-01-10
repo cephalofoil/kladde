@@ -164,9 +164,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
     const [showHistorySidebar, setShowHistorySidebar] = useState(false);
     const [isHistoryPinned, setIsHistoryPinned] = useState(false);
-    const [previewingHistoryEntry, setPreviewingHistoryEntry] = useState<
-        string | null
-    >(null);
     const [connectionStatus, setConnectionStatus] =
         useState<ConnectionStatus>("connecting");
     const [myName, setMyName] = useState<string | null>(null);
@@ -232,6 +229,17 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [currentHighlightId, setCurrentHighlightId] = useState<string | null>(
         null,
     );
+    // State for previewing historical canvas state
+    const [previewElements, setPreviewElements] = useState<
+        BoardElement[] | null
+    >(null);
+    const previewingEntryIdRef = useRef<string | null>(null);
+    const clearHistoryPreview = useCallback(() => {
+        if (!previewingEntryIdRef.current) return;
+        setPreviewElements(null);
+        setHighlightedElementIds([]);
+        previewingEntryIdRef.current = null;
+    }, []);
     const effectiveTool = isReadOnly ? "hand" : tool;
 
     // Undo/Redo stacks - store snapshots
@@ -581,6 +589,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleAddElement = useCallback(
         (element: BoardElement) => {
+            clearHistoryPreview();
             if (isReadOnly) return;
             saveToUndoStack();
 
@@ -590,11 +599,18 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 setElements([...elements, element]);
             }
         },
-        [collaboration, elements, saveToUndoStack, isReadOnly],
+        [
+            clearHistoryPreview,
+            collaboration,
+            elements,
+            saveToUndoStack,
+            isReadOnly,
+        ],
     );
 
     const handleUpdateElement = useCallback(
         (id: string, updates: Partial<BoardElement>) => {
+            clearHistoryPreview();
             if (isReadOnly) return;
             const currentElement = elements.find((el) => el.id === id);
             const nextUpdates =
@@ -611,11 +627,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 );
             }
         },
-        [collaboration, elements, isReadOnly],
+        [clearHistoryPreview, collaboration, elements, isReadOnly],
     );
 
     const handleBatchUpdateElements = useCallback(
         (updates: Array<{ id: string; updates: Partial<BoardElement> }>) => {
+            clearHistoryPreview();
             if (isReadOnly) return;
             if (updates.length === 0) return;
 
@@ -650,7 +667,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 );
             }
         },
-        [collaboration, elements, isReadOnly],
+        [clearHistoryPreview, collaboration, elements, isReadOnly],
     );
 
     const handleStartTransformForUndo = useCallback(() => {
@@ -659,6 +676,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleDeleteElement = useCallback(
         (id: string) => {
+            clearHistoryPreview();
             if (isReadOnly) return;
             saveToUndoStack();
 
@@ -668,11 +686,18 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 setElements(elements.filter((el) => el.id !== id));
             }
         },
-        [collaboration, elements, saveToUndoStack, isReadOnly],
+        [
+            clearHistoryPreview,
+            collaboration,
+            elements,
+            saveToUndoStack,
+            isReadOnly,
+        ],
     );
 
     const handleDeleteElements = useCallback(
         (ids: string[]) => {
+            clearHistoryPreview();
             if (isReadOnly || ids.length === 0) return;
             saveToUndoStack();
 
@@ -683,7 +708,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 setElements(elements.filter((el) => !idSet.has(el.id)));
             }
         },
-        [collaboration, elements, saveToUndoStack, isReadOnly],
+        [
+            clearHistoryPreview,
+            collaboration,
+            elements,
+            saveToUndoStack,
+            isReadOnly,
+        ],
     );
 
     const handleDeleteSelectedFromLayers = useCallback(() => {
@@ -696,6 +727,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     }, [selectedElements, handleDeleteElements]);
 
     const handleClear = useCallback(() => {
+        clearHistoryPreview();
         if (isReadOnly) return;
         saveToUndoStack();
 
@@ -704,7 +736,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         } else {
             setElements([]);
         }
-    }, [collaboration, saveToUndoStack, isReadOnly]);
+    }, [clearHistoryPreview, collaboration, saveToUndoStack, isReadOnly]);
 
     const handleSave = useCallback(() => {
         if (isReadOnly) return;
@@ -870,6 +902,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             const restoredElements =
                 historyManagerRef.current.restoreToEntry(entryId);
             if (restoredElements) {
+                clearHistoryPreview();
                 saveToUndoStack();
                 if (collaboration) {
                     collaboration.setElements(restoredElements);
@@ -878,26 +911,38 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 }
             }
         },
-        [isOwner, collaboration, setElements, saveToUndoStack],
+        [
+            clearHistoryPreview,
+            isOwner,
+            collaboration,
+            setElements,
+            saveToUndoStack,
+        ],
     );
 
-    // Preview a history entry by highlighting affected elements
-    const handlePreviewHistoryEntry = useCallback((entryId: string | null) => {
-        setPreviewingHistoryEntry(entryId);
+    // Preview a historical snapshot by temporarily showing that canvas state
+    const handlePreviewSnapshot = useCallback(
+        (entryId: string | null, highlightIds?: string[]) => {
+            if (!entryId || !historyManagerRef.current) {
+                // Clear preview - restore normal view
+                clearHistoryPreview();
+                return;
+            }
 
-        if (!entryId || !historyManagerRef.current) {
-            setHighlightedElementIds([]);
-            setCurrentHighlightId(null);
-            return;
-        }
-
-        const entry = historyManagerRef.current.getEntry(entryId);
-        if (entry && entry.elementIds.length > 0) {
-            setHighlightedElementIds(entry.elementIds);
-            // Set the first element as current to make it more prominent
-            setCurrentHighlightId(entry.elementIds[0]);
-        }
-    }, []);
+            const entry = historyManagerRef.current.getEntry(entryId);
+            if (entry) {
+                // Show the canvas state after this change was made
+                setPreviewElements(entry.afterSnapshot);
+                setHighlightedElementIds(
+                    highlightIds && highlightIds.length > 0
+                        ? highlightIds
+                        : entry.elementIds,
+                );
+                previewingEntryIdRef.current = entryId;
+            }
+        },
+        [clearHistoryPreview],
+    );
 
     // Track transform state for deferring history logging during drag/resize/rotate
     const isTransformingRef = useRef(false);
@@ -906,10 +951,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     // Called when drag/resize/rotate starts
     const handleStartTransform = useCallback(() => {
+        clearHistoryPreview();
         handleStartTransformForUndo();
         isTransformingRef.current = true;
         transformStartElementsRef.current = [...elements];
-    }, [elements, handleStartTransformForUndo]);
+    }, [clearHistoryPreview, elements, handleStartTransformForUndo]);
 
     // Called when drag/resize/rotate ends - log the changes
     const handleEndTransform = useCallback(() => {
@@ -1714,6 +1760,23 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         setLayerSelectionIds(null);
     }, []);
 
+    const handleSelectElementsByIds = useCallback(
+        (ids: string[]) => {
+            if (ids.length === 0) {
+                setSelectedElements([]);
+                setLayerSelectionIds(null);
+                return;
+            }
+
+            const source = previewElements ?? elements;
+            const idSet = new Set(ids);
+            const selection = source.filter((el) => idSet.has(el.id));
+            setSelectedElements(selection);
+            setLayerSelectionIds(selection.map((el) => el.id));
+        },
+        [elements, previewElements],
+    );
+
     const handleMoveToIndex = useCallback(
         (id: string, newIndex: number) => {
             const element = elements.find((el) => el.id === id);
@@ -2329,7 +2392,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     selectedNoteStyle={selectedNoteStyle}
                     handDrawnMode={handDrawnMode}
                     collaboration={collaboration}
-                    elements={elements}
+                    elements={previewElements || elements}
                     onAddElement={handleAddElement}
                     onUpdateElement={handleUpdateElement}
                     onBatchUpdateElements={handleBatchUpdateElements}
@@ -2476,13 +2539,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     isOpen={showHistorySidebar}
                     onClose={() => {
                         setShowHistorySidebar(false);
-                        handlePreviewHistoryEntry(null);
+                        handlePreviewSnapshot(null);
                     }}
                     entries={historyEntries}
                     onRestore={handleRestoreHistory}
                     isPinned={isHistoryPinned}
                     onTogglePin={() => setIsHistoryPinned((prev) => !prev)}
-                    onPreviewEntry={handlePreviewHistoryEntry}
+                    onPreviewSnapshot={handlePreviewSnapshot}
+                    onSelectElements={handleSelectElementsByIds}
                 />
             )}
 
