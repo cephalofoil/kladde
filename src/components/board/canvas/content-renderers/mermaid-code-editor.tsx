@@ -21,13 +21,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MermaidRenderer } from "./mermaid-renderer";
 
@@ -199,18 +192,6 @@ export function MermaidCodeEditor({
       <div className="flex items-center justify-between px-3 pt-4 pb-2 text-foreground">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">Mermaid Editor</span>
-          <Select value={templateValue} onValueChange={handleTemplateSelect}>
-            <SelectTrigger className="h-7 w-[170px] text-xs bg-background border-border">
-              <SelectValue placeholder="Insert Template..." />
-            </SelectTrigger>
-            <SelectContent>
-              {MERMAID_TEMPLATES.map((template) => (
-                <SelectItem key={template.name} value={template.name}>
-                  {template.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
         <div className="flex items-center gap-2">
           <button
