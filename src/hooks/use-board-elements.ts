@@ -45,6 +45,14 @@ export function useBoardElements(
   const setStoreElements = useBoardStore((s) => s.setElements);
   const replaceStoreElements = useBoardStore((s) => s.replaceElements);
 
+  // Keep storeElements in a ref to avoid dependency issues
+  const storeElementsRef = useRef(storeElements);
+  storeElementsRef.current = storeElements;
+
+  // Keep replaceStoreElements in a ref to avoid dependency issues
+  const replaceStoreElementsRef = useRef(replaceStoreElements);
+  replaceStoreElementsRef.current = replaceStoreElements;
+
   // Local state for elements (synced with store or collaboration)
   const [elements, setElementsInternal] = useState<BoardElement[]>(() => {
     // For guests, start with empty - they'll receive from collab
@@ -59,6 +67,8 @@ export function useBoardElements(
 
   // Track if we've initialized from collab
   const initializedFromCollabRef = useRef(false);
+  // Track if we've synced store elements to avoid loops
+  const hasSyncedStoreRef = useRef(false);
 
   // Debounced save to store - only for owners in solo mode
   useEffect(() => {
@@ -73,13 +83,22 @@ export function useBoardElements(
     return () => clearTimeout(timer);
   }, [elements, boardId, setStoreElements, isOwner, collaboration]);
 
+  // Solo mode: sync store elements once on mount
+  useEffect(() => {
+    if (collaboration) return; // Skip in collab mode
+    if (!isOwner) return;
+    if (hasSyncedStoreRef.current) return;
+
+    const currentStoreElements = storeElementsRef.current;
+    if (currentStoreElements.length > 0) {
+      hasSyncedStoreRef.current = true;
+      setElementsInternal(deduplicateElements(currentStoreElements));
+    }
+  }, [collaboration, isOwner]);
+
   // Sync with collaboration when active
   useEffect(() => {
     if (!collaboration) {
-      // Solo mode: just use store elements (only for owner)
-      if (isOwner) {
-        setElements(storeElements);
-      }
       initializedFromCollabRef.current = false;
       return;
     }
@@ -88,14 +107,14 @@ export function useBoardElements(
     let mounted = true;
 
     // For owner: load existing elements into Yjs on first connect
+    const currentStoreElements = storeElementsRef.current;
     if (
       isOwner &&
-      storeElements.length > 0 &&
+      currentStoreElements.length > 0 &&
       !initializedFromCollabRef.current
     ) {
       // Owner loads their local elements into the collaboration
-      // Use setElements which clears existing and sets new ones
-      collaboration.setElements(storeElements);
+      collaboration.setElements(currentStoreElements);
       initializedFromCollabRef.current = true;
     }
 
@@ -103,10 +122,10 @@ export function useBoardElements(
     const loadInitialElements = async () => {
       const collabElements = await collaboration.getElementsAsync();
       if (mounted && collabElements.length > 0) {
-        setElements(collabElements);
-      } else if (mounted && isOwner && storeElements.length > 0) {
+        setElementsInternal(deduplicateElements(collabElements));
+      } else if (mounted && isOwner && currentStoreElements.length > 0) {
         // If no collab elements and we're owner, use store elements
-        setElements(storeElements);
+        setElementsInternal(deduplicateElements(currentStoreElements));
       }
     };
 
@@ -115,10 +134,22 @@ export function useBoardElements(
     // Subscribe to collaboration changes
     const unsubscribe = collaboration.onElementsChange((newElements) => {
       if (mounted) {
-        setElements(newElements);
-        // Only owner saves to store
+        const deduplicated = deduplicateElements(newElements);
+        // Only update if elements actually changed (compare by serialization)
+        setElementsInternal((prev) => {
+          if (prev.length !== deduplicated.length) return deduplicated;
+          // Quick check - compare IDs and a few key properties
+          const changed = deduplicated.some((el, i) => {
+            const prevEl = prev[i];
+            if (!prevEl || el.id !== prevEl.id) return true;
+            // Check if element was modified (compare stringified for deep check)
+            return JSON.stringify(el) !== JSON.stringify(prevEl);
+          });
+          return changed ? deduplicated : prev;
+        });
+        // Only owner saves to store - use ref to avoid dependency
         if (isOwner) {
-          replaceStoreElements(boardId, deduplicateElements(newElements));
+          replaceStoreElementsRef.current(boardId, deduplicated);
         }
       }
     });
@@ -127,14 +158,7 @@ export function useBoardElements(
       mounted = false;
       unsubscribe?.();
     };
-  }, [
-    collaboration,
-    boardId,
-    storeElements,
-    replaceStoreElements,
-    isOwner,
-    setElements,
-  ]);
+  }, [collaboration, boardId, isOwner]);
 
   // Update function that works in both solo and collab modes
   const updateElements = useCallback(
