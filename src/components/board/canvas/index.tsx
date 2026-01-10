@@ -439,7 +439,13 @@ export function Canvas({
         const cursors: RemoteCursor[] = [];
 
         states.forEach((state) => {
-          if (state.user && state.user.id !== myId && state.user.cursor) {
+          // Ensure user has a valid id (non-empty string) before adding cursor
+          if (
+            state.user &&
+            state.user.id &&
+            state.user.id !== myId &&
+            state.user.cursor
+          ) {
             // Check if cursor position changed
             const prevCursor = prevCursors.find((c) => c.id === state.user.id);
             const positionChanged =
@@ -449,8 +455,8 @@ export function Canvas({
 
             cursors.push({
               id: state.user.id,
-              name: state.user.name,
-              color: state.user.color,
+              name: state.user.name || "Guest",
+              color: state.user.color || "#888888",
               x: state.user.cursor.x,
               y: state.user.cursor.y,
               lastActivity: positionChanged
