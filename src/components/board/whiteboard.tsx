@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { v4 as uuid } from "uuid";
 import { PanelRight, History } from "lucide-react";
@@ -19,6 +19,14 @@ import { FindCanvas } from "./find-canvas";
 import { HotkeysDialog } from "./hotkeys-dialog";
 import { InviteDialog } from "./invite-dialog";
 import { CollaborationBar } from "./collaboration-bar";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
     CollaborationManager,
     type ConnectionStatus,
@@ -53,6 +61,7 @@ interface WhiteboardProps {
 const MAX_UNDO_STACK = 100;
 
 export function Whiteboard({ boardId }: WhiteboardProps) {
+    const router = useRouter();
     const searchParams = useSearchParams();
     // Check for collaboration mode via ?collab=1 parameter
     const isCollabMode = searchParams?.get("collab") === "1";
@@ -187,6 +196,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [spectatedUserIds, setSpectatedUserIds] = useState<Set<string>>(
         new Set(),
     );
+    const [showOwnerDisconnectModal, setShowOwnerDisconnectModal] =
+        useState(false);
+    const [ownerSessionEnded, setOwnerSessionEnded] = useState(false);
+    const ownerSessionEndedRef = useRef(false);
+    const ownerDisconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const ownerRedirectTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const ownerGraceDeadlineRef = useRef<number | null>(null);
     const [isReady, setIsReady] = useState(false);
     const [followedUserId, setFollowedUserId] = useState<string | null>(null);
     const [selectedElements, setSelectedElements] = useState<BoardElement[]>(
@@ -446,6 +462,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     color: string;
                     viewport?: { pan: { x: number; y: number }; zoom: number };
                 }> = [];
+                let ownerPresent = false;
                 // Track which users are being spectated
                 const spectated = new Set<string>();
                 // Track remote selections (elements selected by other users)
@@ -459,6 +476,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
                 states.forEach((state) => {
                     if (state.user) {
+                        if (state.user.isOwner) {
+                            ownerPresent = true;
+                        }
                         // Track who is being followed/spectated
                         if (state.user.followingUserId) {
                             spectated.add(state.user.followingUserId);
@@ -486,6 +506,31 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         }
                     }
                 });
+
+                if (!isOwner && !ownerSessionEndedRef.current) {
+                    if (ownerPresent) {
+                        if (ownerGraceDeadlineRef.current) {
+                            clearTimeout(ownerDisconnectTimerRef.current ?? 0);
+                            ownerDisconnectTimerRef.current = null;
+                            ownerGraceDeadlineRef.current = null;
+                            setShowOwnerDisconnectModal(false);
+                        }
+                    } else if (!ownerGraceDeadlineRef.current) {
+                        ownerGraceDeadlineRef.current = Date.now() + 60_000;
+                        ownerDisconnectTimerRef.current = setTimeout(() => {
+                            setOwnerSessionEnded(true);
+                            ownerSessionEndedRef.current = true;
+                            setShowOwnerDisconnectModal(true);
+                            ownerGraceDeadlineRef.current = null;
+                            ownerDisconnectTimerRef.current = null;
+                            ownerRedirectTimerRef.current = setTimeout(() => {
+                                ownerRedirectTimerRef.current = null;
+                                router.push("/dashboard");
+                            }, 3000);
+                        }, 60_000);
+                    }
+                }
+
                 // Only update state if data actually changed to prevent unnecessary re-renders
                 setCollaboratorUsers((prev) => {
                     if (prev.length !== users.length) return users;
@@ -551,6 +596,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             unsubAwareness?.();
             unsubConnection?.();
             collab?.destroy();
+            if (ownerDisconnectTimerRef.current) {
+                clearTimeout(ownerDisconnectTimerRef.current);
+            }
+            if (ownerRedirectTimerRef.current) {
+                clearTimeout(ownerRedirectTimerRef.current);
+            }
         };
     }, [
         isCollabMode,
@@ -2304,6 +2355,36 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onFocusElement={handleFocusElement}
                     onHighlightElements={handleHighlightElements}
                 />
+
+                {!isOwner && (
+                    <Dialog
+                        open={showOwnerDisconnectModal}
+                        onOpenChange={() => {}}
+                    >
+                        <DialogContent className="max-w-md [&_[data-dialog-close]]:hidden">
+                            <DialogHeader>
+                                <DialogTitle>
+                                    {ownerSessionEnded
+                                        ? "Session ended"
+                                        : "Owner disconnected"}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    {ownerSessionEnded
+                                        ? "This session has ended. Returning you to your dashboard..."
+                                        : "The owner left the board. We will wait up to one minute for them to reconnect."}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="flex justify-end">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => router.push("/dashboard")}
+                                >
+                                    Back to dashboard
+                                </Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                )}
 
                 {/* Colored frame when following a user */}
                 {followedUser && (
