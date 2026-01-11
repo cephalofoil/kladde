@@ -164,9 +164,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         useState<CollaborationManager | null>(null);
 
     // Elements state - integrated with Zustand store and optional collaboration
-    const { elements, setElements } = useBoardElements(boardId, collaboration, {
-        isOwner,
-    });
+    const { elements, setElements, lastChangeIsRemoteRef } = useBoardElements(
+        boardId,
+        collaboration,
+        {
+            isOwner,
+        },
+    );
     const [peerCount, setPeerCount] = useState(0);
 
     // History manager for version control (only for owner)
@@ -1118,6 +1122,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         const prevElements = prevElementsRef.current;
         const prevIds = new Set(prevElements.map((e) => e.id));
         const currentIds = new Set(elements.map((e) => e.id));
+        const changeUser = lastChangeIsRemoteRef.current
+            ? { id: "collaborator", name: "Collaborator", isOwner: false }
+            : undefined;
 
         // Find added elements
         const addedIds = elements
@@ -1138,6 +1145,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
         // Update prevElementsRef before async operations
         prevElementsRef.current = elements;
+        lastChangeIsRemoteRef.current = false;
 
         // Log operations asynchronously
         (async () => {
@@ -1146,6 +1154,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     addedIds,
                     prevElements,
                     elements,
+                    changeUser,
                 );
             }
             if (deletedIds.length > 0) {
@@ -1153,6 +1162,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     deletedIds,
                     prevElements,
                     elements,
+                    changeUser,
                 );
             }
             if (updatedIds.length > 0) {
@@ -1160,6 +1170,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     updatedIds,
                     prevElements,
                     elements,
+                    changeUser,
                 );
             }
 
@@ -2685,7 +2696,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     onRestore={handleRestoreHistory}
                     isPinned={isHistoryPinned}
                     onPreviewSnapshot={handlePreviewSnapshot}
-                    onSelectElements={handleSelectElementsByIds}
                 />
             )}
 

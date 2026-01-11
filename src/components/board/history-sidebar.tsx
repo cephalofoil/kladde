@@ -43,7 +43,6 @@ interface HistorySidebarProps {
         entryId: string | null,
         highlightIds?: string[],
     ) => void;
-    onSelectElements?: (ids: string[]) => void;
 }
 
 function formatTimeChunk(timestamp: number): string {
@@ -415,7 +414,6 @@ export function HistorySidebar({
     onRestore,
     isPinned,
     onPreviewSnapshot,
-    onSelectElements,
 }: HistorySidebarProps) {
     const [expandedEntries, setExpandedEntries] = useState<Set<string>>(
         new Set(),
@@ -507,9 +505,8 @@ export function HistorySidebar({
             setSelectedEntryId(null);
             setSelectedChunkKey(null);
             onPreviewSnapshot?.(null);
-            onSelectElements?.([]);
         }
-    }, [filteredEntries, onPreviewSnapshot, onSelectElements, selectedEntryId]);
+    }, [filteredEntries, onPreviewSnapshot, selectedEntryId]);
 
     useEffect(() => {
         if (groupedEntries.length === 0) return;
@@ -558,14 +555,12 @@ export function HistorySidebar({
             setSelectedChunkKey(null);
             setSelectedEntryId(null);
             onPreviewSnapshot?.(null);
-            onSelectElements?.([]);
         } else {
             // Select chunk - use the most recent entry to show state for that time
             const latestEntry = group.entries[0];
             setSelectedChunkKey(group.key);
             setSelectedEntryId(latestEntry.id);
             onPreviewSnapshot?.(latestEntry.id, group.allElementIds);
-            onSelectElements?.(group.allElementIds);
         }
     };
 
@@ -576,13 +571,11 @@ export function HistorySidebar({
             setSelectedEntryId(null);
             setSelectedChunkKey(null);
             onPreviewSnapshot?.(null);
-            onSelectElements?.([]);
         } else {
             // Select entry and show canvas state after this change
             setSelectedEntryId(entry.id);
             setSelectedChunkKey(chunkKey);
             onPreviewSnapshot?.(entry.id, entry.elementIds);
-            onSelectElements?.(entry.elementIds);
         }
     };
 
@@ -778,15 +771,13 @@ export function HistorySidebar({
                                                                         )}
                                                                     </div>
                                                                     {/* Only show user info for guest changes */}
-                                                                    {!entry.user
-                                                                        .isOwner && (
+                                                                    {entry.user
+                                                                        ?.isOwner ===
+                                                                        false && (
                                                                         <div className="flex items-center gap-1.5 mt-0.5">
                                                                             <User className="w-3 h-3 text-muted-foreground" />
                                                                             <span className="text-xs text-muted-foreground truncate">
-                                                                                {entry
-                                                                                    .user
-                                                                                    .name ||
-                                                                                    "Guest"}
+                                                                                Collaborator
                                                                             </span>
                                                                         </div>
                                                                     )}

@@ -13,6 +13,7 @@ import {
 } from "./encryption";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
+const LOCAL_ORIGIN = "local";
 
 export interface UserState {
     id: string;
@@ -319,7 +320,7 @@ export class CollaborationManager {
             if (storedElements.length > 0) {
                 this.elements.insert(0, storedElements);
             }
-        });
+        }, LOCAL_ORIGIN);
     }
 
     /**
@@ -338,11 +339,15 @@ export class CollaborationManager {
                 ciphertext,
                 iv,
             };
-            this.elements.push([encrypted]);
+            this.doc.transact(() => {
+                this.elements.push([encrypted]);
+            }, LOCAL_ORIGIN);
             // Pre-cache the decrypted element
             this.decryptedElementsCache.set(element.id, element);
         } else {
-            this.elements.push([element]);
+            this.doc.transact(() => {
+                this.elements.push([element]);
+            }, LOCAL_ORIGIN);
         }
     }
 
@@ -407,7 +412,7 @@ export class CollaborationManager {
                 this.doc.transact(() => {
                     this.elements.delete(index, 1);
                     this.elements.insert(index, [encrypted]);
-                });
+                }, LOCAL_ORIGIN);
                 // Update cache
                 this.decryptedElementsCache.set(id, updated);
             } else {
@@ -415,7 +420,7 @@ export class CollaborationManager {
                 this.doc.transact(() => {
                     this.elements.delete(index, 1);
                     this.elements.insert(index, [updated]);
-                });
+                }, LOCAL_ORIGIN);
             }
         }
     }
@@ -433,9 +438,11 @@ export class CollaborationManager {
         if (matchingIndexes.length === 0) return;
 
         // Delete from the end to avoid index shifts.
-        for (let i = matchingIndexes.length - 1; i >= 0; i -= 1) {
-            this.elements.delete(matchingIndexes[i], 1);
-        }
+        this.doc.transact(() => {
+            for (let i = matchingIndexes.length - 1; i >= 0; i -= 1) {
+                this.elements.delete(matchingIndexes[i], 1);
+            }
+        }, LOCAL_ORIGIN);
         // Remove from cache
         this.decryptedElementsCache.delete(id);
     }
@@ -445,7 +452,9 @@ export class CollaborationManager {
      */
     clearAll(): void {
         if (this.isReadOnly || !this.canEdit()) return;
-        this.elements.delete(0, this.elements.length);
+        this.doc.transact(() => {
+            this.elements.delete(0, this.elements.length);
+        }, LOCAL_ORIGIN);
         this.decryptedElementsCache.clear();
     }
 
@@ -453,8 +462,14 @@ export class CollaborationManager {
      * Subscribe to element changes
      * Callback receives decrypted elements
      */
-    onElementsChange(callback: (elements: BoardElement[]) => void): () => void {
+    onElementsChange(
+        callback: (
+            elements: BoardElement[],
+            info?: { isRemote: boolean },
+        ) => void,
+    ): () => void {
         const handler = async (event: Y.YArrayEvent<StoredElement>) => {
+            const isRemote = event.transaction.origin !== LOCAL_ORIGIN;
             if (this.encryptionKey) {
                 // Invalidate cache for changed elements
                 // When elements change from remote, we need to re-decrypt them
@@ -489,9 +504,11 @@ export class CollaborationManager {
 
                 // Decrypt all elements asynchronously
                 const decrypted = await this.getElementsAsync();
-                callback(decrypted);
+                callback(decrypted, { isRemote });
             } else {
-                callback(this.elements.toArray() as BoardElement[]);
+                callback(this.elements.toArray() as BoardElement[], {
+                    isRemote,
+                });
             }
         };
         this.elements.observe(handler);
