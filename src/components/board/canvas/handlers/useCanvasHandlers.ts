@@ -126,6 +126,7 @@ interface UseCanvasHandlersProps {
     onManualViewportChange?: () => void;
     isToolLocked: boolean;
     isReadOnly: boolean;
+    hasActiveRemoteUsers: boolean;
 }
 
 export function useCanvasHandlers({
@@ -166,6 +167,7 @@ export function useCanvasHandlers({
     onManualViewportChange,
     isToolLocked,
     isReadOnly,
+    hasActiveRemoteUsers,
 }: UseCanvasHandlersProps) {
     const {
         drawing,
@@ -260,6 +262,7 @@ export function useCanvasHandlers({
         textSaveTimeoutRef,
         elementsRef,
     } = refs;
+    const allowRemoteSelectionLock = hasActiveRemoteUsers;
 
     const throttledFindSnapTarget = useMemo(
         () => throttleWithResult(findNearestSnapTarget, 32),
@@ -321,7 +324,8 @@ export function useCanvasHandlers({
 
             currentElements.forEach((el) => {
                 // Skip elements that are selected by remote users
-                if (remotelySelectedIds.has(el.id)) return;
+                if (allowRemoteSelectionLock && remotelySelectedIds.has(el.id))
+                    return;
                 if (
                     el.type === "pen" ||
                     el.type === "line" ||
@@ -550,7 +554,13 @@ export function useCanvasHandlers({
 
             return toErase;
         },
-        [elementsRef, strokeWidth, remotelySelectedIds, zoom],
+        [
+            elementsRef,
+            strokeWidth,
+            remotelySelectedIds,
+            zoom,
+            allowRemoteSelectionLock,
+        ],
     );
 
     const handleMouseMove = useCallback(
@@ -616,7 +626,11 @@ export function useCanvasHandlers({
                     const lassoSelected = getLassoSelectedIds(
                         currentElements,
                         nextPoints,
-                    ).filter((id) => !remotelySelectedIds.has(id));
+                    ).filter(
+                        (id) =>
+                            !allowRemoteSelectionLock ||
+                            !remotelySelectedIds.has(id),
+                    );
                     setSelectedIds(lassoSelected);
                 } else {
                     setSelectedIds([]);
@@ -643,7 +657,11 @@ export function useCanvasHandlers({
                     const boxSelected = getBoxSelectedIds(
                         currentElements,
                         nextSelectionBox,
-                    ).filter((id) => !remotelySelectedIds.has(id));
+                    ).filter(
+                        (id) =>
+                            !allowRemoteSelectionLock ||
+                            !remotelySelectedIds.has(id),
+                    );
                     setSelectedIds(boxSelected);
                 } else {
                     setSelectedIds([]);
@@ -2325,6 +2343,7 @@ export function useCanvasHandlers({
             throttledFindSnapTarget,
             elementsRef,
             remotelySelectedIds,
+            allowRemoteSelectionLock,
         ],
     );
 
@@ -2361,9 +2380,10 @@ export function useCanvasHandlers({
                 ? currentElements.find((el) => el.id === clickedElementId)
                 : null;
             // Don't allow selecting elements that are selected by remote users or locked/hidden
-            const isRemotelySelected = clickedElement
-                ? remotelySelectedIds.has(clickedElement.id)
-                : false;
+            const isRemotelySelected =
+                allowRemoteSelectionLock && clickedElement
+                    ? remotelySelectedIds.has(clickedElement.id)
+                    : false;
             const isLockedOrHidden = clickedElement
                 ? clickedElement.locked || clickedElement.hidden
                 : false;
@@ -2405,7 +2425,8 @@ export function useCanvasHandlers({
                         el.type !== "laser" &&
                         !el.hidden &&
                         !el.locked &&
-                        !remotelySelectedIds.has(el.id),
+                        (!allowRemoteSelectionLock ||
+                            !remotelySelectedIds.has(el.id)),
                 );
                 const dragElements = [
                     selectableClickedElement,
@@ -3108,6 +3129,7 @@ export function useCanvasHandlers({
             getElementsToErase,
             onDeleteElement,
             remotelySelectedIds,
+            allowRemoteSelectionLock,
             setIsLassoSelecting,
             setLassoPoints,
             setEditingFrameLabelId,
@@ -3147,7 +3169,11 @@ export function useCanvasHandlers({
                 const lassoSelected = getLassoSelectedIds(
                     currentElements,
                     lassoPoints,
-                ).filter((id) => !remotelySelectedIds.has(id));
+                ).filter(
+                    (id) =>
+                        !allowRemoteSelectionLock ||
+                        !remotelySelectedIds.has(id),
+                );
                 setSelectedIds(lassoSelected);
             }
             setIsLassoSelecting(false);
@@ -3169,7 +3195,11 @@ export function useCanvasHandlers({
                 const boxSelected = getBoxSelectedIds(
                     currentElements,
                     selectionBox,
-                ).filter((id) => !remotelySelectedIds.has(id));
+                ).filter(
+                    (id) =>
+                        !allowRemoteSelectionLock ||
+                        !remotelySelectedIds.has(id),
+                );
                 setSelectedIds(boxSelected);
             }
             setIsBoxSelecting(false);
@@ -3528,6 +3558,7 @@ export function useCanvasHandlers({
         connectorStyle,
         originalElements,
         remotelySelectedIds,
+        allowRemoteSelectionLock,
         fontSize,
         lineHeight,
         isToolLocked,

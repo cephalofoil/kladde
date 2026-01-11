@@ -59,6 +59,7 @@ interface WhiteboardProps {
 }
 
 const MAX_UNDO_STACK = 100;
+const STALE_AWARENESS_MS = 30_000;
 
 export function Whiteboard({ boardId }: WhiteboardProps) {
     const router = useRouter();
@@ -196,6 +197,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [spectatedUserIds, setSpectatedUserIds] = useState<Set<string>>(
         new Set(),
     );
+    const [activeRemoteUserCount, setActiveRemoteUserCount] = useState(0);
     const [showOwnerDisconnectModal, setShowOwnerDisconnectModal] =
         useState(false);
     const [ownerSessionEnded, setOwnerSessionEnded] = useState(false);
@@ -463,6 +465,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     viewport?: { pan: { x: number; y: number }; zoom: number };
                 }> = [];
                 let ownerPresent = false;
+                let activeRemoteCount = 0;
                 // Track which users are being spectated
                 const spectated = new Set<string>();
                 // Track remote selections (elements selected by other users)
@@ -474,8 +477,15 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 }> = [];
                 const myId = collab!.getUserInfo().id;
 
+                const now = Date.now();
                 states.forEach((state) => {
                     if (state.user) {
+                        const lastActiveAt = state.user.lastActiveAt;
+                        const hasRecentActivity =
+                            typeof lastActiveAt === "number" &&
+                            now - lastActiveAt <= STALE_AWARENESS_MS;
+                        const isStale = !hasRecentActivity;
+                        if (isStale) return;
                         if (state.user.isOwner) {
                             ownerPresent = true;
                         }
@@ -485,6 +495,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         }
                         // Add to collaborator list (excluding self)
                         if (state.user.id !== myId) {
+                            activeRemoteCount += 1;
                             users.push({
                                 id: state.user.id,
                                 name: state.user.name,
@@ -576,6 +587,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     );
                     return changed ? selections : prev;
                 });
+                setActiveRemoteUserCount(activeRemoteCount);
             });
 
             // Subscribe to connection status changes
@@ -705,7 +717,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         (id: string, updates: Partial<BoardElement>) => {
             clearHistoryPreview();
             if (isReadOnly) return;
-            const currentElement = elements.find((el) => el.id === id);
+            const currentElement = elementsRef.current.find(
+                (el) => el.id === id,
+            );
             const nextUpdates =
                 currentElement?.type === "frame"
                     ? { ...updates, strokeWidth: 2 }
@@ -731,7 +745,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
             if (collaboration) {
                 updates.forEach(({ id, updates: elementUpdates }) => {
-                    const currentElement = elements.find((el) => el.id === id);
+                    const currentElement = elementsRef.current.find(
+                        (el) => el.id === id,
+                    );
                     const nextUpdates =
                         currentElement?.type === "frame"
                             ? { ...elementUpdates, strokeWidth: 2 }
@@ -741,7 +757,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             } else {
                 const updatesMap = new Map(
                     updates.map(({ id, updates: u }) => {
-                        const currentElement = elements.find(
+                        const currentElement = elementsRef.current.find(
                             (el) => el.id === id,
                         );
                         const nextUpdates =
@@ -2556,6 +2572,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     isToolLocked={isToolLocked}
                     isEditArrowMode={isEditArrowMode}
                     remoteSelections={isReadOnly ? [] : remoteSelections}
+                    hasActiveRemoteUsers={activeRemoteUserCount > 0}
                     isReadOnly={isReadOnly}
                     showRemoteCursors={!isReadOnly}
                     showUndoRedo={!isReadOnly}
