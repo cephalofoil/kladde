@@ -8,9 +8,14 @@ import { cn } from "@/lib/utils";
 interface CanvasTitleBarProps {
     boardId: string;
     className?: string;
+    isGuest?: boolean;
 }
 
-export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
+export function CanvasTitleBar({
+    boardId,
+    className,
+    isGuest = false,
+}: CanvasTitleBarProps) {
     const router = useRouter();
     const boards = useBoardStore((s) => s.boards);
     const workstreams = useBoardStore((s) => s.workstreams);
@@ -32,6 +37,8 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
                 workstreamId: ws?.id ?? null,
             };
         }, [boards, workstreams, boardId]);
+
+    const canRename = !isGuest;
 
     useEffect(() => {
         if (isRenaming && spanRef.current) {
@@ -55,6 +62,7 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
     };
 
     const handleBoardNameClick = () => {
+        if (!canRename) return;
         setNewName(boardName);
         setIsRenaming(true);
     };
@@ -84,40 +92,44 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
                 className,
             )}
         >
-            {/* Workspace button with color dot */}
-            <button
-                onClick={handleWorkspaceClick}
-                className="inline-flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/60 transition-colors"
-                title="Go to Workspace"
-            >
-                <span
-                    className="inline-block h-3 w-3 rounded-full shrink-0"
-                    style={{ backgroundColor: workstreamColor }}
-                />
-                <span className="text-sm font-medium text-foreground font-[var(--font-heading)]">
-                    {workstreamName}
-                </span>
-            </button>
+            {!isGuest && (
+                <>
+                    {/* Workspace button with color dot */}
+                    <button
+                        onClick={handleWorkspaceClick}
+                        className="inline-flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                        title="Go to Workspace"
+                    >
+                        <span
+                            className="inline-block h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: workstreamColor }}
+                        />
+                        <span className="text-sm font-medium text-foreground font-[var(--font-heading)]">
+                            {workstreamName}
+                        </span>
+                    </button>
 
-            {/* Slash separator */}
-            <span className="text-muted-foreground/50 text-base select-none self-center">
-                /
-            </span>
+                    {/* Slash separator */}
+                    <span className="text-muted-foreground/50 text-base select-none self-center">
+                        /
+                    </span>
+                </>
+            )}
 
             {/* Board name (clickable to rename) */}
             <span
                 ref={spanRef}
                 role="textbox"
-                contentEditable={isRenaming}
+                contentEditable={canRename && isRenaming}
                 suppressContentEditableWarning
                 onBlur={(e) => {
-                    if (isRenaming) {
+                    if (canRename && isRenaming) {
                         setNewName(e.currentTarget.textContent || "");
                         handleRenameBlur();
                     }
                 }}
                 onKeyDown={(e) => {
-                    if (!isRenaming) return;
+                    if (!canRename || !isRenaming) return;
                     if (e.key === "Enter") {
                         e.preventDefault();
                         setNewName(e.currentTarget.textContent || "");
@@ -128,20 +140,26 @@ export function CanvasTitleBar({ boardId, className }: CanvasTitleBarProps) {
                     }
                     e.stopPropagation();
                 }}
-                onInput={(e) => setNewName(e.currentTarget.textContent || "")}
+                onInput={(e) => {
+                    if (canRename) {
+                        setNewName(e.currentTarget.textContent || "");
+                    }
+                }}
                 onClick={(e) => {
-                    if (!isRenaming) {
+                    if (!isRenaming && canRename) {
                         handleBoardNameClick();
                     }
                     e.stopPropagation();
                 }}
                 className={cn(
                     "text-sm font-semibold text-foreground px-2 py-1 font-[var(--font-heading)] outline-none",
-                    isRenaming
-                        ? "border-b border-ring"
-                        : "rounded-md hover:bg-muted/60 transition-colors cursor-text",
+                    canRename
+                        ? isRenaming
+                            ? "border-b border-ring"
+                            : "rounded-md hover:bg-muted/60 transition-colors cursor-text"
+                        : "rounded-md",
                 )}
-                title={isRenaming ? undefined : "Click to rename"}
+                title={canRename && !isRenaming ? "Click to rename" : undefined}
             >
                 {boardName}
             </span>

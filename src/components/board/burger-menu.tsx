@@ -15,6 +15,7 @@ import {
     Monitor,
     X,
     ExternalLink,
+    Home,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
@@ -44,6 +45,7 @@ interface BurgerMenuProps {
     handDrawnMode: boolean;
     onHandDrawnModeChange: (enabled: boolean) => void;
     isReadOnly?: boolean;
+    isGuest?: boolean;
 }
 
 function CanvasBackgroundPreview({
@@ -159,6 +161,7 @@ export function BurgerMenu({
     handDrawnMode,
     onHandDrawnModeChange,
     isReadOnly = false,
+    isGuest = false,
 }: BurgerMenuProps) {
     const { theme, setTheme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
@@ -275,6 +278,18 @@ export function BurgerMenu({
                         <Kbd>E</Kbd>
                     </div>
                 </DropdownMenuItem>
+
+                {isGuest && (
+                    <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <a href="/dashboard">
+                                <Home className="w-4 h-4" />
+                                <span>Back to dashboard</span>
+                            </a>
+                        </DropdownMenuItem>
+                    </>
+                )}
 
                 <DropdownMenuSeparator />
 

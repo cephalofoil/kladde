@@ -2203,8 +2203,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         handDrawnMode={handDrawnMode}
                         onHandDrawnModeChange={setHandDrawnMode}
                         isReadOnly={isReadOnly}
+                        isGuest={!isOwner}
                     />
-                    <CanvasTitleBar boardId={boardId} />
+                    <CanvasTitleBar boardId={boardId} isGuest={!isOwner} />
                     {false && (
                         <a
                             href="/dashboard"
