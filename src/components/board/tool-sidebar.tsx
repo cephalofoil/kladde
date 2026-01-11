@@ -797,7 +797,7 @@ export function ToolSidebar({
                                 aria-label="Align left"
                                 className={cn(
                                     CONTROL_BUTTON,
-                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                                 )}
                             >
                                 <AlignLeft className="w-3.5 h-3.5" />
@@ -807,7 +807,7 @@ export function ToolSidebar({
                                 aria-label="Align center"
                                 className={cn(
                                     CONTROL_BUTTON,
-                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                                 )}
                             >
                                 <AlignCenter className="w-3.5 h-3.5" />
@@ -817,7 +817,7 @@ export function ToolSidebar({
                                 aria-label="Align right"
                                 className={cn(
                                     CONTROL_BUTTON,
-                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                                 )}
                             >
                                 <AlignRight className="w-3.5 h-3.5" />
@@ -897,8 +897,7 @@ export function ToolSidebar({
                                             <div
                                                 className="absolute inset-0"
                                                 style={{
-                                                    backgroundColor:
-                                                        "#2d6f5e",
+                                                    backgroundColor: "#2d6f5e",
                                                     backgroundImage:
                                                         "linear-gradient(to right, rgba(92, 184, 159, 0.5) 1px, transparent 1px), linear-gradient(to bottom, rgba(92, 184, 159, 0.5) 1px, transparent 1px)",
                                                     backgroundSize: "6px 6px",
@@ -954,7 +953,7 @@ export function ToolSidebar({
                                 className={cn(
                                     "flex-1 aspect-square min-w-0 px-0",
                                     CONTROL_BUTTON,
-                                    "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                    "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                                 )}
                             >
                                 <div className="flex flex-col items-center justify-center gap-1 w-full">
@@ -1002,7 +1001,7 @@ export function ToolSidebar({
                                 className={cn(
                                     "flex-1 h-9 min-w-0 px-0",
                                     CONTROL_BUTTON,
-                                    "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                    "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                                 )}
                                 title="Butt (flat)"
                             >
@@ -1029,7 +1028,7 @@ export function ToolSidebar({
                                 className={cn(
                                     "flex-1 h-9 min-w-0 px-0",
                                     CONTROL_BUTTON,
-                                    "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                    "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                                 )}
                                 title="Round"
                             >
@@ -1083,7 +1082,7 @@ export function ToolSidebar({
                             className={cn(
                                 "flex-1 h-10 min-w-0 px-0",
                                 CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                             )}
                             title="Sharp corner"
                         >
@@ -1109,7 +1108,7 @@ export function ToolSidebar({
                             className={cn(
                                 "flex-1 h-10 min-w-0 px-0",
                                 CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                             )}
                             title="Curved"
                         >
@@ -1134,7 +1133,7 @@ export function ToolSidebar({
                             className={cn(
                                 "flex-1 h-10 min-w-0 px-0",
                                 CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                             )}
                             title="Elbow"
                         >
@@ -1248,7 +1247,7 @@ export function ToolSidebar({
                             className={cn(
                                 "flex-1 h-9 min-w-0 px-0",
                                 CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                             )}
                         >
                             <span className="text-xs">None</span>
@@ -1259,7 +1258,7 @@ export function ToolSidebar({
                             className={cn(
                                 "flex-1 h-9 min-w-0 px-0",
                                 CONTROL_BUTTON,
-                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm",
+                                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
                             )}
                         >
                             <div className="w-6 h-6 rounded-sm bg-foreground/30" />
@@ -1290,7 +1289,7 @@ export function ToolSidebar({
             className="fixed top-1/2 -translate-y-1/2 z-[110] select-none transition-all duration-300"
             style={{ right: `${16 + rightOffset}px` }}
         >
-            <div className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2 max-h-[calc(100vh-160px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+            <div className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2 max-h-[calc(100vh-160px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent text-foreground">
                 <DropdownMenu
                     open={openStrokeMenu}
                     onOpenChange={setOpenStrokeMenu}
@@ -1743,7 +1742,7 @@ export function ToolSidebar({
             )}
             style={{ right: `${16 + rightOffset}px` }}
         >
-            <div className="relative bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl overflow-hidden">
+            <div className="relative bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl overflow-hidden text-foreground">
                 {/* Collapse/Expand Button */}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
@@ -1877,8 +1876,6 @@ export function ToolSidebar({
                             </div>
                         </>
                     )}
-
-                    
 
                     {/* Stroke Color */}
                     <div className="space-y-2">
@@ -2206,7 +2203,7 @@ export function ToolSidebar({
             {openArrowEndMenu && arrowEndMenuPos && (
                 <>
                     <div
-                        className="fixed z-[9999] w-[260px] bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl p-2"
+                        className="fixed z-[9999] w-[260px] bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl p-2 text-foreground"
                         style={{
                             left: arrowEndMenuPos.left,
                             top: arrowEndMenuPos.top,

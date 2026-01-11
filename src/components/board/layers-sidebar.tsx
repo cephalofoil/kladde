@@ -717,7 +717,7 @@ export function LayersSidebar({
                                 }
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex-1 min-w-0 text-sm bg-transparent border-b border-primary outline-none"
+                            className="flex-1 min-w-0 text-sm bg-transparent border-b border-primary outline-none text-foreground"
                             autoFocus
                         />
                     ) : (
@@ -924,7 +924,7 @@ export function LayersSidebar({
             tabIndex={0}
             onKeyDown={handleKeyDown}
             className={cn(
-                "h-full w-80 bg-card flex flex-col flex-shrink-0 select-none outline-none",
+                "h-full w-80 bg-card text-foreground flex flex-col flex-shrink-0 select-none outline-none",
                 isPinned
                     ? "border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.35)]"
                     : "fixed top-0 right-0 bottom-0 z-[120] border-l border-border shadow-[-16px_0_30px_-18px_rgba(15,23,42,0.55)]",
@@ -1002,7 +1002,7 @@ export function LayersSidebar({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={handleFindKeyDown}
-                            className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
+                            className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
                             placeholder="Find on canvas..."
                         />
                         <div className="flex items-center gap-1">
