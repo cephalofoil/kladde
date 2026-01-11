@@ -82,6 +82,10 @@ export function HotkeysDialog({ open, onOpenChange }: HotkeysDialogProps) {
                         keys: [modKey, shiftKey, "E"],
                         description: "Export image",
                     },
+                    {
+                        keys: [modKey, shiftKey, "L"],
+                        description: "Toggle light/dark theme",
+                    },
                     { keys: [modKey, "F"], description: "Find on canvas" },
                     { keys: ["?"], description: "Show keyboard shortcuts" },
                 ],
