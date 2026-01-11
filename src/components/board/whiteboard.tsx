@@ -2681,9 +2681,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         handlePreviewSnapshot(null);
                     }}
                     entries={historyEntries}
+                    selectedElementIds={selectedElements.map((el) => el.id)}
                     onRestore={handleRestoreHistory}
                     isPinned={isHistoryPinned}
-                    onTogglePin={() => setIsHistoryPinned((prev) => !prev)}
                     onPreviewSnapshot={handlePreviewSnapshot}
                     onSelectElements={handleSelectElementsByIds}
                 />

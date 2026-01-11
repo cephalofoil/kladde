@@ -36,9 +36,9 @@ interface HistorySidebarProps {
     isOpen: boolean;
     onClose: () => void;
     entries: HistoryEntry[];
+    selectedElementIds?: string[];
     onRestore: (entryId: string) => void;
     isPinned: boolean;
-    onTogglePin: () => void;
     onPreviewSnapshot?: (
         entryId: string | null,
         highlightIds?: string[],
@@ -411,9 +411,9 @@ export function HistorySidebar({
     isOpen,
     onClose,
     entries,
+    selectedElementIds,
     onRestore,
     isPinned,
-    onTogglePin,
     onPreviewSnapshot,
     onSelectElements,
 }: HistorySidebarProps) {
@@ -430,23 +430,35 @@ export function HistorySidebar({
     );
     const knownChunkKeysRef = useRef<Set<string>>(new Set());
 
+    const filteredEntries = useMemo(() => {
+        if (!selectedElementIds || selectedElementIds.length === 0) {
+            return entries;
+        }
+        const selectedSet = new Set(selectedElementIds);
+        return entries.filter((entry) =>
+            entry.elementIds.some((id) => selectedSet.has(id)),
+        );
+    }, [entries, selectedElementIds]);
+
     const latestEntryId = useMemo(() => {
-        if (entries.length === 0) return null;
-        return entries.reduce((latest, entry) => {
+        if (filteredEntries.length === 0) return null;
+        return filteredEntries.reduce((latest, entry) => {
             if (!latest || entry.timestamp > latest.timestamp) return entry;
             return latest;
-        }, entries[0]).id;
-    }, [entries]);
+        }, filteredEntries[0]).id;
+    }, [filteredEntries]);
 
     // Track previous entries count to detect new additions
-    const prevEntriesCountRef = useRef(entries.length);
+    const prevEntriesCountRef = useRef(filteredEntries.length);
 
     // Group entries by time chunks
     const groupedEntries = useMemo(() => {
         const groups: TimeChunkGroup[] = [];
         const groupMap = new Map<string, HistoryEntry[]>();
 
-        const sorted = [...entries].sort((a, b) => b.timestamp - a.timestamp);
+        const sorted = [...filteredEntries].sort(
+            (a, b) => b.timestamp - a.timestamp,
+        );
 
         for (const entry of sorted) {
             const key = getTimeChunkKey(entry.timestamp);
@@ -476,15 +488,28 @@ export function HistorySidebar({
         groups.sort((a, b) => b.timestamp - a.timestamp);
 
         return groups;
-    }, [entries]);
+    }, [filteredEntries]);
 
     // Don't collapse when new entries are added
     useEffect(() => {
-        if (entries.length > prevEntriesCountRef.current) {
+        if (filteredEntries.length > prevEntriesCountRef.current) {
             // New entries added - don't change selection state
         }
-        prevEntriesCountRef.current = entries.length;
-    }, [entries.length]);
+        prevEntriesCountRef.current = filteredEntries.length;
+    }, [filteredEntries.length]);
+
+    useEffect(() => {
+        if (!selectedEntryId) return;
+        const stillVisible = filteredEntries.some(
+            (entry) => entry.id === selectedEntryId,
+        );
+        if (!stillVisible) {
+            setSelectedEntryId(null);
+            setSelectedChunkKey(null);
+            onPreviewSnapshot?.(null);
+            onSelectElements?.([]);
+        }
+    }, [filteredEntries, onPreviewSnapshot, onSelectElements, selectedEntryId]);
 
     useEffect(() => {
         if (groupedEntries.length === 0) return;
@@ -604,30 +629,6 @@ export function HistorySidebar({
                         ) : (
                             <Minimize2 className="w-4 h-4" />
                         )}
-                    </button>
-                    <button
-                        onClick={onTogglePin}
-                        className={cn(
-                            "p-1.5 rounded-md transition-colors",
-                            isPinned
-                                ? "bg-primary/10 text-primary"
-                                : "hover:bg-muted text-muted-foreground",
-                        )}
-                        title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
-                    >
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <line x1="12" y1="17" x2="12" y2="22" />
-                            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-                        </svg>
                     </button>
                     <button
                         onClick={onClose}
