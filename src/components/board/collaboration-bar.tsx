@@ -1,13 +1,11 @@
 "use client";
 
 import { Eye, Share2 } from "lucide-react";
-import type { ConnectionStatus } from "@/lib/collaboration";
 import { cn } from "@/lib/utils";
 import { CollaboratorAvatars } from "./collaborator-avatars";
 
 interface CollaborationBarProps {
     peerCount: number;
-    connectionStatus: ConnectionStatus;
     myName: string;
     collaboratorUsers: Array<{
         id: string;
@@ -24,7 +22,6 @@ interface CollaborationBarProps {
 
 export function CollaborationBar({
     peerCount,
-    connectionStatus,
     myName,
     collaboratorUsers,
     onFollowUser,
@@ -39,30 +36,6 @@ export function CollaborationBar({
             {peerCount > 0 && (
                 <>
                     <div className="flex items-center gap-2 px-1 animate-in slide-in-from-left duration-300">
-                        {/* Status indicator */}
-                        <div
-                            className={cn(
-                                "w-2 h-2 rounded-full shrink-0",
-                                connectionStatus === "connected" &&
-                                    peerCount > 0
-                                    ? "bg-green-500"
-                                    : connectionStatus === "connected"
-                                      ? "bg-yellow-500 animate-pulse"
-                                      : connectionStatus === "connecting"
-                                        ? "bg-yellow-500 animate-pulse"
-                                        : "bg-red-500",
-                            )}
-                            title={
-                                connectionStatus === "connected" &&
-                                peerCount > 0
-                                    ? `Connected to ${peerCount} peer(s)`
-                                    : connectionStatus === "connected"
-                                      ? "Waiting for collaborators..."
-                                      : connectionStatus === "connecting"
-                                        ? "Connecting..."
-                                        : "Disconnected"
-                            }
-                        />
                         <span
                             className="text-xs font-medium text-foreground max-w-[140px] truncate"
                             title={myName}

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-    AvatarGroup,
-    AvatarGroupTooltip,
-} from "@/components/animate-ui/components/animate/avatar-group";
+import { AvatarGroup } from "@/components/animate-ui/components/animate/avatar-group";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Eye } from "lucide-react";
 
@@ -55,8 +52,8 @@ export function CollaboratorAvatars({
                 <Avatar
                     className={`size-7 border-2 cursor-pointer transition-all ${
                         isFollowed
-                            ? "border-white ring-2 ring-offset-2 ring-offset-background scale-110"
-                            : "border-background hover:ring-2 hover:ring-white/30"
+                            ? "border-white ring-1 ring-offset-1 ring-offset-background"
+                            : "border-background hover:ring-1 hover:ring-white/30"
                     }`}
                     style={{
                         backgroundColor: user.color,
@@ -72,25 +69,6 @@ export function CollaboratorAvatars({
                     >
                         {firstLetter}
                     </AvatarFallback>
-                    <AvatarGroupTooltip>
-                        <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <div
-                                    className="w-2 h-2 rounded-full shrink-0"
-                                    style={{ backgroundColor: user.color }}
-                                />
-                                <span className="font-medium">{user.name}</span>
-                                {isBeingSpectated && (
-                                    <Eye className="w-3 h-3 text-muted-foreground" />
-                                )}
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                                {isFollowed
-                                    ? "Click to unfollow"
-                                    : "Click to follow"}
-                            </span>
-                        </div>
-                    </AvatarGroupTooltip>
                 </Avatar>
                 {isBeingSpectated && (
                     <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-background flex items-center justify-center">
@@ -116,7 +94,7 @@ export function CollaboratorAvatars({
     }
 
     return (
-        <AvatarGroup className="ml-2 -space-x-2 h-7" translate="-12%">
+        <AvatarGroup className="ml-2 -space-x-2 h-7" translate="0">
             {avatarElements}
         </AvatarGroup>
     );
