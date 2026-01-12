@@ -9,6 +9,7 @@ import type {
     ConnectorDragKind,
     BoundingBox,
 } from "../types";
+import type { AlignmentGuide } from "../utils/alignmentGuides";
 
 interface UseCanvasStateProps {
     elements: BoardElement[];
@@ -149,6 +150,11 @@ export function useCanvasState({
         position: "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
     } | null>(null);
 
+    // Alignment guides state (for smart guides during drag)
+    const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>(
+        [],
+    );
+
     // UI state
     const [hoverCursor, setHoverCursor] = useState<string | null>(null);
     const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
@@ -265,6 +271,8 @@ export function useCanvasState({
             setSnapTarget,
             startSnapTarget,
             setStartSnapTarget,
+            alignmentGuides,
+            setAlignmentGuides,
         },
         ui: {
             hoverCursor,

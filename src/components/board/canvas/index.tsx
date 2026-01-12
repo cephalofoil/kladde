@@ -202,7 +202,7 @@ export function Canvas({
             setEraserCursorPos,
         },
         laser: { laserCursorPos, setLaserCursorPos },
-        snapping: { snapTarget, setSnapTarget },
+        snapping: { snapTarget, setSnapTarget, alignmentGuides },
         ui: {
             hoverCursor,
             lastMousePos,
@@ -1428,6 +1428,38 @@ export function Canvas({
 
                     {/* Render snap target highlight */}
                     {renderSnapTargetHighlight()}
+
+                    {/* Render alignment guides */}
+                    {alignmentGuides.map((guide, i) => (
+                        <line
+                            key={`alignment-guide-${i}`}
+                            x1={
+                                guide.type === "vertical"
+                                    ? guide.position
+                                    : guide.start
+                            }
+                            y1={
+                                guide.type === "horizontal"
+                                    ? guide.position
+                                    : guide.start
+                            }
+                            x2={
+                                guide.type === "vertical"
+                                    ? guide.position
+                                    : guide.end
+                            }
+                            y2={
+                                guide.type === "horizontal"
+                                    ? guide.position
+                                    : guide.end
+                            }
+                            stroke="var(--accent)"
+                            strokeWidth={1 / zoom}
+                            strokeDasharray={`${4 / zoom},${4 / zoom}`}
+                            opacity={0.8}
+                            pointerEvents="none"
+                        />
+                    ))}
 
                     {/* Render lasso selection */}
                     {isLassoSelecting && lassoPath && (

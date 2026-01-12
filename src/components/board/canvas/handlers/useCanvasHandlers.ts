@@ -31,6 +31,7 @@ import {
 } from "../curves";
 import {
     getBoundingBox,
+    getCombinedBounds,
     getBoxSelectedIds,
     getGroupSelectionIds,
     getLassoSelectedIds,
@@ -47,6 +48,8 @@ import {
     measureWrappedTextHeightPx,
 } from "../text-utils";
 import { getEventTargetInfo } from "../utils/eventTargeting";
+import { findAlignmentGuides } from "../utils/alignmentGuides";
+import { isInViewport } from "../utils/viewport";
 
 function throttleWithResult<T extends (...args: any[]) => any>(
     fn: T,
@@ -234,8 +237,13 @@ export function useCanvasHandlers({
     } = text;
     const { eraserMarkedIds, setEraserMarkedIds, setEraserCursorPos } = eraser;
     const { setLaserCursorPos } = laser;
-    const { snapTarget, setSnapTarget, startSnapTarget, setStartSnapTarget } =
-        snapping;
+    const {
+        snapTarget,
+        setSnapTarget,
+        startSnapTarget,
+        setStartSnapTarget,
+        setAlignmentGuides,
+    } = snapping;
     const {
         hoverCursor,
         setHoverCursor,
@@ -1406,12 +1414,107 @@ export function useCanvasHandlers({
 
             // Handle dragging (moving elements)
             if (isDragging && dragStart && originalElements.length > 0) {
-                const dx = point.x - dragStart.x;
-                const dy = point.y - dragStart.y;
+                let dx = point.x - dragStart.x;
+                let dy = point.y - dragStart.y;
 
                 // Set hasDragMoved once user has moved beyond a small threshold
                 if (!hasDragMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
                     setHasDragMoved(true);
+                }
+
+                // Calculate alignment guides for snapping
+                // Only for non-pen elements and when we have shape-like elements
+                const hasShapeElements = originalElements.some(
+                    (el) =>
+                        el.type !== "pen" &&
+                        el.type !== "line" &&
+                        el.type !== "arrow" &&
+                        el.type !== "laser",
+                );
+
+                if (hasShapeElements) {
+                    // Calculate the would-be bounds of dragged elements
+                    const draggedIds = originalElements.map((el) => el.id);
+                    const excludeIds = new Set(draggedIds);
+
+                    // Create temporary elements with current drag offset to get bounds
+                    const tempDraggedElements = originalElements
+                        .filter(
+                            (el) =>
+                                el.type !== "pen" &&
+                                el.type !== "line" &&
+                                el.type !== "arrow",
+                        )
+                        .map((el) => ({
+                            ...el,
+                            x: (el.x ?? 0) + dx,
+                            y: (el.y ?? 0) + dy,
+                        }));
+
+                    if (tempDraggedElements.length > 0) {
+                        const draggingBounds = getCombinedBounds(
+                            tempDraggedElements.map((el) => el.id),
+                            tempDraggedElements,
+                        );
+
+                        if (draggingBounds) {
+                            // Get viewport bounds for filtering candidates
+                            const svg = svgRef.current;
+                            const containerRect = svg?.getBoundingClientRect();
+                            const viewportBounds = containerRect
+                                ? {
+                                      x: -pan.x / zoom,
+                                      y: -pan.y / zoom,
+                                      width: containerRect.width / zoom,
+                                      height: containerRect.height / zoom,
+                                  }
+                                : null;
+
+                            // Filter candidates to only visible elements
+                            const candidates = viewportBounds
+                                ? currentElements.filter((el) => {
+                                      if (excludeIds.has(el.id)) return false;
+                                      if (el.type === "pen") return false;
+                                      if (el.type === "laser") return false;
+                                      const bounds = getBoundingBox(el);
+                                      if (!bounds) return false;
+                                      return isInViewport(
+                                          bounds,
+                                          viewportBounds,
+                                          100,
+                                      );
+                                  })
+                                : currentElements.filter(
+                                      (el) =>
+                                          !excludeIds.has(el.id) &&
+                                          el.type !== "pen" &&
+                                          el.type !== "laser",
+                                  );
+
+                            // Snap threshold: 5px in screen space (light snapping)
+                            const threshold = 5 / zoom;
+
+                            const alignmentResult = findAlignmentGuides(
+                                draggingBounds,
+                                candidates,
+                                excludeIds,
+                                threshold,
+                            );
+
+                            // Apply snap deltas
+                            dx += alignmentResult.snapDeltaX;
+                            dy += alignmentResult.snapDeltaY;
+
+                            // Update alignment guides state
+                            setAlignmentGuides(alignmentResult.guides);
+                        } else {
+                            setAlignmentGuides([]);
+                        }
+                    } else {
+                        setAlignmentGuides([]);
+                    }
+                } else {
+                    setAlignmentGuides([]);
                 }
 
                 // Collect IDs of shapes/tiles being moved (not arrows/lines/pen)
@@ -3397,6 +3500,9 @@ export function useCanvasHandlers({
                     });
                 }
             }
+
+            // Clear alignment guides
+            setAlignmentGuides([]);
 
             setIsDragging(false);
             setHasDragMoved(false);
