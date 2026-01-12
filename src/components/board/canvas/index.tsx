@@ -281,10 +281,13 @@ export function Canvas({
         }
     };
 
-    // Stable reference for onUpdateElement to prevent infinite loops in useEffect
-    // (onUpdateElement changes on every elements change, which would re-trigger effects)
+    // Stable references for update functions to prevent infinite loops in useEffect
+    // (these functions change on every elements change, which would re-trigger effects)
     const onUpdateElementRef = useRef(onUpdateElement);
     onUpdateElementRef.current = onUpdateElement;
+
+    const onBatchUpdateElementsRef = useRef(onBatchUpdateElements);
+    onBatchUpdateElementsRef.current = onBatchUpdateElements;
 
     // Track shift key and other shortcuts
     useEffect(() => {
@@ -1103,22 +1106,14 @@ export function Canvas({
         if (isDragging || isResizing || isDrawing || isPanning) return;
         const updates = getFrameMembershipUpdates(elements);
         if (updates.length === 0) return;
-        if (onBatchUpdateElements) {
-            onBatchUpdateElements(updates);
+        if (onBatchUpdateElementsRef.current) {
+            onBatchUpdateElementsRef.current(updates);
         } else {
             updates.forEach(({ id, updates: elementUpdates }) => {
                 onUpdateElementRef.current(id, elementUpdates);
             });
         }
-    }, [
-        elements,
-        isDragging,
-        isResizing,
-        isDrawing,
-        isPanning,
-        isReadOnly,
-        onBatchUpdateElements,
-    ]);
+    }, [elements, isDragging, isResizing, isDrawing, isPanning, isReadOnly]);
 
     // Ensure selected text boxes never clip their content (e.g. after style changes like letterSpacing).
     useEffect(() => {

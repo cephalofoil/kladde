@@ -264,6 +264,13 @@ export function useCanvasHandlers({
     } = refs;
     const allowRemoteSelectionLock = hasActiveRemoteUsers;
 
+    // RAF-based throttling for drag updates to prevent excessive re-renders
+    const dragUpdateRafRef = useRef<number | null>(null);
+    const pendingDragUpdatesRef = useRef<Array<{
+        id: string;
+        updates: Partial<BoardElement>;
+    }> | null>(null);
+
     const throttledFindSnapTarget = useMemo(
         () => throttleWithResult(findNearestSnapTarget, 32),
         [],
@@ -1463,13 +1470,23 @@ export function useCanvasHandlers({
                     });
                 }
 
-                // Use batch update if available, otherwise fall back to individual updates
-                if (onBatchUpdateElements) {
-                    onBatchUpdateElements(batchUpdates);
-                } else {
-                    // Fallback to individual updates
-                    batchUpdates.forEach(({ id, updates }) => {
-                        onUpdateElement(id, updates);
+                // Use RAF-based throttling to prevent excessive re-renders during drag
+                // Store pending updates and schedule a single update per animation frame
+                pendingDragUpdatesRef.current = batchUpdates;
+                if (dragUpdateRafRef.current === null) {
+                    dragUpdateRafRef.current = requestAnimationFrame(() => {
+                        dragUpdateRafRef.current = null;
+                        const updates = pendingDragUpdatesRef.current;
+                        if (!updates) return;
+                        pendingDragUpdatesRef.current = null;
+
+                        if (onBatchUpdateElements) {
+                            onBatchUpdateElements(updates);
+                        } else {
+                            updates.forEach(({ id, updates: u }) => {
+                                onUpdateElement(id, u);
+                            });
+                        }
                     });
                 }
                 return;
@@ -3364,6 +3381,23 @@ export function useCanvasHandlers({
         }
 
         if (isDragging) {
+            // Flush any pending RAF drag updates before ending the transform
+            if (dragUpdateRafRef.current !== null) {
+                cancelAnimationFrame(dragUpdateRafRef.current);
+                dragUpdateRafRef.current = null;
+            }
+            const pendingUpdates = pendingDragUpdatesRef.current;
+            if (pendingUpdates) {
+                pendingDragUpdatesRef.current = null;
+                if (onBatchUpdateElements) {
+                    onBatchUpdateElements(pendingUpdates);
+                } else {
+                    pendingUpdates.forEach(({ id, updates }) => {
+                        onUpdateElement(id, updates);
+                    });
+                }
+            }
+
             setIsDragging(false);
             setHasDragMoved(false);
             setDragStart(null);
