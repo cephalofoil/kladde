@@ -281,6 +281,11 @@ export function Canvas({
         }
     };
 
+    // Stable reference for onUpdateElement to prevent infinite loops in useEffect
+    // (onUpdateElement changes on every elements change, which would re-trigger effects)
+    const onUpdateElementRef = useRef(onUpdateElement);
+    onUpdateElementRef.current = onUpdateElement;
+
     // Track shift key and other shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -927,12 +932,20 @@ export function Canvas({
                         : prev,
                 );
             }
-            // Always update the actual element's text and height so the selection box and content stay in sync
+            // Update the actual element's text and height so the selection box and content stay in sync
+            // Use ref to avoid re-triggering this effect when onUpdateElement changes
+            // Add guard to skip no-op updates (prevents infinite loops and unnecessary collab syncs)
             if (editingTextElementId) {
-                onUpdateElement(editingTextElementId, {
-                    text: textValue,
-                    height: newHeight,
-                });
+                const el = elements.find((e) => e.id === editingTextElementId);
+                const textChanged = el?.text !== textValue;
+                const heightChanged =
+                    Math.abs((el?.height ?? 0) - newHeight) > 0.5;
+                if (textChanged || heightChanged) {
+                    onUpdateElementRef.current(editingTextElementId, {
+                        text: textValue,
+                        height: newHeight,
+                    });
+                }
             }
 
             // Update caret position after layout changes.
@@ -967,12 +980,15 @@ export function Canvas({
         }
     }, [
         editingTextStyle,
+        elements,
         fontSize,
         lineHeight,
         textValue,
         textInput,
         editingTextElementId,
-        onUpdateElement,
+        fontFamily,
+        letterSpacing,
+        textAlign,
     ]);
 
     const {
@@ -1091,7 +1107,7 @@ export function Canvas({
             onBatchUpdateElements(updates);
         } else {
             updates.forEach(({ id, updates: elementUpdates }) => {
-                onUpdateElement(id, elementUpdates);
+                onUpdateElementRef.current(id, elementUpdates);
             });
         }
     }, [
@@ -1102,7 +1118,6 @@ export function Canvas({
         isPanning,
         isReadOnly,
         onBatchUpdateElements,
-        onUpdateElement,
     ]);
 
     // Ensure selected text boxes never clip their content (e.g. after style changes like letterSpacing).
@@ -1135,15 +1150,9 @@ export function Canvas({
             const last = lastEnforcedTextHeightsRef.current.get(id);
             if (last && Math.abs(last - required) <= 0.5) return;
             lastEnforcedTextHeightsRef.current.set(id, required);
-            onUpdateElement(id, { height: required });
+            onUpdateElementRef.current(id, { height: required });
         });
-    }, [
-        editingTextElementId,
-        elements,
-        onUpdateElement,
-        selectedIds,
-        textInput,
-    ]);
+    }, [editingTextElementId, elements, selectedIds, textInput]);
 
     return (
         <div
