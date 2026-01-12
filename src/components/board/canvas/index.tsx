@@ -25,7 +25,7 @@ import {
 } from "./utils/canvasStyle";
 import { getEventTargetInfo } from "./utils/eventTargeting";
 import { isInViewport } from "./utils/viewport";
-import { TrashDropZone } from "./trash-drop-zone";
+
 import { getFrameMembershipUpdates } from "./utils/frameSections";
 import { GripVertical, Undo2, Redo2, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -147,14 +147,6 @@ export function Canvas({
     const LASER_HOLD_DURATION_MS = 3000;
     const LASER_FADE_DURATION_MS = 800;
     const LASER_TTL_MS = LASER_HOLD_DURATION_MS + LASER_FADE_DURATION_MS + 250;
-
-    // Trash drop zone state
-    const [isOverTrash, setIsOverTrash] = useState(false);
-    const [mouseClientPos, setMouseClientPos] = useState<{
-        x: number;
-        y: number;
-    } | null>(null);
-    const wasDraggingRef = useRef(false);
 
     // Tile editing state
     const [editingTileId, setEditingTileId] = useState<string | null>(null);
@@ -748,132 +740,13 @@ export function Canvas({
 
     const {
         getMousePosition,
-        handleMouseMove: originalHandleMouseMove,
-        handleMouseDown: originalHandleMouseDown,
-        handleMouseUp: originalHandleMouseUp,
+        handleMouseMove,
+        handleMouseDown,
+        handleMouseUp,
         handleMouseLeave,
         handleTextSubmit,
         handleTextChange,
     } = handlers;
-
-    // Check if mouse is over trash zone (bottom-left quarter circle, 250px radius)
-    const checkIsOverTrash = useCallback((clientX: number, clientY: number) => {
-        const trashRadius = 250; // Large detection area for the quarter circle
-
-        // Check if within quarter circle from bottom-left origin
-        const dx = clientX;
-        const dy = window.innerHeight - clientY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        return distance <= trashRadius;
-    }, []);
-
-    // Track drag state in ref for reliable access in mouseup
-    useEffect(() => {
-        wasDraggingRef.current = isDragging;
-    }, [isDragging]);
-
-    // Wrapped mouse handlers with trash zone detection
-    const handleMouseMove = useCallback(
-        (e: React.MouseEvent<HTMLDivElement>) => {
-            setMouseClientPos({ x: e.clientX, y: e.clientY });
-
-            // Only check trash zone if dragging selected elements
-            if (isDragging && selectedIds.length > 0) {
-                wasDraggingRef.current = true; // Track that we're actively dragging
-                const overTrash = checkIsOverTrash(e.clientX, e.clientY);
-                if (overTrash !== isOverTrash) {
-                    setIsOverTrash(overTrash);
-                }
-            } else {
-                if (isOverTrash) {
-                    setIsOverTrash(false);
-                }
-            }
-
-            originalHandleMouseMove(e as any);
-        },
-        [
-            isDragging,
-            selectedIds.length,
-            checkIsOverTrash,
-            originalHandleMouseMove,
-            isOverTrash,
-        ],
-    );
-
-    const handleMouseDown = useCallback(
-        (e: React.MouseEvent<HTMLDivElement>) => {
-            setMouseClientPos({ x: e.clientX, y: e.clientY });
-            wasDraggingRef.current = false; // Reset on mouse down
-            originalHandleMouseDown(e as any);
-        },
-        [originalHandleMouseDown],
-    );
-
-    const handleMouseUp = useCallback(
-        (e: React.MouseEvent<HTMLDivElement>) => {
-            setMouseClientPos({ x: e.clientX, y: e.clientY });
-
-            // Simple approach: if isOverTrash is true and we have selected items, delete them
-            // The isOverTrash state is only set when actively dragging, so this is safe
-            const shouldDelete = isOverTrash && selectedIds.length > 0;
-
-            // Store delete decision before calling original handler
-            const idsToDelete = shouldDelete ? [...selectedIds] : [];
-
-            setIsOverTrash(false);
-            wasDraggingRef.current = false;
-
-            // Call original handler first to clean up drag state
-            originalHandleMouseUp();
-
-            // Then delete elements if needed (after drag cleanup)
-            if (idsToDelete.length > 0) {
-                // Use the batch delete function if available, otherwise fall back to individual deletes
-                if (onDeleteMultiple) {
-                    onDeleteMultiple(idsToDelete);
-                } else {
-                    onStartTransform?.();
-                    idsToDelete.forEach((id) => {
-                        onDeleteElement(id);
-                    });
-                }
-
-                setSelectedIds([]);
-            }
-        },
-        [
-            isOverTrash,
-            selectedIds,
-            onDeleteElement,
-            onDeleteMultiple,
-            onStartTransform,
-            setSelectedIds,
-            originalHandleMouseUp,
-        ],
-    );
-
-    // Global mouse up handler to catch releases outside the SVG (e.g., over trash zone)
-    useEffect(() => {
-        const handleGlobalMouseUp = (e: MouseEvent) => {
-            const wasDragging = wasDraggingRef.current;
-            if (!wasDragging) return;
-
-            const shouldDelete = isOverTrash && selectedIds.length > 0;
-
-            if (shouldDelete) {
-                selectedIds.forEach((id) => onDeleteElement(id));
-                setSelectedIds([]);
-            }
-
-            setIsOverTrash(false);
-            wasDraggingRef.current = false;
-        };
-
-        window.addEventListener("mouseup", handleGlobalMouseUp);
-        return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
-    }, [isOverTrash, selectedIds, onDeleteElement, setSelectedIds]);
 
     // While editing an existing text element, allow style changes (letter spacing, font, etc)
     // to apply immediately and persist on submit.
@@ -1891,18 +1764,6 @@ export function Canvas({
                     </button>
                 </div>
             </div>
-
-            {/* Trash Drop Zone */}
-            <TrashDropZone
-                isVisible={selectedIds.length > 0 && isDragging && hasDragMoved}
-                isHovered={isOverTrash}
-                onDrop={() => {
-                    selectedIds.forEach((id) => onDeleteElement(id));
-                    setSelectedIds([]);
-                }}
-                zoom={zoom}
-                pan={pan}
-            />
         </div>
     );
 }
