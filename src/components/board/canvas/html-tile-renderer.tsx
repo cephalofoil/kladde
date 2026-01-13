@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BoardElement } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal } from "lucide-react";
+import { GripVertical, MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,7 +103,7 @@ export function HtmlTileRenderer({
       case "tile-image":
         return "bg-gray-100 dark:bg-neutral-900";
       case "tile-document":
-        return "bg-orange-50 dark:bg-neutral-900";
+        return "bg-transparent";
       default:
         return "bg-white dark:bg-neutral-900";
     }
@@ -355,13 +355,63 @@ export function HtmlTileRenderer({
       case "tile-document":
         return (
           <div
-            className="absolute left-0 right-0 bottom-0 top-10 overflow-hidden rounded-b-lg pointer-events-auto cursor-pointer"
+            className="absolute inset-0 overflow-hidden rounded-lg pointer-events-auto cursor-pointer"
             onClick={() => onOpenDocumentEditor?.(element.id)}
           >
-            <DocumentRenderer
-              documentContent={content?.documentContent}
-              className={getTileTextColor()}
+            <div
+              data-tile-header="true"
+              data-element-id={element.id}
+              className={cn(
+                "absolute top-0 left-0 h-10 w-10 flex items-center justify-center",
+                isSelected ? "cursor-move" : "cursor-pointer",
+              )}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             />
+            <button
+              type="button"
+              data-tile-header="true"
+              data-element-id={element.id}
+              className={cn(
+                "absolute top-2 left-2 z-10 h-7 w-7",
+                "flex items-center justify-center focus:outline-none",
+                isSelected ? "cursor-move" : "cursor-grab",
+              )}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Drag document tile"
+            >
+              <GripVertical className="h-5 w-5 text-[#4a3a2a]" />
+            </button>
+            <DocumentRenderer documentContent={content?.documentContent} />
+            <div
+              className="absolute left-0 right-0 bottom-3 px-4"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setIsEditingTitle(true);
+              }}
+            >
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={tileTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  onBlur={() => setIsEditingTitle(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setIsEditingTitle(false);
+                    e.stopPropagation();
+                  }}
+                  className="w-full bg-transparent text-lg font-bold text-[#2f2418] outline-none placeholder:text-[#6b5a43]/60"
+                  placeholder="Untitled"
+                  autoFocus
+                />
+              ) : (
+                <div className="text-lg font-bold text-[#2f2418] truncate">
+                  {tileTitle}
+                </div>
+              )}
+            </div>
           </div>
         );
 
@@ -374,6 +424,8 @@ export function HtmlTileRenderer({
 
   // Note tiles have a special sticky-note design without header
   const isNoteTile = element.tileType === "tile-note";
+  const hasHeader =
+    element.tileType !== "tile-note" && element.tileType !== "tile-document";
 
   if (isNoteTile) {
     return (
@@ -446,31 +498,32 @@ export function HtmlTileRenderer({
           )}
         />
 
-        <div
-          data-tile-header="true"
-          data-element-id={element.id}
-          className={cn(
-            "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors z-10",
-            !content?.headerBgColor &&
-              (isEditingTitle
-                ? "bg-white dark:bg-neutral-800 border-accent dark:border-accent"
-                : "bg-gray-50 dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 hover:bg-gray-100 dark:hover:bg-neutral-700"),
-            content?.headerBgColor && "pointer-events-auto",
-            isSelected ? "cursor-move" : "cursor-pointer",
-            "select-none",
-          )}
-          style={{
-            backgroundColor: content?.headerBgColor || undefined,
-            borderBottomColor: content?.headerBgColor || undefined,
-            color: content?.headerBgColor
-              ? getContrastTextColor(content.headerBgColor)
-              : undefined,
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            setIsEditingTitle(true);
-          }}
-        >
+        {hasHeader && (
+          <div
+            data-tile-header="true"
+            data-element-id={element.id}
+            className={cn(
+              "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors z-10",
+              !content?.headerBgColor &&
+                (isEditingTitle
+                  ? "bg-white dark:bg-neutral-800 border-accent dark:border-accent"
+                  : "bg-gray-50 dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 hover:bg-gray-100 dark:hover:bg-neutral-700"),
+              content?.headerBgColor && "pointer-events-auto",
+              isSelected ? "cursor-move" : "cursor-pointer",
+              "select-none",
+            )}
+            style={{
+              backgroundColor: content?.headerBgColor || undefined,
+              borderBottomColor: content?.headerBgColor || undefined,
+              color: content?.headerBgColor
+                ? getContrastTextColor(content.headerBgColor)
+                : undefined,
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setIsEditingTitle(true);
+            }}
+          >
           {isEditingTitle ? (
             <input
               type="text"
@@ -536,7 +589,8 @@ export function HtmlTileRenderer({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </div>
+          </div>
+        )}
 
         {renderTileContent()}
 
