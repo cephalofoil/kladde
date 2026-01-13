@@ -169,6 +169,14 @@ export function useCanvasState({
     const [inputHint, setInputHint] = useState<"mouse" | "trackpad">("mouse");
     const [shiftPressed, setShiftPressed] = useState(false);
 
+    // Arrow handle hover state for preview feature
+    const [arrowHandleHover, setArrowHandleHover] = useState<{
+        elementId: string;
+        position: "n" | "e" | "s" | "w";
+        showPreview: boolean;
+    } | null>(null);
+    const arrowHandleHoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+
     // Refs for DOM elements
     const nameTagWidthCacheRef = useRef<Map<string, number>>(new Map());
     const svgRef = useRef<SVGSVGElement>(null);
@@ -295,6 +303,8 @@ export function useCanvasState({
             setInputHint,
             shiftPressed,
             setShiftPressed,
+            arrowHandleHover,
+            setArrowHandleHover,
         },
         refs: {
             nameTagWidthCacheRef,
@@ -316,6 +326,7 @@ export function useCanvasState({
             cursorBroadcastRafRef,
             pendingDrawingElementRef,
             drawingElementBroadcastRafRef,
+            arrowHandleHoverTimerRef,
         },
     };
 }

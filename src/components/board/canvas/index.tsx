@@ -217,6 +217,8 @@ export function Canvas({
             inputHint,
             setInputHint,
             setShiftPressed,
+            arrowHandleHover,
+            setArrowHandleHover,
         },
         refs: {
             nameTagWidthCacheRef,
@@ -236,6 +238,7 @@ export function Canvas({
             cursorBroadcastRafRef,
             pendingDrawingElementRef,
             drawingElementBroadcastRafRef,
+            arrowHandleHoverTimerRef,
         },
     } = state;
     const selectedIdsRef = useRef<string[]>([]);
@@ -909,6 +912,9 @@ export function Canvas({
         strokeStyle,
         arrowStart,
         arrowEnd,
+        arrowHandleHover,
+        setArrowHandleHover,
+        arrowHandleHoverTimerRef,
     });
 
     const cursorStyle = getCanvasCursorStyle({
