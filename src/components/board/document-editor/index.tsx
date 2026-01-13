@@ -38,6 +38,9 @@ export function DocumentEditorPanel({
 }: DocumentEditorPanelProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
+  const [activePickerTab, setActivePickerTab] = useState<"tiles" | "frames">(
+    "tiles"
+  );
 
   // Swipe-in animation on mount
   useEffect(() => {
@@ -279,19 +282,49 @@ export function DocumentEditorPanel({
           {/* Left Panel: Tiles Picker (1/3 width) */}
           <div className="w-1/3 border-r border-border flex-shrink-0 overflow-hidden">
             <div className="h-full flex flex-col">
-              <div className="flex-1 overflow-hidden">
-                <TilesPicker
-                  tiles={availableTiles}
-                  onAddTile={handleAddTileToDocument}
-                  documentSections={documentContent.layout.sections}
-                />
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Available
+                </span>
+                <div className="grid w-full max-w-[220px] grid-cols-2 overflow-hidden rounded-md border border-border bg-background text-[13px] font-semibold">
+                  <button
+                    onClick={() => setActivePickerTab("tiles")}
+                    className={cn(
+                      "px-4 py-1.5 transition-colors border-r border-border",
+                      activePickerTab === "tiles"
+                        ? "bg-muted/70 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                    )}
+                  >
+                    Tiles
+                  </button>
+                  <button
+                    onClick={() => setActivePickerTab("frames")}
+                    className={cn(
+                      "px-4 py-1.5 transition-colors",
+                      activePickerTab === "frames"
+                        ? "bg-muted/70 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                    )}
+                  >
+                    Frames
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 overflow-hidden border-t border-border">
-                <FramesPicker
-                  frames={availableFrames}
-                  onAddFrame={handleAddFrameToDocument}
-                  documentSections={documentContent.layout.sections}
-                />
+              <div className="flex-1 overflow-hidden">
+                {activePickerTab === "tiles" ? (
+                  <TilesPicker
+                    tiles={availableTiles}
+                    onAddTile={handleAddTileToDocument}
+                    documentSections={documentContent.layout.sections}
+                  />
+                ) : (
+                  <FramesPicker
+                    frames={availableFrames}
+                    onAddFrame={handleAddFrameToDocument}
+                    documentSections={documentContent.layout.sections}
+                  />
+                )}
               </div>
             </div>
           </div>

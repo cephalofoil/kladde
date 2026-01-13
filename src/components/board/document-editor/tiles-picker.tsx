@@ -23,13 +23,6 @@ export function TilesPicker({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-3 border-b border-border">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Available Tiles
-        </h3>
-      </div>
-
       {/* Tiles List */}
       <div className="flex-1 overflow-y-auto p-2">
         {tiles.length === 0 ? (

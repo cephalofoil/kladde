@@ -110,12 +110,6 @@ export function FramesPicker({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-3 border-b border-border">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Available Frames
-        </h3>
-      </div>
-
       <div className="flex-1 overflow-y-auto p-2">
         {frames.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-center px-4">
