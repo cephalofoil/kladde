@@ -40,6 +40,7 @@ import { getBoundingBox } from "../shapes";
 import {
     generateElbowRouteAroundObstacles,
     generateCurvedRouteAroundObstacles,
+    getSnapPointFromPosition,
 } from "../utils/connectionSnapping";
 import { getMinSingleCharWidth, measureTextWidthPx } from "../text-utils";
 import { renderRoughElement } from "../rough-svg-renderer";
@@ -4081,13 +4082,20 @@ export function useCanvasRenderers({
                                 : localHandlePos;
 
                             // Calculate the snap point on the element edge (where arrow will connect)
-                            const snapPoint = rotationDeg
-                                ? rotatePoint(
-                                      edge.localPoint,
-                                      center,
-                                      rotationDeg,
-                                  )
-                                : edge.localPoint;
+                            // Use getSnapPointFromPosition to get the actual element edge point,
+                            // not the visual bounds which include selection padding
+                            const snapPoint =
+                                getSnapPointFromPosition(
+                                    selectedElement,
+                                    edge.position,
+                                ) ??
+                                (rotationDeg
+                                    ? rotatePoint(
+                                          edge.localPoint,
+                                          center,
+                                          rotationDeg,
+                                      )
+                                    : edge.localPoint);
 
                             // Calculate arrow icon rotation based on edge direction + element rotation
                             const baseRotation =
@@ -4139,29 +4147,72 @@ export function useCanvasRenderers({
                             const oppositePos = getOppositePosition(
                                 edge.position,
                             );
-                            const previewTargetSnapPoint = previewDuplicatePos
-                                ? {
-                                      x:
-                                          oppositePos === "e"
-                                              ? previewDuplicatePos.x +
-                                                (selectedElement.width ?? 0)
-                                              : oppositePos === "w"
-                                                ? previewDuplicatePos.x
-                                                : previewDuplicatePos.x +
-                                                  (selectedElement.width ?? 0) /
-                                                      2,
-                                      y:
-                                          oppositePos === "s"
-                                              ? previewDuplicatePos.y +
-                                                (selectedElement.height ?? 0)
-                                              : oppositePos === "n"
-                                                ? previewDuplicatePos.y
-                                                : previewDuplicatePos.y +
-                                                  (selectedElement.height ??
-                                                      0) /
-                                                      2,
-                                  }
-                                : null;
+                            // Calculate snap point for the preview duplicate element
+                            // We need to account for stroke width like getSnapPointFromPosition does
+                            const previewTargetSnapPoint = (() => {
+                                if (!previewDuplicatePos) return null;
+
+                                const elWidth = selectedElement.width ?? 0;
+                                const elHeight = selectedElement.height ?? 0;
+                                const strokeWidth =
+                                    selectedElement.strokeWidth ?? 0;
+                                const halfStroke = strokeWidth / 2;
+
+                                // For shapes with stroke, the bounds extend by half stroke width
+                                const needsStrokeOffset =
+                                    selectedElement.type === "rectangle" ||
+                                    selectedElement.type === "diamond" ||
+                                    selectedElement.type === "ellipse";
+                                const offset = needsStrokeOffset
+                                    ? halfStroke
+                                    : 0;
+
+                                // Calculate bounds for the duplicate (matching getBoundingBox logic)
+                                const dupBounds = {
+                                    x: previewDuplicatePos.x - offset,
+                                    y: previewDuplicatePos.y - offset,
+                                    width:
+                                        elWidth +
+                                        (needsStrokeOffset ? strokeWidth : 0),
+                                    height:
+                                        elHeight +
+                                        (needsStrokeOffset ? strokeWidth : 0),
+                                };
+
+                                // Calculate snap point based on position (matching getSnapPointFromPosition)
+                                switch (oppositePos) {
+                                    case "n":
+                                        return {
+                                            x:
+                                                dupBounds.x +
+                                                dupBounds.width / 2,
+                                            y: dupBounds.y,
+                                        };
+                                    case "e":
+                                        return {
+                                            x: dupBounds.x + dupBounds.width,
+                                            y:
+                                                dupBounds.y +
+                                                dupBounds.height / 2,
+                                        };
+                                    case "s":
+                                        return {
+                                            x:
+                                                dupBounds.x +
+                                                dupBounds.width / 2,
+                                            y: dupBounds.y + dupBounds.height,
+                                        };
+                                    case "w":
+                                        return {
+                                            x: dupBounds.x,
+                                            y:
+                                                dupBounds.y +
+                                                dupBounds.height / 2,
+                                        };
+                                    default:
+                                        return null;
+                                }
+                            })();
 
                             // Hover handlers
                             const handleMouseEnter = () => {
