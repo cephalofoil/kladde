@@ -775,5 +775,68 @@ export const useBoardStore = create<BoardStore>()(
   ),
 );
 
+const BOARD_STORE_SYNC_CHANNEL = "kladde-boards-sync";
+const BOARD_STORE_SYNC_MESSAGE = "board-store-updated";
+const canUseBroadcastChannel =
+  typeof window !== "undefined" && typeof BroadcastChannel !== "undefined";
+
+const setupBoardStoreSync = () => {
+  if (!canUseBroadcastChannel) return;
+
+  const tabId = crypto.randomUUID();
+  const channel = new BroadcastChannel(BOARD_STORE_SYNC_CHANNEL);
+  let isRemoteHydrating = false;
+  let broadcastTimer: number | null = null;
+  const triggerRehydrate = () => {
+    if (isRemoteHydrating) return;
+    isRemoteHydrating = true;
+    useBoardStore.persist.rehydrate().finally(() => {
+      isRemoteHydrating = false;
+    });
+  };
+
+  channel.addEventListener("message", (event) => {
+    const message = event.data as {
+      type?: string;
+      source?: string;
+    };
+
+    if (
+      !message ||
+      message.type !== BOARD_STORE_SYNC_MESSAGE ||
+      message.source === tabId
+    ) {
+      return;
+    }
+
+    triggerRehydrate();
+  });
+
+  useBoardStore.subscribe(() => {
+    if (isRemoteHydrating || broadcastTimer !== null) return;
+    broadcastTimer = window.setTimeout(() => {
+      broadcastTimer = null;
+      try {
+        channel.postMessage({
+          type: BOARD_STORE_SYNC_MESSAGE,
+          source: tabId,
+          ts: Date.now(),
+        });
+      } catch {
+        // Ignore broadcast errors (e.g., channel closed)
+      }
+    }, 50);
+  });
+
+  window.addEventListener("focus", triggerRehydrate);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      triggerRehydrate();
+    }
+  });
+};
+
+setupBoardStoreSync();
+
 // Export constants for use in other files
 export { QUICK_BOARDS_WORKSPACE_ID };

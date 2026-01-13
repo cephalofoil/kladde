@@ -158,6 +158,30 @@ export default function BoardsPage() {
 
     useEffect(() => {
         if (!isClient) return;
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key !== PINNED_STORAGE_KEY) return;
+            try {
+                if (!event.newValue) {
+                    setPinnedByWorkstream({});
+                    return;
+                }
+                const parsed = JSON.parse(event.newValue);
+                if (parsed && typeof parsed === "object") {
+                    setPinnedByWorkstream(parsed);
+                }
+            } catch {
+                setPinnedByWorkstream({});
+            }
+        };
+
+        window.addEventListener("storage", handleStorage);
+        return () => {
+            window.removeEventListener("storage", handleStorage);
+        };
+    }, [isClient]);
+
+    useEffect(() => {
+        if (!isClient) return;
         localStorage.setItem(
             PINNED_STORAGE_KEY,
             JSON.stringify(pinnedByWorkstream),
