@@ -214,6 +214,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [selectedElements, setSelectedElements] = useState<BoardElement[]>(
         [],
     );
+    const [clipboardElements, setClipboardElements] = useState<BoardElement[]>(
+        [],
+    );
     const [layerSelectionIds, setLayerSelectionIds] = useState<string[] | null>(
         null,
     );
@@ -1618,6 +1621,92 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         );
     }, [selectedElements, saveToUndoStack, handleUpdateElement]);
 
+    // Copy elements to internal clipboard (Ctrl+C)
+    const handleCopyToClipboard = useCallback(() => {
+        if (selectedElements.length === 0) return;
+        // Store a deep copy of selected elements
+        setClipboardElements(
+            selectedElements
+                .filter((el) => el.type !== "laser")
+                .map((el) => ({ ...el })),
+        );
+    }, [selectedElements]);
+
+    // Paste elements from internal clipboard (Ctrl+V)
+    const handlePaste = useCallback(() => {
+        if (clipboardElements.length === 0) return;
+        saveToUndoStack();
+
+        const selectionGroupId = clipboardElements[0]?.groupId;
+        const isSelectionSingleGroup =
+            !!selectionGroupId &&
+            clipboardElements.every((el) => el.groupId === selectionGroupId);
+        const newGroupId = isSelectionSingleGroup ? uuid() : undefined;
+
+        // Calculate combined bounding box of clipboard elements
+        let minX = Infinity,
+            maxX = -Infinity;
+        clipboardElements.forEach((el) => {
+            const box = getBoundingBox(el);
+            if (box) {
+                minX = Math.min(minX, box.x);
+                maxX = Math.max(maxX, box.x + box.width);
+            }
+        });
+        // Fallback if no valid bounding boxes found
+        const selectionWidth = isFinite(maxX - minX) ? maxX - minX : 100;
+        const horizontalOffset = selectionWidth + 20; // Place beside with 20px gap
+
+        const copies = clipboardElements.map((el) => {
+            const next: BoardElement = {
+                ...el,
+                id: uuid(),
+                groupId: newGroupId,
+            };
+
+            if (
+                el.type === "pen" ||
+                el.type === "line" ||
+                el.type === "arrow"
+            ) {
+                next.points = el.points.map((p) => ({
+                    x: p.x + horizontalOffset,
+                    y: p.y,
+                }));
+            } else {
+                next.x = (el.x ?? 0) + horizontalOffset;
+                next.y = el.y ?? 0;
+            }
+
+            return next;
+        });
+
+        if (copies.length === 0) return;
+
+        // Update clipboard to the new positions so next paste goes beside these
+        setClipboardElements(copies.map((el) => ({ ...el })));
+
+        if (collaboration) {
+            copies.forEach((el) => collaboration.addElement(el));
+        } else {
+            setElements([...elements, ...copies]);
+        }
+        setSelectedElements(copies);
+        setLayerSelectionIds(copies.map((el) => el.id));
+        if (copies.length > 0) {
+            setLastSelectedLayerId(copies[0].id);
+        }
+    }, [
+        clipboardElements,
+        saveToUndoStack,
+        collaboration,
+        elements,
+        setSelectedElements,
+        setLayerSelectionIds,
+        setLastSelectedLayerId,
+    ]);
+
+    // Duplicate selected elements (Ctrl+D)
     const handleCopySelected = useCallback(() => {
         if (selectedElements.length === 0) return;
         saveToUndoStack();
@@ -1627,7 +1716,20 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             !!selectionGroupId &&
             selectedElements.every((el) => el.groupId === selectionGroupId);
         const newGroupId = isSelectionSingleGroup ? uuid() : undefined;
-        const offset = 12;
+
+        // Calculate combined bounding box of all selected elements
+        let minX = Infinity,
+            maxX = -Infinity;
+        selectedElements.forEach((el) => {
+            const box = getBoundingBox(el);
+            if (box) {
+                minX = Math.min(minX, box.x);
+                maxX = Math.max(maxX, box.x + box.width);
+            }
+        });
+        // Fallback if no valid bounding boxes found
+        const selectionWidth = isFinite(maxX - minX) ? maxX - minX : 100;
+        const horizontalOffset = selectionWidth + 20; // Place beside with 20px gap
 
         const copies = selectedElements
             .filter((el) => el.type !== "laser")
@@ -1644,12 +1746,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     el.type === "arrow"
                 ) {
                     next.points = el.points.map((p) => ({
-                        x: p.x + offset,
-                        y: p.y + offset,
+                        x: p.x + horizontalOffset,
+                        y: p.y,
                     }));
                 } else {
-                    next.x = (el.x ?? 0) + offset;
-                    next.y = (el.y ?? 0) + offset;
+                    next.x = (el.x ?? 0) + horizontalOffset;
+                    next.y = el.y ?? 0;
                 }
 
                 return next;
@@ -1702,6 +1804,15 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 e.preventDefault();
                 handleRedo();
             }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+                if (selectedElements.length === 0) return;
+                e.preventDefault();
+                handleCopyToClipboard();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+                e.preventDefault();
+                handlePaste();
+            }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
                 if (selectedElements.length === 0) return;
                 e.preventDefault();
@@ -1714,6 +1825,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     }, [
         handleUndo,
         handleRedo,
+        handleCopyToClipboard,
+        handlePaste,
         handleCopySelected,
         isReadOnly,
         selectedElements,
@@ -2023,26 +2136,30 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
             saveToUndoStack();
 
-            const offset = 12;
+            // Calculate horizontal offset based on element width
+            const box = getBoundingBox(element);
+            const elementWidth = box?.width ?? 100;
+            const horizontalOffset = elementWidth + 20; // Place beside with 20px gap
+
             const newElement: BoardElement = {
                 ...element,
                 id: uuid(),
                 groupId: undefined,
             };
 
-            // Offset the duplicate
+            // Offset the duplicate horizontally (beside the original)
             if (
                 element.type === "pen" ||
                 element.type === "line" ||
                 element.type === "arrow"
             ) {
                 newElement.points = element.points.map((p) => ({
-                    x: p.x + offset,
-                    y: p.y + offset,
+                    x: p.x + horizontalOffset,
+                    y: p.y,
                 }));
             } else {
-                newElement.x = (element.x ?? 0) + offset;
-                newElement.y = (element.y ?? 0) + offset;
+                newElement.x = (element.x ?? 0) + horizontalOffset;
+                newElement.y = element.y ?? 0;
             }
 
             // Give it a higher zIndex
