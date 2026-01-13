@@ -1563,7 +1563,7 @@ export function Canvas({
 
             {/* Remote Cursors - Animated (not scaled with zoom) */}
             {showRemoteCursors && (
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none overflow-hidden z-[25]">
                     <CollaboratorCursors
                         cursors={remoteCursors}
                         pan={pan}
@@ -1576,7 +1576,7 @@ export function Canvas({
             {textInput && (
                 <div
                     ref={textEditorWrapperRef}
-                    className="absolute pointer-events-auto"
+                    className="absolute pointer-events-auto z-[40]"
                     style={{
                         left: textInput.x * zoom + pan.x,
                         top: textInput.y * zoom + pan.y,
