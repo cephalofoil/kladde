@@ -1702,7 +1702,7 @@ export function useCanvasHandlers({
 
                 const applyResizeSnap = (
                     bounds: BoundingBox,
-                    handle: ResizeHandle,
+                    handle: Exclude<ResizeHandle, null>,
                     snapDeltaX: number,
                     snapDeltaY: number,
                 ): BoundingBox => {
