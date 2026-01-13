@@ -32,7 +32,21 @@ export function getBoundingBox(element: BoardElement): BoundingBox | null {
     if (
         element.type === "rectangle" ||
         element.type === "diamond" ||
-        element.type === "ellipse" ||
+        element.type === "ellipse"
+    ) {
+        // Account for stroke width - stroke is centered on the edge,
+        // so half extends outside. Use outside edge for alignment.
+        const strokeWidth = element.strokeWidth ?? 0;
+        const halfStroke = strokeWidth / 2;
+        return {
+            x: (element.x ?? 0) - halfStroke,
+            y: (element.y ?? 0) - halfStroke,
+            width: (element.width ?? 0) + strokeWidth,
+            height: (element.height ?? 0) + strokeWidth,
+        };
+    }
+
+    if (
         element.type === "frame" ||
         element.type === "web-embed" ||
         element.type === "tile"
