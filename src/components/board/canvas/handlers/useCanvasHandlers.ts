@@ -1622,6 +1622,135 @@ export function useCanvasHandlers({
                 resizeHandle &&
                 originalElements.length > 0
             ) {
+                const updateResizeAlignmentGuides = (
+                    resizedBounds: BoundingBox | null,
+                    resizedIds: string[],
+                ): { snapDeltaX: number; snapDeltaY: number } => {
+                    const hasShapeElements = originalElements.some(
+                        (el) =>
+                            el.type !== "pen" &&
+                            el.type !== "line" &&
+                            el.type !== "arrow" &&
+                            el.type !== "laser",
+                    );
+                    if (!hasShapeElements) {
+                        setAlignmentGuides([]);
+                        return { snapDeltaX: 0, snapDeltaY: 0 };
+                    }
+                    if (!resizedBounds || resizedIds.length === 0) {
+                        setAlignmentGuides([]);
+                        return { snapDeltaX: 0, snapDeltaY: 0 };
+                    }
+
+                    const excludeIds = new Set(resizedIds);
+
+                    // Also exclude arrows/lines connected to resized shapes
+                    const resizedIdSet = new Set(resizedIds);
+                    for (const el of currentElements) {
+                        if (el.type === "arrow" || el.type === "line") {
+                            const startConnectedId =
+                                el.startConnection?.elementId;
+                            const endConnectedId = el.endConnection?.elementId;
+                            if (
+                                (startConnectedId &&
+                                    resizedIdSet.has(startConnectedId)) ||
+                                (endConnectedId &&
+                                    resizedIdSet.has(endConnectedId))
+                            ) {
+                                excludeIds.add(el.id);
+                            }
+                        }
+                    }
+
+                    const svg = svgRef.current;
+                    const containerRect = svg?.getBoundingClientRect();
+                    const viewportBounds = containerRect
+                        ? {
+                              x: -pan.x / zoom,
+                              y: -pan.y / zoom,
+                              width: containerRect.width / zoom,
+                              height: containerRect.height / zoom,
+                          }
+                        : null;
+
+                    const candidates = viewportBounds
+                        ? currentElements.filter((el) => {
+                              if (excludeIds.has(el.id)) return false;
+                              if (el.type === "pen") return false;
+                              if (el.type === "laser") return false;
+                              const bounds = getBoundingBox(el);
+                              if (!bounds) return false;
+                              return isInViewport(bounds, viewportBounds, 100);
+                          })
+                        : currentElements.filter(
+                              (el) =>
+                                  !excludeIds.has(el.id) &&
+                                  el.type !== "pen" &&
+                                  el.type !== "laser",
+                          );
+
+                    const threshold = 5 / zoom;
+                    const alignmentResult = findAlignmentGuides(
+                        resizedBounds,
+                        candidates,
+                        excludeIds,
+                        threshold,
+                    );
+                    setAlignmentGuides(alignmentResult.guides);
+                    return alignmentResult;
+                };
+
+                const applyResizeSnap = (
+                    bounds: BoundingBox,
+                    handle: ResizeHandle,
+                    snapDeltaX: number,
+                    snapDeltaY: number,
+                ): BoundingBox => {
+                    let nextX = bounds.x;
+                    let nextY = bounds.y;
+                    let nextW = bounds.width;
+                    let nextH = bounds.height;
+
+                    if (handle.includes("w")) {
+                        nextX += snapDeltaX;
+                        nextW -= snapDeltaX;
+                    } else if (handle.includes("e")) {
+                        nextW += snapDeltaX;
+                    }
+
+                    if (handle.includes("n")) {
+                        nextY += snapDeltaY;
+                        nextH -= snapDeltaY;
+                    } else if (handle.includes("s")) {
+                        nextH += snapDeltaY;
+                    }
+
+                    return { x: nextX, y: nextY, width: nextW, height: nextH };
+                };
+
+                const getAlignmentBoundsForResize = (
+                    element: BoardElement | null,
+                    bounds: BoundingBox,
+                ) => {
+                    if (!element) return bounds;
+                    if (
+                        bounds.width === 0 ||
+                        bounds.height === 0 ||
+                        Number.isNaN(bounds.width) ||
+                        Number.isNaN(bounds.height)
+                    ) {
+                        return bounds;
+                    }
+                    const tempElement: BoardElement = {
+                        ...element,
+                        x: bounds.x,
+                        y: bounds.y,
+                        width: bounds.width,
+                        height: bounds.height,
+                    };
+                    return getBoundingBox(tempElement) ?? bounds;
+                };
+
                 const applyResizeUpdates = (
                     baseUpdates: Array<{
                         id: string;
@@ -1837,15 +1966,30 @@ export function useCanvasHandlers({
                         originalElement.type === "frame" ||
                         originalElement.type === "web-embed"
                     ) {
+                        const alignmentResult = updateResizeAlignmentGuides(
+                            getAlignmentBoundsForResize(originalElement, {
+                                x: nextX,
+                                y: nextY,
+                                width: nextW,
+                                height: nextH,
+                            }),
+                            [selectedIds[0]],
+                        );
+                        const snappedBounds = applyResizeSnap(
+                            { x: nextX, y: nextY, width: nextW, height: nextH },
+                            resizeHandle,
+                            alignmentResult.snapDeltaX,
+                            alignmentResult.snapDeltaY,
+                        );
                         applyResizeUpdates(
                             [
                                 {
                                     id: selectedIds[0],
                                     updates: {
-                                        x: nextX,
-                                        y: nextY,
-                                        width: nextW,
-                                        height: nextH,
+                                        x: snappedBounds.x,
+                                        y: snappedBounds.y,
+                                        width: snappedBounds.width,
+                                        height: snappedBounds.height,
                                     },
                                 },
                             ],
@@ -1855,15 +1999,30 @@ export function useCanvasHandlers({
                     }
 
                     if (originalElement.type === "text") {
+                        const alignmentResult = updateResizeAlignmentGuides(
+                            getAlignmentBoundsForResize(originalElement, {
+                                x: nextX,
+                                y: nextY,
+                                width: nextW,
+                                height: nextH,
+                            }),
+                            [selectedIds[0]],
+                        );
+                        const snappedBounds = applyResizeSnap(
+                            { x: nextX, y: nextY, width: nextW, height: nextH },
+                            resizeHandle,
+                            alignmentResult.snapDeltaX,
+                            alignmentResult.snapDeltaY,
+                        );
                         applyResizeUpdates(
                             [
                                 {
                                     id: selectedIds[0],
                                     updates: {
-                                        x: nextX,
-                                        y: nextY,
-                                        width: nextW,
-                                        height: nextH,
+                                        x: snappedBounds.x,
+                                        y: snappedBounds.y,
+                                        width: snappedBounds.width,
+                                        height: snappedBounds.height,
                                     },
                                 },
                             ],
@@ -2046,15 +2205,35 @@ export function useCanvasHandlers({
                         const normalizedY = Math.min(newY, newY + newHeight);
                         const normalizedWidth = Math.abs(newWidth);
                         const normalizedHeight = Math.abs(newHeight);
+                        const alignmentResult = updateResizeAlignmentGuides(
+                            getAlignmentBoundsForResize(originalElement, {
+                                x: normalizedX,
+                                y: normalizedY,
+                                width: normalizedWidth,
+                                height: normalizedHeight,
+                            }),
+                            [selectedIds[0]],
+                        );
+                        const snappedBounds = applyResizeSnap(
+                            {
+                                x: normalizedX,
+                                y: normalizedY,
+                                width: normalizedWidth,
+                                height: normalizedHeight,
+                            },
+                            resizeHandle,
+                            alignmentResult.snapDeltaX,
+                            alignmentResult.snapDeltaY,
+                        );
                         applyResizeUpdates(
                             [
                                 {
                                     id: selectedIds[0],
                                     updates: {
-                                        x: normalizedX,
-                                        y: normalizedY,
-                                        width: normalizedWidth,
-                                        height: normalizedHeight,
+                                        x: snappedBounds.x,
+                                        y: snappedBounds.y,
+                                        width: snappedBounds.width,
+                                        height: snappedBounds.height,
                                     },
                                 },
                             ],
@@ -2189,12 +2368,42 @@ export function useCanvasHandlers({
                         const normalizedY = Math.min(newY, newY + newHeight);
                         const normalizedWidth = Math.abs(newWidth);
                         const normalizedHeight = Math.abs(newHeight);
-                        elementUpdates = {
-                            x: normalizedX,
-                            y: normalizedY,
-                            width: normalizedWidth,
-                            height: normalizedHeight,
-                        };
+                        if (shouldUpdateConnectedArrows) {
+                            const alignmentResult = updateResizeAlignmentGuides(
+                                getAlignmentBoundsForResize(originalElement, {
+                                    x: normalizedX,
+                                    y: normalizedY,
+                                    width: normalizedWidth,
+                                    height: normalizedHeight,
+                                }),
+                                [selectedIds[0]],
+                            );
+                            const snappedBounds = applyResizeSnap(
+                                {
+                                    x: normalizedX,
+                                    y: normalizedY,
+                                    width: normalizedWidth,
+                                    height: normalizedHeight,
+                                },
+                                resizeHandle,
+                                alignmentResult.snapDeltaX,
+                                alignmentResult.snapDeltaY,
+                            );
+                            elementUpdates = {
+                                x: snappedBounds.x,
+                                y: snappedBounds.y,
+                                width: snappedBounds.width,
+                                height: snappedBounds.height,
+                            };
+                        } else {
+                            setAlignmentGuides([]);
+                            elementUpdates = {
+                                x: normalizedX,
+                                y: normalizedY,
+                                width: normalizedWidth,
+                                height: normalizedHeight,
+                            };
+                        }
                     } else if (
                         originalElement.type === "pen" ||
                         originalElement.type === "line" ||
@@ -2208,13 +2417,33 @@ export function useCanvasHandlers({
                             x: newX + (p.x - originalBounds.x) * scaleX,
                             y: newY + (p.y - originalBounds.y) * scaleY,
                         }));
+                        setAlignmentGuides([]);
                         elementUpdates = { points: newPoints };
                     } else if (originalElement.type === "text") {
-                        elementUpdates = {
+                        const textBounds = {
                             x: Math.min(newX, newX + newWidth),
                             y: Math.min(newY, newY + newHeight),
                             width: Math.abs(newWidth),
                             height: Math.abs(newHeight),
+                        };
+                        const alignmentResult = updateResizeAlignmentGuides(
+                            getAlignmentBoundsForResize(
+                                originalElement,
+                                textBounds,
+                            ),
+                            [selectedIds[0]],
+                        );
+                        const snappedBounds = applyResizeSnap(
+                            textBounds,
+                            resizeHandle,
+                            alignmentResult.snapDeltaX,
+                            alignmentResult.snapDeltaY,
+                        );
+                        elementUpdates = {
+                            x: snappedBounds.x,
+                            y: snappedBounds.y,
+                            width: snappedBounds.width,
+                            height: snappedBounds.height,
                         };
                     }
 
@@ -2228,10 +2457,35 @@ export function useCanvasHandlers({
                 }
 
                 // Multi-selection: scale all elements relative to the original selection bounds.
-                const normalizedX = Math.min(newX, newX + newWidth);
-                const normalizedY = Math.min(newY, newY + newHeight);
-                const normalizedWidth = Math.max(1, Math.abs(newWidth));
-                const normalizedHeight = Math.max(1, Math.abs(newHeight));
+                let normalizedX = Math.min(newX, newX + newWidth);
+                let normalizedY = Math.min(newY, newY + newHeight);
+                let normalizedWidth = Math.max(1, Math.abs(newWidth));
+                let normalizedHeight = Math.max(1, Math.abs(newHeight));
+
+                const alignmentResult = updateResizeAlignmentGuides(
+                    {
+                        x: normalizedX,
+                        y: normalizedY,
+                        width: normalizedWidth,
+                        height: normalizedHeight,
+                    },
+                    selectedIds,
+                );
+                const snappedBounds = applyResizeSnap(
+                    {
+                        x: normalizedX,
+                        y: normalizedY,
+                        width: normalizedWidth,
+                        height: normalizedHeight,
+                    },
+                    resizeHandle,
+                    alignmentResult.snapDeltaX,
+                    alignmentResult.snapDeltaY,
+                );
+                normalizedX = snappedBounds.x;
+                normalizedY = snappedBounds.y;
+                normalizedWidth = Math.max(1, snappedBounds.width);
+                normalizedHeight = Math.max(1, snappedBounds.height);
 
                 const scaleX = normalizedWidth / (originalBounds.width || 1);
                 const scaleY = normalizedHeight / (originalBounds.height || 1);
@@ -3632,6 +3886,7 @@ export function useCanvasHandlers({
             setDragStart(null);
             setOriginalElements([]);
             setOriginalBounds(null);
+            setAlignmentGuides([]);
             onEndTransform?.();
             return;
         }
