@@ -790,7 +790,7 @@ const setupBoardStoreSync = () => {
   const triggerRehydrate = () => {
     if (isRemoteHydrating) return;
     isRemoteHydrating = true;
-    useBoardStore.persist.rehydrate().finally(() => {
+    Promise.resolve(useBoardStore.persist.rehydrate()).finally(() => {
       isRemoteHydrating = false;
     });
   };
