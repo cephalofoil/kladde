@@ -292,7 +292,7 @@ export default function BoardsPage() {
                         </div>
                     </div>
 
-                    <div className="mt-4 flex items-end gap-1 overflow-x-auto pb-1">
+                    <div className="-mb-px mt-4 flex items-end gap-1 overflow-x-auto">
                         {workstreams
                             .filter((ws) => ws.id !== QUICK_BOARDS_WORKSPACE_ID)
                             .map((workstream) => {
@@ -326,9 +326,6 @@ export default function BoardsPage() {
                                             borderRight:
                                                 "3px solid var(--workspace-color)",
                                             borderBottom: "none",
-                                            marginBottom: isActive
-                                                ? "-1px"
-                                                : "0",
                                         }}
                                     >
                                         {workstream.name}
