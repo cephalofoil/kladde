@@ -294,12 +294,15 @@ export function BurgerMenu({
                 <DropdownMenuSeparator />
 
                 {/* Collaboration */}
-                <DropdownMenuItem onClick={onInvite} disabled={!onInvite}>
-                    <Share2 className="w-4 h-4" />
-                    <span>Invite</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
+                {onInvite && (
+                    <>
+                        <DropdownMenuItem onClick={onInvite}>
+                            <Share2 className="w-4 h-4" />
+                            <span>Invite</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                    </>
+                )}
 
                 {/* Canvas Actions */}
                 <DropdownMenuItem onClick={onFindOnCanvas}>

@@ -158,6 +158,9 @@ export const useBoardStore = create<BoardStore>()(
         searchQuery: "",
         dashboardView: "grid",
       },
+      settings: {
+        collabInvitesEnabled: true,
+      },
       patchQueue: [],
       flushStatus: "idle",
 
@@ -692,9 +695,20 @@ export const useBoardStore = create<BoardStore>()(
             searchQuery: "",
             dashboardView: "grid",
           },
+          settings: {
+            collabInvitesEnabled: true,
+          },
           patchQueue: [],
           flushStatus: "idle",
         });
+      },
+      setCollabInvitesEnabled: (enabled: boolean) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            collabInvitesEnabled: enabled,
+          },
+        }));
       },
     }),
     {
@@ -708,6 +722,7 @@ export const useBoardStore = create<BoardStore>()(
         boardData: state.boardData,
         workstreams: state.workstreams,
         ui: state.ui,
+        settings: state.settings,
         // Don't persist patchQueue or flushStatus
       }),
       onRehydrateStorage: () => (state) => {
@@ -727,6 +742,10 @@ export const useBoardStore = create<BoardStore>()(
             QUICK_BOARDS_WORKSPACE_ID,
             createQuickBoardsWorkstream(),
           );
+        }
+
+        if (!state.settings) {
+          state.settings = { collabInvitesEnabled: true };
         }
 
         // Rebuild workstream board links and fix orphaned boards after hydration

@@ -176,7 +176,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       isOwner,
     },
   );
-  const boardName = useBoardStore((s) => s.boards.get(boardId)?.name);
+  const board = useBoardStore((s) => s.boards.get(boardId));
+  const boardName = board?.name;
+  const collabInvitesEnabled = useBoardStore(
+    (s) => s.settings?.collabInvitesEnabled ?? true,
+  );
   const [peerCount, setPeerCount] = useState(0);
 
   // History manager for version control (only for owner)
@@ -374,6 +378,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       setPendingName(name);
     }
   }, [isReadOnly]);
+
+  useEffect(() => {
+    if (!collabInvitesEnabled && showInviteDialog) {
+      setShowInviteDialog(false);
+    }
+  }, [collabInvitesEnabled, showInviteDialog]);
 
   // Initialize history manager for owner
   useEffect(() => {
@@ -2316,6 +2326,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const followedUser = followedUserId
     ? collaboratorUsers.find((u) => u.id === followedUserId)
     : null;
+  const canInvite = isOwner && collabInvitesEnabled && !isReadOnly;
 
   return (
     <div className="relative w-screen h-screen overflow-hidden flex">
@@ -2330,7 +2341,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             onExportImage={handleExportImage}
             onFindOnCanvas={handleFindOnCanvas}
             onHelp={() => setShowHotkeysDialog(true)}
-            onInvite={() => setShowInviteDialog(true)}
+            onInvite={canInvite ? () => setShowInviteDialog(true) : undefined}
             canvasBackground={canvasBackground}
             onCanvasBackgroundChange={setCanvasBackground}
             handDrawnMode={handDrawnMode}
@@ -2370,7 +2381,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
               isBeingSpectated={
                 myUserId ? spectatedUserIds.has(myUserId) : false
               }
-              onInvite={() => setShowInviteDialog(true)}
+              onInvite={canInvite ? () => setShowInviteDialog(true) : undefined}
             />
             {/* Version History Button (owner only) */}
             {isOwner && (
@@ -2412,7 +2423,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         />
 
         <InviteDialog
-          open={showInviteDialog}
+          open={showInviteDialog && collabInvitesEnabled}
           onOpenChange={setShowInviteDialog}
           roomId={roomId}
           currentName={myName || undefined}

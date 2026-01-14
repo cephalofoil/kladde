@@ -20,7 +20,7 @@ export default function SettingsPage() {
         : { boardCount: 0, workspaceCount: 0 };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="h-screen overflow-y-auto bg-background">
             <Header />
             <main className="mx-auto max-w-3xl px-6 py-8 lg:px-8">
                 <div className="space-y-8">

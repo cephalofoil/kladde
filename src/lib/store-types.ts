@@ -92,6 +92,9 @@ export interface BoardStoreState {
     boardData: Map<string, BoardData>;
     workstreams: Map<string, Workstream>;
     ui: UIState;
+    settings: {
+        collabInvitesEnabled: boolean; // Allow sharing collab invite links
+    };
 
     // Optimistic updates
     patchQueue: PatchOperation[];
@@ -143,6 +146,7 @@ export interface BoardStoreActions {
     // Settings / Data management
     getStorageStats: () => { boardCount: number; workspaceCount: number };
     clearAllData: () => Promise<void>;
+    setCollabInvitesEnabled: (enabled: boolean) => void;
 }
 
 /**
