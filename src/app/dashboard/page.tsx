@@ -530,7 +530,7 @@ export default function BoardsPage() {
                                             router.push(`/board/${board.id}`);
                                         }
                                     }}
-                                    className="group relative flex shrink-0 cursor-pointer items-start gap-3 rounded-lg border-2 border-dashed border-[var(--workspace-color)]/30 bg-card p-3 transition-all duration-200 hover:border-[var(--workspace-color)]/60 hover:shadow-md w-full md:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-2rem)/3)] xl:w-[calc((100%-3rem)/4)]"
+                                    className="group relative flex shrink-0 cursor-pointer items-start gap-3 rounded-lg border-2 border-[var(--workspace-color)]/30 bg-card p-3 transition-all duration-200 hover:border-[var(--workspace-color)]/60 hover:shadow-md w-full md:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-2rem)/3)] xl:w-[calc((100%-3rem)/4)]"
                                     style={{
                                         ["--workspace-color" as string]:
                                             currentWorkstream?.color ||
