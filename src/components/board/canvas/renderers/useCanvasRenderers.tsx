@@ -25,11 +25,7 @@ import {
   getWorldResizeHandle,
   rotatePoint,
 } from "../geometry";
-import {
-  getSvgPathFromStroke,
-  getArrowHeadPoints,
-  getMarkerBasis,
-} from "../drawing";
+import { getSvgPathFromStroke } from "../drawing";
 import {
   getCubicBezierPoint,
   getCatmullRomControlPoints,
@@ -44,6 +40,7 @@ import {
 } from "../utils/connectionSnapping";
 import { getMinSingleCharWidth, measureTextWidthPx } from "../text-utils";
 import { renderRoughElement } from "../rough-svg-renderer";
+import { normalizeArrowhead, getArrowheadPoints } from "@/lib/arrowheads";
 
 interface UseCanvasRenderersProps {
   elements: BoardElement[];
@@ -719,6 +716,8 @@ export function useCanvasRenderers({
       boundsForRotation && rotationDeg
         ? `rotate(${rotationDeg} ${boundsForRotation.x + boundsForRotation.width / 2} ${boundsForRotation.y + boundsForRotation.height / 2})`
         : undefined;
+    const roughness = handDrawnMode ? 2 : 0;
+    const bowing = handDrawnMode ? 1 : 0;
 
     switch (effectiveElement.type) {
       case "pen": {
@@ -745,6 +744,8 @@ export function useCanvasRenderers({
                   opacity: fillOpacity,
                   isMarkedForDeletion,
                   transform: rotationTransform,
+                  roughness,
+                  bowing,
                   fillOnly: true,
                 },
               )
@@ -947,14 +948,8 @@ export function useCanvasRenderers({
           }
         }
 
-        const markerSize = Math.min(
-          18,
-          Math.max(6, effectiveElement.strokeWidth * 2.4),
-        );
         const markerStart = effectiveElement.arrowStart || "none";
         const markerEnd = effectiveElement.arrowEnd || "arrow";
-        const isStartConnected = !!effectiveElement.startConnection;
-        const isEndConnected = !!effectiveElement.endConnection;
 
         const arrowTangentForEnd = () => {
           if (pathD && control) return { tip: end, from: control };
@@ -978,51 +973,170 @@ export function useCanvasRenderers({
           marker: NonNullable<BoardElement["arrowEnd"]>,
           tip: Point,
           from: Point,
-          isConnected: boolean,
         ) => {
-          if (marker === "none") return null;
+          const normalized = normalizeArrowhead(marker);
+          if (normalized === "none") return null;
 
-          const { bx, by, px, py, ux, uy } = getMarkerBasis(tip, from);
-          const size = isConnected ? Math.max(4, markerSize * 0.7) : markerSize;
           const stroke = effectiveElement.strokeColor;
           const strokeWidth = Math.max(1.5, effectiveElement.strokeWidth);
           const outlineStrokeWidth = Math.min(strokeWidth, 6);
+          const points = getArrowheadPoints(tip, from, normalized, strokeWidth);
+          if (!points) return null;
 
-          // Push arrowhead forward to sit at the very end of the line.
-          // For connected endpoints, pull it back so it doesn't sit inside shapes.
-          // Different offsets for different marker types
-          let offsetMultiplier = 4; // Default for most shapes
-          if (marker === "diamond-outline" || marker === "circle-outline") {
-            offsetMultiplier = 5; // Diamond and circle outlines need more offset
-          } else if (marker === "bar") {
-            offsetMultiplier = 0; // Bar sits at the line endpoint
-          }
-          const offset = isConnected ? 0 : strokeWidth * offsetMultiplier;
-          const offsetTip = {
-            x: tip.x + ux * offset,
-            y: tip.y + uy * offset,
-          };
-
-          const line = (x2: number, y2: number) => (
-            <line
-              x1={offsetTip.x}
-              y1={offsetTip.y}
-              x2={x2}
-              y2={y2}
-              stroke={stroke}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              opacity={markerOpacity}
-            />
-          );
-
-          const bar = () => {
-            const half = size * 0.65;
-            const x1 = offsetTip.x + px * half;
-            const y1 = offsetTip.y + py * half;
-            const x2 = offsetTip.x - px * half;
-            const y2 = offsetTip.y - py * half;
+          if (
+            normalized === "circle" ||
+            normalized === "circle_outline" ||
+            normalized === "dot"
+          ) {
+            const [cx, cy, diameter] = points;
+            const r = diameter / 2;
             return (
+              <circle
+                pointerEvents="none"
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill={normalized === "circle_outline" ? "none" : stroke}
+                stroke={normalized === "circle_outline" ? stroke : "none"}
+                strokeWidth={
+                  normalized === "circle_outline"
+                    ? outlineStrokeWidth
+                    : undefined
+                }
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "triangle" || normalized === "triangle_outline") {
+            const [x1, y1, x2, y2, x3, y3] = points;
+            return (
+              <polygon
+                pointerEvents="none"
+                points={`${x1},${y1} ${x2},${y2} ${x3},${y3}`}
+                fill={normalized === "triangle" ? stroke : "none"}
+                stroke={normalized === "triangle_outline" ? stroke : "none"}
+                strokeWidth={
+                  normalized === "triangle_outline"
+                    ? outlineStrokeWidth
+                    : undefined
+                }
+                strokeLinejoin="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "diamond" || normalized === "diamond_outline") {
+            const [x1, y1, x2, y2, x3, y3, x4, y4] = points;
+            return (
+              <polygon
+                pointerEvents="none"
+                points={`${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}`}
+                fill={normalized === "diamond" ? stroke : "none"}
+                stroke={normalized === "diamond_outline" ? stroke : "none"}
+                strokeWidth={
+                  normalized === "diamond_outline"
+                    ? outlineStrokeWidth
+                    : undefined
+                }
+                strokeLinejoin="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "bar") {
+            const [, , x2, y2, x3, y3] = points;
+            return (
+              <line
+                pointerEvents="none"
+                x1={x2}
+                y1={y2}
+                x2={x3}
+                y2={y3}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "crowfoot_one") {
+            const [, , x2, y2, x3, y3] = points;
+            return (
+              <line
+                pointerEvents="none"
+                x1={x2}
+                y1={y2}
+                x2={x3}
+                y2={y3}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (
+            normalized === "crowfoot_many" ||
+            normalized === "crowfoot_one_or_many"
+          ) {
+            const [x1, y1, x2, y2, x3, y3] = points;
+            return (
+              <g pointerEvents="none">
+                <line
+                  x1={x2}
+                  y1={y2}
+                  x2={x1}
+                  y2={y1}
+                  stroke={stroke}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  opacity={markerOpacity}
+                />
+                <line
+                  x1={x3}
+                  y1={y3}
+                  x2={x1}
+                  y2={y1}
+                  stroke={stroke}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  opacity={markerOpacity}
+                />
+                {normalized === "crowfoot_one_or_many" &&
+                  (() => {
+                    const barPoints = getArrowheadPoints(
+                      tip,
+                      from,
+                      "crowfoot_one",
+                      strokeWidth,
+                    );
+                    if (!barPoints) return null;
+                    const [, , bx1, by1, bx2, by2] = barPoints;
+                    return (
+                      <line
+                        x1={bx1}
+                        y1={by1}
+                        x2={bx2}
+                        y2={by2}
+                        stroke={stroke}
+                        strokeWidth={strokeWidth}
+                        strokeLinecap="round"
+                        opacity={markerOpacity}
+                      />
+                    );
+                  })()}
+              </g>
+            );
+          }
+
+          const [x1, y1, x2, y2, x3, y3] = points;
+          return (
+            <g pointerEvents="none">
               <line
                 x1={x1}
                 y1={y1}
@@ -1033,133 +1147,18 @@ export function useCanvasRenderers({
                 strokeLinecap="round"
                 opacity={markerOpacity}
               />
-            );
-          };
-
-          const arrow = () => {
-            const [pA, pB] = getArrowHeadPoints(offsetTip, from, markerSize);
-            return (
-              <g pointerEvents="none">
-                <line
-                  x1={offsetTip.x}
-                  y1={offsetTip.y}
-                  x2={pA.x}
-                  y2={pA.y}
-                  stroke={stroke}
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="round"
-                  opacity={markerOpacity}
-                />
-                <line
-                  x1={offsetTip.x}
-                  y1={offsetTip.y}
-                  x2={pB.x}
-                  y2={pB.y}
-                  stroke={stroke}
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="round"
-                  opacity={markerOpacity}
-                />
-              </g>
-            );
-          };
-
-          const triangle = () => {
-            const [pA, pB] = getArrowHeadPoints(offsetTip, from, markerSize);
-            return (
-              <polygon
-                pointerEvents="none"
-                points={`${offsetTip.x},${offsetTip.y} ${pA.x},${pA.y} ${pB.x},${pB.y}`}
-                fill={stroke}
-                opacity={markerOpacity}
-              />
-            );
-          };
-
-          const triangleOutline = () => {
-            const [pA, pB] = getArrowHeadPoints(offsetTip, from, markerSize);
-            return (
-              <polygon
-                pointerEvents="none"
-                points={`${offsetTip.x},${offsetTip.y} ${pA.x},${pA.y} ${pB.x},${pB.y}`}
-                fill="none"
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x3}
+                y2={y3}
                 stroke={stroke}
                 strokeWidth={strokeWidth}
-                strokeLinejoin="round"
+                strokeLinecap="round"
                 opacity={markerOpacity}
               />
-            );
-          };
-
-          const diamond = () => {
-            const spread = size * 0.5;
-            const back1 = size * 0.7;
-            const back2 = size * 1.4;
-            const midX = offsetTip.x + bx * back1;
-            const midY = offsetTip.y + by * back1;
-            const rearX = offsetTip.x + bx * back2;
-            const rearY = offsetTip.y + by * back2;
-            const left = {
-              x: midX + px * spread,
-              y: midY + py * spread,
-            };
-            const right = {
-              x: midX - px * spread,
-              y: midY - py * spread,
-            };
-            return (
-              <polygon
-                pointerEvents="none"
-                points={`${offsetTip.x},${offsetTip.y} ${left.x},${left.y} ${rearX},${rearY} ${right.x},${right.y}`}
-                fill={marker === "diamond" ? stroke : "none"}
-                stroke={marker === "diamond-outline" ? stroke : "none"}
-                strokeWidth={
-                  marker === "diamond-outline" ? outlineStrokeWidth : undefined
-                }
-                strokeLinejoin="round"
-                opacity={markerOpacity}
-              />
-            );
-          };
-
-          if (marker === "circle" || marker === "circle-outline") {
-            const back = size * 0.9;
-            const r = Math.max(3, size * 0.55);
-            const cx = offsetTip.x + bx * back;
-            const cy = offsetTip.y + by * back;
-            return (
-              <circle
-                pointerEvents="none"
-                cx={cx}
-                cy={cy}
-                r={r}
-                fill={marker === "circle" ? stroke : "none"}
-                stroke={marker === "circle-outline" ? stroke : "none"}
-                strokeWidth={
-                  marker === "circle-outline" ? outlineStrokeWidth : undefined
-                }
-                opacity={markerOpacity}
-              />
-            );
-          }
-
-          if (marker === "bar") return <g pointerEvents="none">{bar()}</g>;
-
-          if (marker === "arrow") return arrow();
-          if (marker === "triangle") return triangle();
-          if (marker === "triangle-outline") return triangleOutline();
-          if (marker === "diamond" || marker === "diamond-outline")
-            return diamond();
-
-          if (marker === "line") {
-            const endPoint = {
-              x: offsetTip.x + bx * size,
-              y: offsetTip.y + by * size,
-            };
-            return line(endPoint.x, endPoint.y);
-          }
-
-          return null;
+            </g>
+          );
         };
 
         // Use rough.js for hand-drawn rendering
@@ -1168,6 +1167,8 @@ export function useCanvasRenderers({
             opacity,
             isMarkedForDeletion,
             transform: rotationTransform,
+            roughness,
+            bowing,
           });
 
           if (roughElement) {
@@ -1295,12 +1296,12 @@ export function useCanvasRenderers({
             {isArrow &&
               (() => {
                 const { tip, from } = arrowTangentForStart();
-                return renderMarker(markerStart, tip, from, isStartConnected);
+                return renderMarker(markerStart, tip, from);
               })()}
             {isArrow &&
               (() => {
                 const { tip, from } = arrowTangentForEnd();
-                return renderMarker(markerEnd, tip, from, isEndConnected);
+                return renderMarker(markerEnd, tip, from);
               })()}
 
             {isMarkedForDeletion &&
@@ -1376,6 +1377,8 @@ export function useCanvasRenderers({
             opacity,
             isMarkedForDeletion,
             transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+            roughness,
+            bowing,
           });
 
           if (roughElement) {
@@ -1579,6 +1582,8 @@ export function useCanvasRenderers({
             opacity,
             isMarkedForDeletion,
             transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+            roughness,
+            bowing,
           });
 
           if (roughElement) {
@@ -1701,6 +1706,8 @@ export function useCanvasRenderers({
             opacity,
             isMarkedForDeletion,
             transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+            roughness,
+            bowing,
           });
 
           if (roughElement) {

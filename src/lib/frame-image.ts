@@ -1,4 +1,5 @@
 import type { BoardElement, Point } from "./board-types";
+import { getArrowheadPoints, normalizeArrowhead } from "./arrowheads";
 import { getTileTypeInfo } from "./tile-utils";
 
 export interface FrameImageResult {
@@ -49,12 +50,12 @@ function getFrameElements(elements: BoardElement[], frameId: string) {
     (el) =>
       el.type !== "laser" &&
       !el.hidden &&
-      (el.id === frameId || el.frameId === frameId)
+      (el.id === frameId || el.frameId === frameId),
   );
 }
 
 function getElementBounds(
-  element: BoardElement
+  element: BoardElement,
 ): { x: number; y: number; width: number; height: number } | null {
   if (
     element.type === "pen" ||
@@ -141,7 +142,7 @@ function drawRoundedRect(
   y: number,
   width: number,
   height: number,
-  radius: number
+  radius: number,
 ) {
   if (typeof ctx.roundRect === "function") {
     ctx.roundRect(x, y, width, height, radius);
@@ -174,8 +175,8 @@ function drawFrameToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
     frameStyle === "cutting-mat"
       ? "#2d6f5e"
       : frameStyle === "notebook"
-      ? "#f5f0e5"
-      : el.fillColor || "transparent";
+        ? "#f5f0e5"
+        : el.fillColor || "transparent";
 
   ctx.save();
   ctx.lineWidth = strokeWidth;
@@ -222,7 +223,7 @@ function drawFrameToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
       innerX + Math.max(innerW - barSize, 0),
       innerY,
       Math.min(barSize, innerW),
-      innerH
+      innerH,
     );
 
     ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
@@ -306,7 +307,7 @@ function drawFrameToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
       innerX + innerW - Math.min(24, innerW * 0.2),
       innerY + innerH * 0.3,
       Math.min(24, innerW * 0.2),
-      Math.min(36, innerH * 0.2)
+      Math.min(36, innerH * 0.2),
     );
     ctx.restore();
   }
@@ -323,30 +324,6 @@ function getConnectorRoute(el: BoardElement, start: Point, end: Point) {
   );
 }
 
-function getArrowHeadPoints(tip: Point, from: Point, size: number) {
-  const angle = Math.atan2(tip.y - from.y, tip.x - from.x);
-  const spread = (28 * Math.PI) / 180;
-  const a1 = angle + Math.PI - spread;
-  const a2 = angle + Math.PI + spread;
-  return [
-    { x: tip.x + Math.cos(a1) * size, y: tip.y + Math.sin(a1) * size },
-    { x: tip.x + Math.cos(a2) * size, y: tip.y + Math.sin(a2) * size },
-  ];
-}
-
-function getMarkerBasis(tip: Point, from: Point) {
-  const dx = tip.x - from.x;
-  const dy = tip.y - from.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  const bx = -ux;
-  const by = -uy;
-  const px = -uy;
-  const py = ux;
-  return { ux, uy, bx, by, px, py };
-}
-
 function drawMarker(
   ctx: CanvasRenderingContext2D,
   marker: NonNullable<BoardElement["arrowEnd"]>,
@@ -355,12 +332,13 @@ function drawMarker(
   strokeColor: string,
   strokeWidth: number,
   opacity: number,
-  lineCap: CanvasLineCap
+  lineCap: CanvasLineCap,
 ) {
-  if (marker === "none") return;
+  const normalized = normalizeArrowhead(marker);
+  if (normalized === "none") return;
 
-  const size = Math.max(6, strokeWidth * 3);
-  const { bx, by, px, py } = getMarkerBasis(tip, from);
+  const points = getArrowheadPoints(tip, from, normalized, strokeWidth);
+  if (!points) return;
 
   ctx.save();
   ctx.globalAlpha *= opacity;
@@ -373,91 +351,115 @@ function drawMarker(
 
   const outlineWidth = Math.min(ctx.lineWidth, 6);
 
-  if (marker === "arrow") {
-    const [a, b] = getArrowHeadPoints(tip, from, size);
+  if (
+    normalized === "circle" ||
+    normalized === "circle_outline" ||
+    normalized === "dot"
+  ) {
+    const [cx, cy, diameter] = points;
     ctx.beginPath();
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(a.x, a.y);
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(b.x, b.y);
+    ctx.arc(cx, cy, diameter / 2, 0, Math.PI * 2);
+    if (normalized === "circle_outline") {
+      ctx.lineWidth = outlineWidth;
+      ctx.stroke();
+    } else {
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (normalized === "triangle" || normalized === "triangle_outline") {
+    const [x1, y1, x2, y2, x3, y3] = points;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.closePath();
+    if (normalized === "triangle_outline") {
+      ctx.lineWidth = outlineWidth;
+      ctx.stroke();
+    } else {
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (normalized === "diamond" || normalized === "diamond_outline") {
+    const [x1, y1, x2, y2, x3, y3, x4, y4] = points;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.lineTo(x4, y4);
+    ctx.closePath();
+    if (normalized === "diamond_outline") {
+      ctx.lineWidth = outlineWidth;
+      ctx.stroke();
+    } else {
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (normalized === "bar") {
+    const [, , x2, y2, x3, y3] = points;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x3, y3);
     ctx.stroke();
     ctx.restore();
     return;
   }
 
-  if (marker === "triangle" || marker === "triangle-outline") {
-    const back = size * 1.1;
-    const spread = size * 0.85;
-    const baseX = tip.x + bx * back;
-    const baseY = tip.y + by * back;
-    const p1 = { x: baseX + px * spread, y: baseY + py * spread };
-    const p2 = { x: baseX - px * spread, y: baseY - py * spread };
+  if (normalized === "crowfoot_one") {
+    const [, , x2, y2, x3, y3] = points;
     ctx.beginPath();
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.closePath();
-    if (marker === "triangle") ctx.fill();
-    else {
-      ctx.lineWidth = outlineWidth;
-      ctx.stroke();
-    }
-    ctx.restore();
-    return;
-  }
-
-  if (marker === "diamond" || marker === "diamond-outline") {
-    const back1 = size * 0.9;
-    const back2 = size * 1.8;
-    const spread = size * 0.75;
-    const midX = tip.x + bx * back1;
-    const midY = tip.y + by * back1;
-    const rearX = tip.x + bx * back2;
-    const rearY = tip.y + by * back2;
-    const left = { x: midX + px * spread, y: midY + py * spread };
-    const right = { x: midX - px * spread, y: midY - py * spread };
-    ctx.beginPath();
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(left.x, left.y);
-    ctx.lineTo(rearX, rearY);
-    ctx.lineTo(right.x, right.y);
-    ctx.closePath();
-    if (marker === "diamond") ctx.fill();
-    else {
-      ctx.lineWidth = outlineWidth;
-      ctx.stroke();
-    }
-    ctx.restore();
-    return;
-  }
-
-  if (marker === "circle" || marker === "circle-outline") {
-    const back = size * 0.9;
-    const r = Math.max(3, size * 0.55);
-    const cx = tip.x + bx * back;
-    const cy = tip.y + by * back;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    if (marker === "circle") ctx.fill();
-    else {
-      ctx.lineWidth = outlineWidth;
-      ctx.stroke();
-    }
-    ctx.restore();
-    return;
-  }
-
-  if (marker === "bar") {
-    const half = size * 0.65;
-    ctx.beginPath();
-    ctx.moveTo(tip.x + px * half, tip.y + py * half);
-    ctx.lineTo(tip.x - px * half, tip.y - py * half);
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x3, y3);
     ctx.stroke();
     ctx.restore();
     return;
   }
 
+  if (normalized === "crowfoot_many" || normalized === "crowfoot_one_or_many") {
+    const [x1, y1, x2, y2, x3, y3] = points;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x3, y3);
+    ctx.stroke();
+    if (normalized === "crowfoot_one_or_many") {
+      const barPoints = getArrowheadPoints(
+        tip,
+        from,
+        "crowfoot_one",
+        strokeWidth,
+      );
+      if (barPoints) {
+        const [, , bx1, by1, bx2, by2] = barPoints;
+        ctx.beginPath();
+        ctx.moveTo(bx1, by1);
+        ctx.lineTo(bx2, by2);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    return;
+  }
+
+  const [x1, y1, x2, y2, x3, y3] = points;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x3, y3);
+  ctx.stroke();
   ctx.restore();
+  return;
 }
 
 function drawConnector(ctx: CanvasRenderingContext2D, el: BoardElement) {
@@ -540,7 +542,7 @@ function drawConnector(ctx: CanvasRenderingContext2D, el: BoardElement) {
     el.strokeColor,
     el.strokeWidth,
     markerOpacity,
-    cap as CanvasLineCap
+    cap as CanvasLineCap,
   );
   drawMarker(
     ctx,
@@ -550,7 +552,7 @@ function drawConnector(ctx: CanvasRenderingContext2D, el: BoardElement) {
     el.strokeColor,
     el.strokeWidth,
     markerOpacity,
-    cap as CanvasLineCap
+    cap as CanvasLineCap,
   );
 }
 
@@ -565,17 +567,23 @@ function getReadableTextColor(hex: string) {
 }
 
 function stripHtml(input: string) {
-  return input.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  return input
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function truncateText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  maxWidth: number
+  maxWidth: number,
 ) {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let trimmed = text;
-  while (trimmed.length > 0 && ctx.measureText(`${trimmed}...`).width > maxWidth) {
+  while (
+    trimmed.length > 0 &&
+    ctx.measureText(`${trimmed}...`).width > maxWidth
+  ) {
     trimmed = trimmed.slice(0, -1);
   }
   return `${trimmed}...`;
@@ -585,7 +593,7 @@ function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
-  maxLines: number
+  maxLines: number,
 ) {
   const words = text.split(/\s+/);
   const lines: string[] = [];
@@ -671,7 +679,7 @@ function drawTileToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
   ctx.fillText(
     truncateText(ctx, title, width - 12),
     x + 6,
-    y + headerHeight / 2
+    y + headerHeight / 2,
   );
 
   const previewText = getTilePreviewText(el);
@@ -692,11 +700,11 @@ function drawTileToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
 }
 
 export function renderFrameImageDataUrl(
-  options: RenderFrameImageOptions
+  options: RenderFrameImageOptions,
 ): FrameImageResult | null {
   if (typeof document === "undefined") return null;
   const frame = options.elements.find(
-    (el) => el.type === "frame" && el.id === options.frameId
+    (el) => el.type === "frame" && el.id === options.frameId,
   );
   if (!frame) return null;
 
@@ -725,7 +733,7 @@ export function renderFrameImageDataUrl(
 
   const renderElements = getFrameElements(options.elements, options.frameId);
   const orderedElements = [...renderElements].sort(
-    (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)
+    (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
   );
 
   orderedElements.forEach((el) => {
@@ -752,7 +760,7 @@ export function renderFrameImageDataUrl(
         el.y ?? 0,
         el.width ?? 0,
         el.height ?? 0,
-        el.cornerRadius ?? 0
+        el.cornerRadius ?? 0,
       );
       if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
       ctx.stroke();
@@ -784,7 +792,7 @@ export function renderFrameImageDataUrl(
         (el.height ?? 0) / 2,
         0,
         0,
-        Math.PI * 2
+        Math.PI * 2,
       );
       if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
       ctx.stroke();
@@ -822,8 +830,8 @@ export function renderFrameImageDataUrl(
           el.textAlign === "center"
             ? (el.x ?? 0) + el.width / 2
             : el.textAlign === "right"
-            ? (el.x ?? 0) + el.width - padding
-            : (el.x ?? 0) + padding;
+              ? (el.x ?? 0) + el.width - padding
+              : (el.x ?? 0) + padding;
         for (const line of lines) {
           ctx.fillText(line, xBase, yOffset);
           yOffset += fontSize * 1.4;

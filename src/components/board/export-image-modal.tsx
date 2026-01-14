@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Download, Copy, HelpCircle } from "lucide-react";
 import type { BoardElement, Point } from "@/lib/board-types";
+import { getArrowheadPoints, normalizeArrowhead } from "@/lib/arrowheads";
 import {
   Dialog,
   DialogContent,
@@ -249,9 +250,7 @@ function getFrameBounds(
 }
 
 function getFrameElements(elements: BoardElement[], frameId: string) {
-  return elements.filter(
-    (el) => el.id === frameId || el.frameId === frameId,
-  );
+  return elements.filter((el) => el.id === frameId || el.frameId === frameId);
 }
 
 function resolveExportTargets(
@@ -408,11 +407,7 @@ function drawFrameToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
     for (let i = 1; i <= rightMarkers; i += 1) {
       const labelY = innerY + i * markerStep;
       if (labelY > innerY + innerH - barSize) continue;
-      ctx.fillText(
-        String(i * 5),
-        innerX + innerW - barSize + 2,
-        labelY + 3,
-      );
+      ctx.fillText(String(i * 5), innerX + innerW - barSize + 2, labelY + 3);
     }
 
     ctx.fillStyle = "rgba(92, 184, 159, 0.6)";
@@ -508,10 +503,7 @@ function frameToSvg(el: BoardElement) {
       }" y="${y + strokeWidth}" width="${Math.min(
         16,
         innerW,
-      )}" height="${Math.max(
-        innerH,
-        0,
-      )}" fill="#2a685a" opacity="0.75"/>`,
+      )}" height="${Math.max(innerH, 0)}" fill="#2a685a" opacity="0.75"/>`,
     );
     overlays.push(
       `<rect x="${x + strokeWidth}" y="${y + strokeWidth}" width="${innerW}" height="${innerH}" fill="#ffffff" opacity="0.16" filter="url(#cm-noise-${frameId})"/>`,
@@ -588,30 +580,6 @@ function getConnectorRoute(el: BoardElement, start: Point, end: Point) {
   );
 }
 
-function getArrowHeadPoints(tip: Point, from: Point, size: number) {
-  const angle = Math.atan2(tip.y - from.y, tip.x - from.x);
-  const spread = (28 * Math.PI) / 180;
-  const a1 = angle + Math.PI - spread;
-  const a2 = angle + Math.PI + spread;
-  return [
-    { x: tip.x + Math.cos(a1) * size, y: tip.y + Math.sin(a1) * size },
-    { x: tip.x + Math.cos(a2) * size, y: tip.y + Math.sin(a2) * size },
-  ];
-}
-
-function getMarkerBasis(tip: Point, from: Point) {
-  const dx = tip.x - from.x;
-  const dy = tip.y - from.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  const bx = -ux;
-  const by = -uy;
-  const px = -uy;
-  const py = ux;
-  return { ux, uy, bx, by, px, py };
-}
-
 function drawMarker(
   ctx: CanvasRenderingContext2D,
   marker: NonNullable<BoardElement["arrowEnd"]>,
@@ -622,10 +590,11 @@ function drawMarker(
   opacity: number,
   lineCap: CanvasLineCap,
 ) {
-  if (marker === "none") return;
+  const normalized = normalizeArrowhead(marker);
+  if (normalized === "none") return;
 
-  const size = Math.max(6, strokeWidth * 3);
-  const { bx, by, px, py } = getMarkerBasis(tip, from);
+  const points = getArrowheadPoints(tip, from, normalized, strokeWidth);
+  if (!points) return;
 
   ctx.save();
   ctx.globalAlpha *= opacity;
@@ -638,130 +607,115 @@ function drawMarker(
 
   const outlineWidth = Math.min(ctx.lineWidth, 6);
 
-  if (marker === "arrow") {
-    const [a, b] = getArrowHeadPoints(tip, from, size);
+  if (
+    normalized === "circle" ||
+    normalized === "circle_outline" ||
+    normalized === "dot"
+  ) {
+    const [cx, cy, diameter] = points;
     ctx.beginPath();
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(a.x, a.y);
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
+    ctx.arc(cx, cy, diameter / 2, 0, Math.PI * 2);
+    if (normalized === "circle_outline") {
+      ctx.lineWidth = outlineWidth;
+      ctx.stroke();
+    } else {
+      ctx.fill();
+    }
     ctx.restore();
     return;
   }
 
-  if (marker === "triangle" || marker === "triangle-outline") {
-    const back = size * 1.1;
-    const spread = size * 0.85;
-    const baseX = tip.x + bx * back;
-    const baseY = tip.y + by * back;
-    const p1 = { x: baseX + px * spread, y: baseY + py * spread };
-    const p2 = { x: baseX - px * spread, y: baseY - py * spread };
+  if (normalized === "triangle" || normalized === "triangle_outline") {
+    const [x1, y1, x2, y2, x3, y3] = points;
     ctx.beginPath();
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
     ctx.closePath();
-    if (marker === "triangle") ctx.fill();
-    else {
+    if (normalized === "triangle_outline") {
       ctx.lineWidth = outlineWidth;
       ctx.stroke();
+    } else {
+      ctx.fill();
     }
     ctx.restore();
     return;
   }
 
-  if (marker === "diamond" || marker === "diamond-outline") {
-    const back1 = size * 0.9;
-    const back2 = size * 1.8;
-    const spread = size * 0.75;
-    const midX = tip.x + bx * back1;
-    const midY = tip.y + by * back1;
-    const rearX = tip.x + bx * back2;
-    const rearY = tip.y + by * back2;
-    const left = { x: midX + px * spread, y: midY + py * spread };
-    const right = { x: midX - px * spread, y: midY - py * spread };
+  if (normalized === "diamond" || normalized === "diamond_outline") {
+    const [x1, y1, x2, y2, x3, y3, x4, y4] = points;
     ctx.beginPath();
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(left.x, left.y);
-    ctx.lineTo(rearX, rearY);
-    ctx.lineTo(right.x, right.y);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.lineTo(x4, y4);
     ctx.closePath();
-    if (marker === "diamond") ctx.fill();
-    else {
+    if (normalized === "diamond_outline") {
       ctx.lineWidth = outlineWidth;
       ctx.stroke();
+    } else {
+      ctx.fill();
     }
     ctx.restore();
     return;
   }
 
-  if (marker === "circle" || marker === "circle-outline") {
-    const back = size * 0.9;
-    const r = Math.max(3, size * 0.55);
-    const cx = tip.x + bx * back;
-    const cy = tip.y + by * back;
+  if (normalized === "bar") {
+    const [, , x2, y2, x3, y3] = points;
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    if (marker === "circle") ctx.fill();
-    else {
-      ctx.lineWidth = outlineWidth;
-      ctx.stroke();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (normalized === "crowfoot_one") {
+    const [, , x2, y2, x3, y3] = points;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (normalized === "crowfoot_many" || normalized === "crowfoot_one_or_many") {
+    const [x1, y1, x2, y2, x3, y3] = points;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x3, y3);
+    ctx.stroke();
+    if (normalized === "crowfoot_one_or_many") {
+      const barPoints = getArrowheadPoints(
+        tip,
+        from,
+        "crowfoot_one",
+        strokeWidth,
+      );
+      if (barPoints) {
+        const [, , bx1, by1, bx2, by2] = barPoints;
+        ctx.beginPath();
+        ctx.moveTo(bx1, by1);
+        ctx.lineTo(bx2, by2);
+        ctx.stroke();
+      }
     }
     ctx.restore();
     return;
   }
 
-  if (marker === "bar") {
-    const half = size * 0.65;
-    ctx.beginPath();
-    ctx.moveTo(tip.x + px * half, tip.y + py * half);
-    ctx.lineTo(tip.x - px * half, tip.y - py * half);
-    ctx.stroke();
-    ctx.restore();
-    return;
-  }
-
-  const crowfoot = (many: boolean) => {
-    const back = size * 1.05;
-    const spread = size * 0.85;
-    const baseX = tip.x + bx * back;
-    const baseY = tip.y + by * back;
-
-    ctx.beginPath();
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(baseX + px * spread, baseY + py * spread);
-    ctx.moveTo(tip.x, tip.y);
-    if (many) ctx.lineTo(baseX, baseY);
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(baseX - px * spread, baseY - py * spread);
-    ctx.stroke();
-  };
-
-  if (marker === "crowfoot-one") {
-    crowfoot(false);
-    ctx.restore();
-    return;
-  }
-  if (marker === "crowfoot-many") {
-    crowfoot(true);
-    ctx.restore();
-    return;
-  }
-  if (marker === "crowfoot-one-many") {
-    const barOffset = size * 0.45;
-    const movedTip = { x: tip.x + bx * barOffset, y: tip.y + by * barOffset };
-    const half = size * 0.65;
-    ctx.beginPath();
-    ctx.moveTo(movedTip.x + px * half, movedTip.y + py * half);
-    ctx.lineTo(movedTip.x - px * half, movedTip.y - py * half);
-    ctx.stroke();
-    crowfoot(true);
-    ctx.restore();
-    return;
-  }
-
+  const [x1, y1, x2, y2, x3, y3] = points;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x3, y3);
+  ctx.stroke();
   ctx.restore();
+  return;
 }
 
 function drawConnector(ctx: CanvasRenderingContext2D, el: BoardElement) {
@@ -902,115 +856,91 @@ function svgConnector(el: BoardElement, opacity: number) {
 
   const markerStart = el.arrowStart || "none";
   const markerEnd = el.arrowEnd || "arrow";
-  const markerSize = Math.max(6, el.strokeWidth * 3);
-
-  const headLines = (tip: Point, from: Point) => {
-    const [a, b] = getArrowHeadPoints(tip, from, markerSize);
-    return `
-    <line x1="${tip.x}" y1="${tip.y}" x2="${a.x}" y2="${a.y}" stroke="${el.strokeColor}" stroke-width="${el.strokeWidth}" stroke-linecap="${cap}" opacity="${opacity}"/>
-    <line x1="${tip.x}" y1="${tip.y}" x2="${b.x}" y2="${b.y}" stroke="${el.strokeColor}" stroke-width="${el.strokeWidth}" stroke-linecap="${cap}" opacity="${opacity}"/>`;
-  };
 
   const svgMarker = (
     marker: NonNullable<BoardElement["arrowEnd"]>,
     tip: Point,
     from: Point,
   ) => {
-    if (marker === "none") return "";
+    const normalized = normalizeArrowhead(marker);
+    if (normalized === "none") return "";
 
-    const { bx, by, px, py } = getMarkerBasis(tip, from);
-    const size = markerSize;
+    const points = getArrowheadPoints(tip, from, normalized, el.strokeWidth);
+    if (!points) return "";
+
     const outline = Math.min(Math.max(1.5, el.strokeWidth), 6);
-
-    if (marker === "arrow") return headLines(tip, from);
-
-    if (marker === "triangle" || marker === "triangle-outline") {
-      const back = size * 1.1;
-      const spread = size * 0.85;
-      const baseX = tip.x + bx * back;
-      const baseY = tip.y + by * back;
-      const p1 = { x: baseX + px * spread, y: baseY + py * spread };
-      const p2 = { x: baseX - px * spread, y: baseY - py * spread };
-      if (marker === "triangle") {
-        return `
-    <polygon points="${tip.x},${tip.y} ${p1.x},${p1.y} ${p2.x},${p2.y}" fill="${el.strokeColor}" opacity="${opacity}"/>`;
-      }
-      return `
-    <polygon points="${tip.x},${tip.y} ${p1.x},${p1.y} ${p2.x},${p2.y}" fill="none" stroke="${el.strokeColor}" stroke-width="${outline}" stroke-linejoin="round" opacity="${opacity}"/>`;
-    }
-
-    if (marker === "diamond" || marker === "diamond-outline") {
-      const back1 = size * 0.9;
-      const back2 = size * 1.8;
-      const spread = size * 0.75;
-      const midX = tip.x + bx * back1;
-      const midY = tip.y + by * back1;
-      const rearX = tip.x + bx * back2;
-      const rearY = tip.y + by * back2;
-      const left = { x: midX + px * spread, y: midY + py * spread };
-      const right = { x: midX - px * spread, y: midY - py * spread };
-      if (marker === "diamond") {
-        return `
-    <polygon points="${tip.x},${tip.y} ${left.x},${left.y} ${rearX},${rearY} ${right.x},${right.y}" fill="${el.strokeColor}" opacity="${opacity}"/>`;
-      }
-      return `
-    <polygon points="${tip.x},${tip.y} ${left.x},${left.y} ${rearX},${rearY} ${right.x},${right.y}" fill="none" stroke="${el.strokeColor}" stroke-width="${outline}" stroke-linejoin="round" opacity="${opacity}"/>`;
-    }
-
-    if (marker === "circle" || marker === "circle-outline") {
-      const back = size * 0.9;
-      const r = Math.max(3, size * 0.55);
-      const cx = tip.x + bx * back;
-      const cy = tip.y + by * back;
-      if (marker === "circle") {
-        return `
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${el.strokeColor}" opacity="${opacity}"/>`;
-      }
-      return `
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${el.strokeColor}" stroke-width="${outline}" opacity="${opacity}"/>`;
-    }
-
-    if (marker === "bar") {
-      const half = size * 0.65;
-      const x1 = tip.x + px * half;
-      const y1 = tip.y + py * half;
-      const x2 = tip.x - px * half;
-      const y2 = tip.y - py * half;
-      return `
+    const line = (x1: number, y1: number, x2: number, y2: number) =>
+      `
     <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${el.strokeColor}" stroke-width="${el.strokeWidth}" stroke-linecap="${cap}" opacity="${opacity}"/>`;
+
+    if (
+      normalized === "circle" ||
+      normalized === "circle_outline" ||
+      normalized === "dot"
+    ) {
+      const [cx, cy, diameter] = points;
+      const r = diameter / 2;
+      if (normalized === "circle_outline") {
+        return `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${el.strokeColor}" stroke-width="${outline}" opacity="${opacity}"/>`;
+      }
+      return `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${el.strokeColor}" opacity="${opacity}"/>`;
     }
 
-    const crowfoot = (many: boolean) => {
-      const back = size * 1.05;
-      const spread = size * 0.85;
-      const baseX = tip.x + bx * back;
-      const baseY = tip.y + by * back;
-      const lines = [
-        { x: baseX + px * spread, y: baseY + py * spread },
-        ...(many ? [{ x: baseX, y: baseY }] : []),
-        { x: baseX - px * spread, y: baseY - py * spread },
-      ];
-      return lines
-        .map(
-          (p) =>
-            `
-    <line x1="${tip.x}" y1="${tip.y}" x2="${p.x}" y2="${p.y}" stroke="${el.strokeColor}" stroke-width="${el.strokeWidth}" stroke-linecap="${cap}" opacity="${opacity}"/>`,
-        )
-        .join("");
-    };
-
-    if (marker === "crowfoot-one") return crowfoot(false);
-    if (marker === "crowfoot-many") return crowfoot(true);
-    if (marker === "crowfoot-one-many") {
-      const barOffset = size * 0.45;
-      const movedTip = { x: tip.x + bx * barOffset, y: tip.y + by * barOffset };
-      const half = size * 0.65;
-      const barSvg = `
-    <line x1="${movedTip.x + px * half}" y1="${movedTip.y + py * half}" x2="${movedTip.x - px * half}" y2="${movedTip.y - py * half}" stroke="${el.strokeColor}" stroke-width="${el.strokeWidth}" stroke-linecap="${cap}" opacity="${opacity}"/>`;
-      return `${barSvg}${crowfoot(true)}`;
+    if (normalized === "triangle" || normalized === "triangle_outline") {
+      const [x1, y1, x2, y2, x3, y3] = points;
+      if (normalized === "triangle_outline") {
+        return `
+    <polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="${el.strokeColor}" stroke-width="${outline}" stroke-linejoin="round" opacity="${opacity}"/>`;
+      }
+      return `
+    <polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="${el.strokeColor}" opacity="${opacity}"/>`;
     }
 
-    return "";
+    if (normalized === "diamond" || normalized === "diamond_outline") {
+      const [x1, y1, x2, y2, x3, y3, x4, y4] = points;
+      if (normalized === "diamond_outline") {
+        return `
+    <polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}" fill="none" stroke="${el.strokeColor}" stroke-width="${outline}" stroke-linejoin="round" opacity="${opacity}"/>`;
+      }
+      return `
+    <polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}" fill="${el.strokeColor}" opacity="${opacity}"/>`;
+    }
+
+    if (normalized === "bar") {
+      const [, , x2, y2, x3, y3] = points;
+      return line(x2, y2, x3, y3);
+    }
+
+    if (normalized === "crowfoot_one") {
+      const [, , x2, y2, x3, y3] = points;
+      return line(x2, y2, x3, y3);
+    }
+
+    if (
+      normalized === "crowfoot_many" ||
+      normalized === "crowfoot_one_or_many"
+    ) {
+      const [x1, y1, x2, y2, x3, y3] = points;
+      const base = `${line(x1, y1, x2, y2)}${line(x1, y1, x3, y3)}`;
+      if (normalized === "crowfoot_one_or_many") {
+        const barPoints = getArrowheadPoints(
+          tip,
+          from,
+          "crowfoot_one",
+          el.strokeWidth,
+        );
+        if (barPoints) {
+          const [, , bx1, by1, bx2, by2] = barPoints;
+          return `${base}${line(bx1, by1, bx2, by2)}`;
+        }
+      }
+      return base;
+    }
+
+    const [x1, y1, x2, y2, x3, y3] = points;
+    return `${line(x1, y1, x2, y2)}${line(x1, y1, x3, y3)}`;
   };
 
   const fromForStart =
@@ -1748,7 +1678,8 @@ export function ExportImageModal({
                     <SelectContent>
                       {frameOptions.map((frame, index) => (
                         <SelectItem key={frame.id} value={frame.id}>
-                          {(frame.label ?? "Frame").trim() || `Frame ${index + 1}`}
+                          {(frame.label ?? "Frame").trim() ||
+                            `Frame ${index + 1}`}
                         </SelectItem>
                       ))}
                     </SelectContent>

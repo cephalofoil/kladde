@@ -25,8 +25,8 @@ export function getRoughPath(element: BoardElement): string | null {
   const seed = hashCode(element.id);
 
   const options = {
-    roughness: 1,
-    bowing: 1,
+    roughness: 1.2,
+    bowing: 1.7,
     stroke: element.strokeColor,
     strokeWidth: element.strokeWidth,
     fill: element.fillColor !== "transparent" ? element.fillColor : undefined,
@@ -163,8 +163,8 @@ export function getRoughArrowMarker(
 
   const size = strokeWidth * 3;
   const options = {
-    roughness: 1,
-    bowing: 1,
+    roughness: 1.2,
+    bowing: 1.7,
     stroke: strokeColor,
     strokeWidth: strokeWidth,
     fill: strokeColor,
