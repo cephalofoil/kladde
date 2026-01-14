@@ -42,6 +42,7 @@ import { QuickBoardsSidebar } from "@/components/quick-boards-sidebar";
 import { cn } from "@/lib/utils";
 
 const PINNED_STORAGE_KEY = "kladde-dashboard-pins";
+const NEW_WORKSPACE_NAME = "New Workspace";
 
 export default function BoardsPage() {
     const router = useRouter();
@@ -213,7 +214,7 @@ export default function BoardsPage() {
             "#db2777",
         ];
         const color = palette[Math.floor(Math.random() * palette.length)];
-        const id = createWorkstream("New Workspace", color);
+        const id = createWorkstream(NEW_WORKSPACE_NAME, color);
         switchWorkstream(id);
     };
 
@@ -304,6 +305,25 @@ export default function BoardsPage() {
     const handleWorkspaceNameBlur = () => {
         handleWorkspaceNameSubmit();
     };
+
+    const finalizeWorkspaceDelete = (workstreamId: string) => {
+        deleteWorkstream(workstreamId);
+        setIsDeleteDialogOpen(false);
+        setDeleteConfirmation("");
+        const remaining = workstreams.filter(
+            (ws) =>
+                ws.id !== workstreamId &&
+                ws.id !== QUICK_BOARDS_WORKSPACE_ID,
+        );
+        if (remaining.length > 0) {
+            switchWorkstream(remaining[0].id);
+        }
+    };
+
+    const shouldSkipDeleteConfirmation =
+        currentWorkstream &&
+        currentWorkstream.name === NEW_WORKSPACE_NAME &&
+        currentWorkstream.metadata.boardCount === 0;
 
     const formatDate = (date: Date) => {
         const now = new Date();
@@ -554,9 +574,16 @@ export default function BoardsPage() {
                                         </DropdownMenuSub>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
-                                            onClick={() =>
-                                                setIsDeleteDialogOpen(true)
-                                            }
+                                            onClick={() => {
+                                                if (!currentWorkstream) return;
+                                                if (shouldSkipDeleteConfirmation) {
+                                                    finalizeWorkspaceDelete(
+                                                        currentWorkstream.id,
+                                                    );
+                                                    return;
+                                                }
+                                                setIsDeleteDialogOpen(true);
+                                            }}
                                             className="text-destructive focus:text-destructive"
                                         >
                                             <Trash2 className="h-4 w-4 mr-2" />
@@ -889,18 +916,9 @@ export default function BoardsPage() {
                                     deleteConfirmation ===
                                         currentWorkstream.name
                                 ) {
-                                    deleteWorkstream(currentWorkstream.id);
-                                    setIsDeleteDialogOpen(false);
-                                    setDeleteConfirmation("");
-                                    // Switch to first available workspace
-                                    const remaining = workstreams.filter(
-                                        (ws) =>
-                                            ws.id !== currentWorkstream.id &&
-                                            ws.id !== QUICK_BOARDS_WORKSPACE_ID,
+                                    finalizeWorkspaceDelete(
+                                        currentWorkstream.id,
                                     );
-                                    if (remaining.length > 0) {
-                                        switchWorkstream(remaining[0].id);
-                                    }
                                 }
                             }}
                         >
