@@ -126,7 +126,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [fontSize, setFontSize] = useState(24);
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineHeight, setLineHeight] = useState(1.5);
-  const [fillPattern, setFillPattern] = useState<"none" | "solid">("none");
+  const [fillPattern, setFillPattern] =
+    useState<NonNullable<BoardElement["fillPattern"]>>("none");
 
   // Store pre-highlighter values to restore when switching away
   const preHighlighterRef = useRef<{
@@ -1335,10 +1336,18 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   );
 
   const handleFillPatternChange = useCallback(
-    (pattern: "none" | "solid") => {
+    (pattern: NonNullable<BoardElement["fillPattern"]>) => {
       if (selectedElements.length > 0) {
         saveToUndoStack();
         selectedElements.forEach((el) => {
+          if (
+            el.type === "rectangle" ||
+            el.type === "diamond" ||
+            el.type === "ellipse"
+          ) {
+            handleUpdateElement(el.id, { fillPattern: pattern });
+            return;
+          }
           if (el.type === "pen" && el.penMode !== "highlighter") {
             // Check if the stroke is closed (in case it wasn't detected before)
             const isClosed = el.isClosed ?? isClosedShape(el.points);
@@ -2217,6 +2226,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       }
       if (firstElement.fillPattern !== undefined) {
         setFillPattern(firstElement.fillPattern);
+      } else if (
+        firstElement.fillColor &&
+        firstElement.fillColor !== "none" &&
+        firstElement.fillColor !== "transparent"
+      ) {
+        setFillPattern("solid");
       }
     }
   }, [selectedElements]);

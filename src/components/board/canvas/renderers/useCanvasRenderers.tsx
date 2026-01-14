@@ -726,18 +726,28 @@ export function useCanvasRenderers({
         const elStrokeStyle = isHighlighter
           ? "solid"
           : effectiveElement.strokeStyle || "solid";
-        const elFillPattern = effectiveElement.fillPattern || "none";
+        const elFillPattern =
+          effectiveElement.fillPattern ??
+          (effectiveElement.fillColor &&
+          effectiveElement.fillColor !== "none" &&
+          effectiveElement.fillColor !== "transparent"
+            ? "solid"
+            : "none");
         const elFillColor = isHighlighter
           ? effectiveElement.fillColor || effectiveElement.strokeColor
           : effectiveElement.fillColor || "#d1d5db";
         const fillOpacity = isHighlighter ? elOpacity : 1;
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         const shouldFill =
           effectiveElement.isClosed &&
-          elFillPattern === "solid" &&
+          elFillPattern !== "none" &&
           elFillColor !== "transparent" &&
           elFillColor !== "none";
         const roughFill =
-          handDrawnMode && shouldFill && !isHighlighter
+          shouldFill &&
+          !isHighlighter &&
+          (usePatternFill || (handDrawnMode && elFillPattern !== "solid"))
             ? renderRoughElement(
                 { ...effectiveElement, fillColor: elFillColor },
                 {
@@ -797,12 +807,13 @@ export function useCanvasRenderers({
                 </defs>
               )}
               {/* Fill layer - renders under stroke using original points */}
-              {handDrawnMode && roughFill ? (
+              {roughFill ? (
                 <g pointerEvents="auto" data-element-id={effectiveElement.id}>
                   {roughFill}
                 </g>
               ) : (
-                shouldFill && (
+                shouldFill &&
+                elFillPattern === "solid" && (
                   <path
                     data-element-id={effectiveElement.id}
                     d={fillPath}
@@ -848,12 +859,13 @@ export function useCanvasRenderers({
         return (
           <g key={effectiveElement.id} transform={rotationTransform}>
             {/* Fill layer for dashed/dotted strokes */}
-            {handDrawnMode && roughFill ? (
+            {roughFill ? (
               <g pointerEvents="auto" data-element-id={effectiveElement.id}>
                 {roughFill}
               </g>
             ) : (
-              shouldFill && (
+              shouldFill &&
+              elFillPattern === "solid" && (
                 <polygon
                   data-element-id={effectiveElement.id}
                   points={points}
@@ -1352,12 +1364,27 @@ export function useCanvasRenderers({
               ? "2,6"
               : "none";
         const elCornerRadius = element.cornerRadius ?? 4;
+        const elFillPattern =
+          element.fillPattern ??
+          (element.fillColor &&
+          element.fillColor !== "none" &&
+          element.fillColor !== "transparent"
+            ? "solid"
+            : "none");
         const elFillColor = element.fillColor || "none";
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         // Treat 'transparent' same as 'none' for hit detection - invisible fills shouldn't be clickable
         const hasVisibleFill =
-          elFillColor !== "none" && elFillColor !== "transparent";
+          elFillPattern !== "none" &&
+          elFillColor !== "none" &&
+          elFillColor !== "transparent";
         // Convert transparent to none for proper pointer-events behavior in SVG
-        const fillValue = elFillColor === "transparent" ? "none" : elFillColor;
+        const fillValue = usePatternFill
+          ? "none"
+          : elFillColor === "transparent"
+            ? "none"
+            : elFillColor;
         // Only visible parts should be clickable: if has fill AND stroke, allow both; if only stroke, only stroke; if only fill, only fill
         const pointerEventsValue =
           hasVisibleFill && element.strokeWidth > 0
@@ -1370,20 +1397,46 @@ export function useCanvasRenderers({
         // Create wider invisible hitbox for easier clicking on stroke-only shapes
         const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
         const hitboxOffset = (hitboxStrokeWidth - element.strokeWidth) / 2;
+        const roughFill =
+          !handDrawnMode && usePatternFill
+            ? renderRoughElement(effectiveElement, {
+                opacity,
+                isMarkedForDeletion,
+                transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+                roughness,
+                bowing,
+                fillOnly: true,
+              })
+            : null;
 
         // Use rough.js for hand-drawn rendering
         if (handDrawnMode) {
+          const useSolidFill = elFillPattern === "solid" && hasVisibleFill;
           const roughElement = renderRoughElement(effectiveElement, {
             opacity,
             isMarkedForDeletion,
             transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
             roughness,
             bowing,
+            strokeOnly: useSolidFill,
           });
 
           if (roughElement) {
             return (
               <g key={effectiveElement.id}>
+                {useSolidFill && (
+                  <rect
+                    x={element.x}
+                    y={element.y}
+                    width={element.width}
+                    height={element.height}
+                    fill={fillValue}
+                    opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
+                    rx={elCornerRadius}
+                    pointerEvents="none"
+                    transform={rotationTransform}
+                  />
+                )}
                 {/* Invisible hitbox for filled shapes */}
                 {hasVisibleFill && (
                   <rect
@@ -1448,6 +1501,7 @@ export function useCanvasRenderers({
                 pointerEvents="stroke"
               />
             )}
+            {roughFill}
             {/* Visible rectangle */}
             <rect
               data-element-id={
@@ -1494,10 +1548,25 @@ export function useCanvasRenderers({
             : elStrokeStyle === "dotted"
               ? "2,6"
               : "none";
+        const elFillPattern =
+          element.fillPattern ??
+          (element.fillColor &&
+          element.fillColor !== "none" &&
+          element.fillColor !== "transparent"
+            ? "solid"
+            : "none");
         const elFillColor = element.fillColor || "none";
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         const hasVisibleFill =
-          elFillColor !== "none" && elFillColor !== "transparent";
-        const fillValue = elFillColor === "transparent" ? "none" : elFillColor;
+          elFillPattern !== "none" &&
+          elFillColor !== "none" &&
+          elFillColor !== "transparent";
+        const fillValue = usePatternFill
+          ? "none"
+          : elFillColor === "transparent"
+            ? "none"
+            : elFillColor;
         const pointerEventsValue =
           hasVisibleFill && element.strokeWidth > 0
             ? "visible"
@@ -1508,6 +1577,17 @@ export function useCanvasRenderers({
                 : "none";
         const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
         const elCornerRadius = element.cornerRadius ?? 0;
+        const roughFill =
+          !handDrawnMode && usePatternFill
+            ? renderRoughElement(effectiveElement, {
+                opacity,
+                isMarkedForDeletion,
+                transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+                roughness,
+                bowing,
+                fillOnly: true,
+              })
+            : null;
 
         // Diamond points: top, right, bottom, left
         const x = element.x ?? 0;
@@ -1578,12 +1658,14 @@ export function useCanvasRenderers({
 
         // Use rough.js for hand-drawn rendering
         if (handDrawnMode) {
+          const useSolidFill = elFillPattern === "solid" && hasVisibleFill;
           const roughElement = renderRoughElement(effectiveElement, {
             opacity,
             isMarkedForDeletion,
             transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
             roughness,
             bowing,
+            strokeOnly: useSolidFill,
           });
 
           if (roughElement) {
@@ -1608,6 +1690,15 @@ export function useCanvasRenderers({
                     stroke="transparent"
                     strokeWidth={hitboxStrokeWidth}
                     pointerEvents="stroke"
+                    transform={rotationTransform}
+                  />
+                )}
+                {useSolidFill && (
+                  <path
+                    d={diamondPath}
+                    fill={fillValue}
+                    opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
+                    pointerEvents="none"
                     transform={rotationTransform}
                   />
                 )}
@@ -1638,6 +1729,7 @@ export function useCanvasRenderers({
                 pointerEvents="stroke"
               />
             )}
+            {roughFill}
             {/* Visible diamond */}
             <path
               data-element-id={
@@ -1676,10 +1768,25 @@ export function useCanvasRenderers({
             : elStrokeStyle === "dotted"
               ? "2,6"
               : "none";
+        const elFillPattern =
+          element.fillPattern ??
+          (element.fillColor &&
+          element.fillColor !== "none" &&
+          element.fillColor !== "transparent"
+            ? "solid"
+            : "none");
         const elFillColor = element.fillColor || "none";
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         const hasVisibleFill =
-          elFillColor !== "none" && elFillColor !== "transparent";
-        const fillValue = elFillColor === "transparent" ? "none" : elFillColor;
+          elFillPattern !== "none" &&
+          elFillColor !== "none" &&
+          elFillColor !== "transparent";
+        const fillValue = usePatternFill
+          ? "none"
+          : elFillColor === "transparent"
+            ? "none"
+            : elFillColor;
         const pointerEventsValue =
           hasVisibleFill && element.strokeWidth > 0
             ? "visible"
@@ -1695,6 +1802,17 @@ export function useCanvasRenderers({
         const h = element.height ?? 0;
         const cx = x + w / 2;
         const cy = y + h / 2;
+        const roughFill =
+          !handDrawnMode && usePatternFill
+            ? renderRoughElement(effectiveElement, {
+                opacity,
+                isMarkedForDeletion,
+                transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+                roughness,
+                bowing,
+                fillOnly: true,
+              })
+            : null;
 
         // Create wider invisible hitbox for easier clicking on stroke-only shapes
         const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
@@ -1702,12 +1820,14 @@ export function useCanvasRenderers({
 
         // Use rough.js for hand-drawn rendering
         if (handDrawnMode) {
+          const useSolidFill = elFillPattern === "solid" && hasVisibleFill;
           const roughElement = renderRoughElement(effectiveElement, {
             opacity,
             isMarkedForDeletion,
             transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
             roughness,
             bowing,
+            strokeOnly: useSolidFill,
           });
 
           if (roughElement) {
@@ -1738,6 +1858,18 @@ export function useCanvasRenderers({
                     stroke="transparent"
                     strokeWidth={hitboxStrokeWidth}
                     pointerEvents="stroke"
+                    transform={rotationTransform}
+                  />
+                )}
+                {useSolidFill && (
+                  <ellipse
+                    cx={cx}
+                    cy={cy}
+                    rx={(effectiveElement.width || 0) / 2}
+                    ry={(effectiveElement.height || 0) / 2}
+                    fill={fillValue}
+                    opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
+                    pointerEvents="none"
                     transform={rotationTransform}
                   />
                 )}
@@ -1774,6 +1906,7 @@ export function useCanvasRenderers({
                 pointerEvents="stroke"
               />
             )}
+            {roughFill}
             {/* Visible ellipse */}
             <ellipse
               data-element-id={

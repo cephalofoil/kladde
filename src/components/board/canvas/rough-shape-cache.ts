@@ -33,6 +33,21 @@ function generateRoughOptions(
   const seed = hashCode(element.id);
   const strokeWidth = element.strokeWidth ?? 2;
   const elStrokeStyle = element.strokeStyle || "solid";
+  const fillPattern =
+    element.fillPattern ??
+    (element.fillColor &&
+    element.fillColor !== "none" &&
+    element.fillColor !== "transparent"
+      ? "solid"
+      : "none");
+  const fillStyle =
+    fillPattern === "cross-hatch"
+      ? "cross-hatch"
+      : fillPattern === "zigzag"
+        ? "zigzag"
+        : fillPattern === "solid"
+          ? "solid"
+          : "hachure";
 
   return {
     seed,
@@ -45,15 +60,18 @@ function generateRoughOptions(
           ? [3, 6]
           : undefined,
     fill:
-      element.fillColor && element.fillColor !== "transparent"
+      fillPattern !== "none" &&
+      element.fillColor &&
+      element.fillColor !== "transparent"
         ? element.fillColor
         : undefined,
-    fillStyle: "hachure" as const,
+    fillStyle,
     fillWeight: strokeWidth / 2,
     hachureGap: strokeWidth * 4,
     roughness: getAdjustedRoughness(element, baseRoughness),
     bowing,
     disableMultiStroke: elStrokeStyle !== "solid",
+    disableMultiStrokeFill: fillStyle === "solid",
   };
 }
 

@@ -99,8 +99,10 @@ interface ToolSidebarProps {
   onLetterSpacingChange: (spacing: number) => void;
   lineHeight: number;
   onLineHeightChange: (height: number) => void;
-  fillPattern?: "none" | "solid";
-  onFillPatternChange?: (pattern: "none" | "solid") => void;
+  fillPattern?: "none" | "solid" | "hachure" | "cross-hatch" | "zigzag";
+  onFillPatternChange?: (
+    pattern: "none" | "solid" | "hachure" | "cross-hatch" | "zigzag",
+  ) => void;
   frameStyle: FrameStyle;
   onFrameStyleChange?: (style: FrameStyle) => void;
   lineCap?: "butt" | "round";
@@ -295,6 +297,148 @@ export function ToolSidebar({
       }>,
     [],
   );
+
+  const fillPatternOptions = useMemo(
+    () =>
+      [
+        { id: "none", label: "None" },
+        { id: "solid", label: "Solid" },
+        { id: "hachure", label: "Hachure" },
+        { id: "cross-hatch", label: "Crosshatch" },
+        { id: "zigzag", label: "Zigzag" },
+      ] as Array<{
+        id: NonNullable<BoardElement["fillPattern"]>;
+        label: string;
+      }>,
+    [],
+  );
+
+  const fillPatternLabel =
+    fillPatternOptions.find((opt) => opt.id === fillPattern)?.label ??
+    fillPattern;
+  const renderFillPatternIcon = (
+    pattern: NonNullable<BoardElement["fillPattern"]>,
+  ) => {
+    const commonProps = {
+      width: 20,
+      height: 20,
+      viewBox: "0 0 20 20",
+      className: "text-foreground",
+    };
+
+    switch (pattern) {
+      case "none":
+        return (
+          <svg {...commonProps}>
+            <rect
+              x="3"
+              y="3"
+              width="14"
+              height="14"
+              rx="2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <line
+              x1="5"
+              y1="15"
+              x2="15"
+              y2="5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      case "solid":
+        return (
+          <svg {...commonProps}>
+            <rect
+              x="3"
+              y="3"
+              width="14"
+              height="14"
+              rx="2"
+              fill="currentColor"
+            />
+          </svg>
+        );
+      case "hachure":
+        return (
+          <svg {...commonProps}>
+            <rect
+              x="3"
+              y="3"
+              width="14"
+              height="14"
+              rx="2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M5 14 L9 10 M7 16 L13 10 M9 17 L15 11 M4 11 L10 5 M6 9 L12 3"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      case "cross-hatch":
+        return (
+          <svg {...commonProps}>
+            <rect
+              x="3"
+              y="3"
+              width="14"
+              height="14"
+              rx="2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M5 14 L9 10 M7 16 L13 10 M9 17 L15 11 M4 11 L10 5 M6 9 L12 3"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+            <path
+              d="M5 6 L9 10 M7 4 L13 10 M9 3 L15 9 M4 9 L10 15 M6 11 L12 17"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      case "zigzag":
+        return (
+          <svg {...commonProps}>
+            <rect
+              x="3"
+              y="3"
+              width="14"
+              height="14"
+              rx="2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M4 12 L7 8 L10 12 L13 8 L16 12"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
 
   const renderArrowEndPreview = (
     endType: NonNullable<BoardElement["arrowEnd"]>,
@@ -581,8 +725,18 @@ export function ToolSidebar({
         fillPattern !== "none");
 
   const showFillPatternControls = hasSelectedElements
-    ? selectedElements.some((el) => el.type === "pen")
-    : selectedTool === "pen" || selectedTool === "highlighter";
+    ? selectedElements.some(
+        (el) =>
+          el.type === "pen" ||
+          el.type === "rectangle" ||
+          el.type === "diamond" ||
+          el.type === "ellipse",
+      )
+    : selectedTool === "pen" ||
+      selectedTool === "highlighter" ||
+      selectedTool === "rectangle" ||
+      selectedTool === "diamond" ||
+      selectedTool === "ellipse";
 
   const showCornerRadius = hasSelectedElements
     ? selectedElements.some(
@@ -845,7 +999,7 @@ export function ToolSidebar({
             }}
             variant="outline"
             size="sm"
-            className="w-full justify-between gap-2"
+            className="w-full flex-wrap justify-between gap-2"
           >
             {(useHighlightPalette
               ? HIGHLIGHTER_STROKE_WIDTHS
@@ -1128,7 +1282,7 @@ export function ToolSidebar({
               Fill Pattern
             </label>
             <span className="text-xs text-muted-foreground capitalize">
-              {fillPattern}
+              {fillPatternLabel}
             </span>
           </div>
           <ToggleGroup
@@ -1136,34 +1290,28 @@ export function ToolSidebar({
             value={fillPattern}
             onValueChange={(value) => {
               if (!value) return;
-              onFillPatternChange?.(value as "none" | "solid");
+              onFillPatternChange?.(
+                value as NonNullable<BoardElement["fillPattern"]>,
+              );
             }}
             variant="outline"
             size="sm"
             className="w-full justify-between gap-2"
           >
-            <ToggleGroupItem
-              value="none"
-              aria-label="No fill pattern"
-              className={cn(
-                "flex-1 h-9 min-w-0 px-0",
-                CONTROL_BUTTON,
-                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
-              )}
-            >
-              <span className="text-xs">None</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="solid"
-              aria-label="Solid fill pattern"
-              className={cn(
-                "flex-1 h-9 min-w-0 px-0",
-                CONTROL_BUTTON,
-                "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
-              )}
-            >
-              <div className="w-6 h-6 rounded-sm bg-foreground/30" />
-            </ToggleGroupItem>
+            {fillPatternOptions.map((opt) => (
+              <ToggleGroupItem
+                key={opt.id}
+                value={opt.id}
+                aria-label={`${opt.label} fill pattern`}
+                className={cn(
+                  "flex-1 h-9 min-w-0 px-0 text-[11px]",
+                  CONTROL_BUTTON,
+                  "data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
+                )}
+              >
+                {renderFillPatternIcon(opt.id)}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
         </div>
       )}

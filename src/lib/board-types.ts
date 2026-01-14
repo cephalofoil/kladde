@@ -270,7 +270,7 @@ export interface BoardElement {
   // Folder organization
   folderId?: string;
   // Pattern fill properties
-  fillPattern?: "none" | "solid";
+  fillPattern?: "none" | "solid" | "hachure" | "cross-hatch" | "zigzag";
   isClosed?: boolean;
   // Tile properties
   tileType?: TileType;
