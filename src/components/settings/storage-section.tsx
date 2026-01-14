@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Database, HardDrive, Cloud, Check } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useBoardStore } from "@/store/board-store";
 import {
@@ -23,7 +29,14 @@ interface StorageOptionProps {
   badge?: string;
 }
 
-function StorageOption({ icon, title, description, active, disabled, badge }: StorageOptionProps) {
+function StorageOption({
+  icon,
+  title,
+  description,
+  active,
+  disabled,
+  badge,
+}: StorageOptionProps) {
   return (
     <div
       className={`flex items-start gap-3 rounded-lg border p-4 ${
@@ -36,14 +49,20 @@ function StorageOption({ icon, title, description, active, disabled, badge }: St
     >
       <div
         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-          active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          active
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground"
         }`}
       >
         {icon}
       </div>
       <div className="flex-1 space-y-1">
         <div className="flex items-center gap-2">
-          <span className={`font-medium ${disabled ? "text-muted-foreground" : ""}`}>{title}</span>
+          <span
+            className={`font-medium ${disabled ? "text-muted-foreground" : ""}`}
+          >
+            {title}
+          </span>
           {badge && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               {badge}
@@ -51,7 +70,9 @@ function StorageOption({ icon, title, description, active, disabled, badge }: St
           )}
           {active && <Check className="h-4 w-4 text-primary" />}
         </div>
-        <p className={`text-sm ${disabled ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
+        <p
+          className={`text-sm ${disabled ? "text-muted-foreground/70" : "text-muted-foreground"}`}
+        >
           {description}
         </p>
       </div>
@@ -83,14 +104,20 @@ export function StorageSection() {
       setBrowserQuota(quota);
 
       // Calculate breakdown from in-memory state (estimated)
-      const storeBreakdown = calculateStorageBreakdown(boards, boardData, workstreams);
+      const storeBreakdown = calculateStorageBreakdown(
+        boards,
+        boardData,
+        workstreams,
+      );
       setBreakdown(storeBreakdown);
     };
 
     fetchStorageInfo();
   }, [boards, boardData, workstreams]);
 
-  const stats = mounted ? getStorageStats() : { boardCount: 0, workspaceCount: 0 };
+  const stats = mounted
+    ? getStorageStats()
+    : { boardCount: 0, workspaceCount: 0 };
   const usagePercentage = getStoragePercentage(actualStorageSize, browserQuota);
 
   if (!mounted) {
@@ -114,7 +141,9 @@ export function StorageSection() {
       <Card>
         <CardHeader>
           <CardTitle>Storage Location</CardTitle>
-          <CardDescription>Where your boards and workspaces are stored</CardDescription>
+          <CardDescription>
+            Where your boards and workspaces are stored
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <StorageOption
@@ -126,9 +155,9 @@ export function StorageSection() {
           <StorageOption
             icon={<HardDrive className="h-5 w-5" />}
             title="Local Disk Storage"
-            description="Save to your computer's file system for better persistence."
+            description="Use Menu > Save to... to save boards to your computer's file system."
             disabled
-            badge="Coming Soon"
+            badge="Via Save Menu"
           />
           <StorageOption
             icon={<Cloud className="h-5 w-5" />}
@@ -153,10 +182,14 @@ export function StorageSection() {
                 {formatBytes(actualStorageSize)}
               </span>
             </div>
-            <Progress value={usagePercentage || (actualStorageSize > 0 ? 1 : 0)} className="h-2" />
+            <Progress
+              value={usagePercentage || (actualStorageSize > 0 ? 1 : 0)}
+              className="h-2"
+            />
             {browserQuota > 0 && (
               <p className="text-xs text-muted-foreground">
-                {usagePercentage.toFixed(2)}% of {formatBytes(browserQuota)} browser quota
+                {usagePercentage.toFixed(2)}% of {formatBytes(browserQuota)}{" "}
+                browser quota
               </p>
             )}
           </div>
@@ -170,7 +203,9 @@ export function StorageSection() {
                   <span>{formatBytes(breakdown.boards)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Board content (drawings, tiles)</span>
+                  <span className="text-muted-foreground">
+                    Board content (drawings, tiles)
+                  </span>
                   <span>{formatBytes(breakdown.boardData)}</span>
                 </div>
                 <div className="flex justify-between">
