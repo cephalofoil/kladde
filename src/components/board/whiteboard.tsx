@@ -1193,6 +1193,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
   const handleFillColorChange = useCallback(
     (color: string) => {
+      const shouldShowFill =
+        color !== "none" && color !== "transparent" && color.length > 0;
+      const defaultFillPattern = handDrawnMode ? "hachure" : "solid";
+      const nextFillPattern =
+        shouldShowFill && fillPattern === "none"
+          ? defaultFillPattern
+          : fillPattern;
       if (selectedElements.length > 0) {
         saveToUndoStack();
         selectedElements.forEach((el) => {
@@ -1206,13 +1213,32 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
               el.isClosed &&
               el.fillPattern !== "none")
           ) {
-            handleUpdateElement(el.id, { fillColor: color });
+            handleUpdateElement(el.id, {
+              fillColor: color,
+              ...(shouldShowFill && el.type !== "frame"
+                ? {
+                    fillPattern:
+                      el.fillPattern === undefined || el.fillPattern === "none"
+                        ? defaultFillPattern
+                        : el.fillPattern,
+                  }
+                : {}),
+            });
           }
         });
       }
       setFillColor(color);
+      if (nextFillPattern !== fillPattern) {
+        setFillPattern(nextFillPattern);
+      }
     },
-    [selectedElements, saveToUndoStack, handleUpdateElement],
+    [
+      selectedElements,
+      saveToUndoStack,
+      handleUpdateElement,
+      fillPattern,
+      handDrawnMode,
+    ],
   );
 
   const handleOpacityChange = useCallback(
@@ -1581,7 +1607,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         .filter((el) => el.type !== "laser")
         .map((el) => ({ ...el })),
     );
-  }, [selectedElements]);
+  }, [selectedElements, handDrawnMode]);
 
   // Paste elements from internal clipboard (Ctrl+V)
   const handlePaste = useCallback(() => {
@@ -2231,7 +2257,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         firstElement.fillColor !== "none" &&
         firstElement.fillColor !== "transparent"
       ) {
-        setFillPattern("solid");
+        setFillPattern(handDrawnMode ? "hachure" : "solid");
       }
     }
   }, [selectedElements]);

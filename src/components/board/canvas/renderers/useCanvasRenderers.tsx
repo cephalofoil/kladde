@@ -731,7 +731,9 @@ export function useCanvasRenderers({
           (effectiveElement.fillColor &&
           effectiveElement.fillColor !== "none" &&
           effectiveElement.fillColor !== "transparent"
-            ? "solid"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
             : "none");
         const elFillColor = isHighlighter
           ? effectiveElement.fillColor || effectiveElement.strokeColor
@@ -1369,7 +1371,9 @@ export function useCanvasRenderers({
           (element.fillColor &&
           element.fillColor !== "none" &&
           element.fillColor !== "transparent"
-            ? "solid"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
             : "none");
         const elFillColor = element.fillColor || "none";
         const usePatternFill =
@@ -1553,7 +1557,9 @@ export function useCanvasRenderers({
           (element.fillColor &&
           element.fillColor !== "none" &&
           element.fillColor !== "transparent"
-            ? "solid"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
             : "none");
         const elFillColor = element.fillColor || "none";
         const usePatternFill =
@@ -1773,7 +1779,9 @@ export function useCanvasRenderers({
           (element.fillColor &&
           element.fillColor !== "none" &&
           element.fillColor !== "transparent"
-            ? "solid"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
             : "none");
         const elFillColor = element.fillColor || "none";
         const usePatternFill =
