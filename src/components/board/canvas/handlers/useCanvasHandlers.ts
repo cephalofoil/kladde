@@ -271,6 +271,11 @@ export function useCanvasHandlers({
     id: string;
     updates: Partial<BoardElement>;
   }> | null>(null);
+  const resizeUpdateRafRef = useRef<number | null>(null);
+  const pendingResizeUpdatesRef = useRef<Array<{
+    id: string;
+    updates: Partial<BoardElement>;
+  }> | null>(null);
 
   const throttledFindSnapTarget = useMemo(
     () => throttleWithResult(findNearestSnapTarget, 32),
@@ -1632,11 +1637,21 @@ export function useCanvasHandlers({
             });
           }
 
-          if (onBatchUpdateElements) {
-            onBatchUpdateElements(batchUpdates);
-          } else {
-            batchUpdates.forEach(({ id, updates }) => {
-              onUpdateElement(id, updates);
+          pendingResizeUpdatesRef.current = batchUpdates;
+          if (resizeUpdateRafRef.current === null) {
+            resizeUpdateRafRef.current = requestAnimationFrame(() => {
+              resizeUpdateRafRef.current = null;
+              const updates = pendingResizeUpdatesRef.current;
+              if (!updates) return;
+              pendingResizeUpdatesRef.current = null;
+
+              if (onBatchUpdateElements) {
+                onBatchUpdateElements(updates);
+              } else {
+                updates.forEach(({ id, updates: u }) => {
+                  onUpdateElement(id, u);
+                });
+              }
             });
           }
         };
@@ -3585,6 +3600,21 @@ export function useCanvasHandlers({
       setOriginalElements([]);
       setOriginalBounds(null);
       setAlignmentGuides([]);
+      if (resizeUpdateRafRef.current !== null) {
+        cancelAnimationFrame(resizeUpdateRafRef.current);
+        resizeUpdateRafRef.current = null;
+      }
+      const pendingUpdates = pendingResizeUpdatesRef.current;
+      if (pendingUpdates) {
+        pendingResizeUpdatesRef.current = null;
+        if (onBatchUpdateElements) {
+          onBatchUpdateElements(pendingUpdates);
+        } else {
+          pendingUpdates.forEach(({ id, updates }) => {
+            onUpdateElement(id, updates);
+          });
+        }
+      }
       onEndTransform?.();
       return;
     }
