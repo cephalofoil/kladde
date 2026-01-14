@@ -27,9 +27,11 @@ import {
 interface QuickBoardsSidebarProps {
     quickBoards: Board[];
     onMoveBoard: (board: Board) => void;
+    onDragStart?: (boardId: string) => void;
+    onDragEnd?: () => void;
 }
 
-export function QuickBoardsSidebar({ quickBoards, onMoveBoard }: QuickBoardsSidebarProps) {
+export function QuickBoardsSidebar({ quickBoards, onMoveBoard, onDragStart, onDragEnd }: QuickBoardsSidebarProps) {
     const router = useRouter();
 
     if (quickBoards.length === 0) {
@@ -95,6 +97,13 @@ export function QuickBoardsSidebar({ quickBoards, onMoveBoard }: QuickBoardsSide
                         {quickBoards.map((board) => (
                             <div
                                 key={board.id}
+                                draggable
+                                onDragStart={(e) => {
+                                    e.dataTransfer.effectAllowed = "move";
+                                    e.dataTransfer.setData("text/plain", board.id);
+                                    onDragStart?.(board.id);
+                                }}
+                                onDragEnd={() => onDragEnd?.()}
                                 onClick={(e) => {
                                     if (e.ctrlKey || e.metaKey) {
                                         window.open(`/board/${board.id}`, "_blank");
@@ -102,7 +111,7 @@ export function QuickBoardsSidebar({ quickBoards, onMoveBoard }: QuickBoardsSide
                                     }
                                     router.push(`/board/${board.id}`);
                                 }}
-                                className="group relative flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-purple-200 dark:border-purple-800 bg-card/50 p-2.5 transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-purple-50/50 dark:hover:bg-purple-900/20"
+                                className="group relative flex cursor-grab items-center gap-2.5 rounded-lg border border-dashed border-purple-200 dark:border-purple-800 bg-card/50 p-2.5 transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-600 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 active:cursor-grabbing"
                             >
                                 <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-500 shrink-0">
                                     <Zap className="h-3.5 w-3.5 text-white" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -11,6 +11,7 @@ import {
     Search,
     Settings,
     Trash2,
+    Zap,
 } from "lucide-react";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
@@ -38,6 +39,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { QuickBoardsSidebar } from "@/components/quick-boards-sidebar";
+import { cn } from "@/lib/utils";
 
 const PINNED_STORAGE_KEY = "kladde-dashboard-pins";
 
@@ -52,6 +54,9 @@ export default function BoardsPage() {
     const [workspaceName, setWorkspaceName] = useState("");
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState("");
+    const [draggingBoardId, setDraggingBoardId] = useState<string | null>(null);
+    const [dropTargetWorkspaceId, setDropTargetWorkspaceId] = useState<string | null>(null);
+    const [isGridDropTargetActive, setIsGridDropTargetActive] = useState(false);
 
     const boards = useBoardStore((s) => s.boards);
     const workstreamsMap = useBoardStore((s) => s.workstreams);
@@ -211,6 +216,63 @@ export default function BoardsPage() {
         const id = createWorkstream("New Workspace", color);
         switchWorkstream(id);
     };
+
+    // Drag-and-drop handlers for Quick Boards
+    const handleBoardDragStart = useCallback((boardId: string) => {
+        setDraggingBoardId(boardId);
+    }, []);
+
+    const handleBoardDragEnd = useCallback(() => {
+        setDraggingBoardId(null);
+        setDropTargetWorkspaceId(null);
+        setIsGridDropTargetActive(false);
+    }, []);
+
+    const handleWorkspaceDragOver = useCallback((e: React.DragEvent, workspaceId: string) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setDropTargetWorkspaceId(workspaceId);
+    }, []);
+
+    const handleWorkspaceDragLeave = useCallback(() => {
+        setDropTargetWorkspaceId(null);
+    }, []);
+
+    const handleWorkspaceDrop = useCallback((e: React.DragEvent, workspaceId: string) => {
+        e.preventDefault();
+        if (draggingBoardId) {
+            moveBoard(draggingBoardId, workspaceId);
+        }
+        setDraggingBoardId(null);
+        setDropTargetWorkspaceId(null);
+    }, [draggingBoardId, moveBoard]);
+
+    // Grid drop zone handlers
+    const handleGridDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setIsGridDropTargetActive(true);
+    }, []);
+
+    const handleGridDragLeave = useCallback((e: React.DragEvent) => {
+        // Only deactivate if leaving the drop zone itself, not entering a child
+        const relatedTarget = e.relatedTarget as Node | null;
+        const currentTarget = e.currentTarget as Node;
+        if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+            setIsGridDropTargetActive(false);
+        }
+    }, []);
+
+    const handleGridDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        if (draggingBoardId) {
+            moveBoard(draggingBoardId, currentWorkstreamId);
+        }
+        setDraggingBoardId(null);
+        setDropTargetWorkspaceId(null);
+        setIsGridDropTargetActive(false);
+    }, [draggingBoardId, moveBoard, currentWorkstreamId]);
+
     const togglePin = (boardId: string) => {
         setPinnedByWorkstream((prev) => {
             const current = prev[currentWorkstreamId] || [];
@@ -304,26 +366,35 @@ export default function BoardsPage() {
                         </div>
                     </div>
 
-                    <div className="-mb-px mt-4 flex items-end gap-1 overflow-x-auto">
+                    <div className="-mb-px mt-4 flex items-end gap-1 overflow-x-auto overflow-y-visible">
                         {workstreams
                             .filter((ws) => ws.id !== QUICK_BOARDS_WORKSPACE_ID)
                             .map((workstream) => {
                                 const isActive =
                                     currentWorkstreamId === workstream.id;
+                                const isDropTarget = draggingBoardId && dropTargetWorkspaceId === workstream.id;
                                 return (
                                     <button
                                         key={workstream.id}
                                         onClick={() =>
                                             switchWorkstream(workstream.id)
                                         }
+                                        onDragOver={(e) => handleWorkspaceDragOver(e, workstream.id)}
+                                        onDragEnter={(e) => {
+                                            e.preventDefault();
+                                            setDropTargetWorkspaceId(workstream.id);
+                                        }}
+                                        onDragLeave={handleWorkspaceDragLeave}
+                                        onDrop={(e) => handleWorkspaceDrop(e, workstream.id)}
                                         aria-current={
                                             isActive ? "page" : undefined
                                         }
-                                        className={`relative flex shrink-0 items-center gap-2.5 px-6 py-3 text-sm font-medium transition-all ${
+                                        className={cn(
+                                            "relative flex shrink-0 items-center gap-2.5 px-6 py-3 text-sm font-medium transition-all",
                                             isActive
                                                 ? "z-10 bg-[var(--workspace-color)] text-white"
                                                 : "text-muted-foreground hover:bg-[var(--workspace-color-soft)] hover:text-foreground"
-                                        }`}
+                                        )}
                                         style={{
                                             borderTopLeftRadius: "12px",
                                             borderTopRightRadius: "12px",
@@ -338,6 +409,10 @@ export default function BoardsPage() {
                                             borderRight:
                                                 "3px solid var(--workspace-color)",
                                             borderBottom: "none",
+                                            // Drop target highlight - inset shadow doesn't affect layout
+                                            boxShadow: isDropTarget
+                                                ? "inset 0 0 0 2px hsl(var(--primary)), 0 0 12px 2px hsl(var(--primary) / 0.4)"
+                                                : undefined,
                                         }}
                                     >
                                         {workstream.name}
@@ -361,6 +436,8 @@ export default function BoardsPage() {
                     <QuickBoardsSidebar
                         quickBoards={quickBoards}
                         onMoveBoard={setBoardToMove}
+                        onDragStart={handleBoardDragStart}
+                        onDragEnd={handleBoardDragEnd}
                     />
                 )}
 
@@ -613,7 +690,7 @@ export default function BoardsPage() {
                             </div>
                         </div>
 
-                        {unpinnedBoards.length === 0 ? (
+                        {unpinnedBoards.length === 0 && !draggingBoardId ? (
                             <div className="flex flex-col items-center justify-center py-20 text-center">
                                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
                                     <Search className="h-8 w-8 text-muted-foreground/50" />
@@ -627,6 +704,38 @@ export default function BoardsPage() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {/* Drop zone placeholder - shown when dragging a Quick Board */}
+                                {draggingBoardId && (
+                                    <div
+                                        onDragOver={handleGridDragOver}
+                                        onDragLeave={handleGridDragLeave}
+                                        onDrop={handleGridDrop}
+                                        className={cn(
+                                            "relative flex flex-col rounded-xl border-2 border-dashed p-5 transition-all duration-200",
+                                            isGridDropTargetActive
+                                                ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30"
+                                                : "border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-950/20"
+                                        )}
+                                    >
+                                        <div className="mb-4 flex items-start justify-between">
+                                            <div
+                                                className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500"
+                                            >
+                                                <Zap className="h-6 w-6 text-white" />
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="mb-2 text-base font-semibold leading-snug text-purple-600 dark:text-purple-400">
+                                                {isGridDropTargetActive ? "Release to drop here" : "Drop Quick Board here"}
+                                            </h3>
+                                            <div className="flex items-center gap-2 text-xs text-purple-500 dark:text-purple-400">
+                                                <span className="rounded bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5">
+                                                    {currentWorkstream?.name}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 {unpinnedBoards.map((board) => (
                                     <BoardCard
                                         key={board.id}
