@@ -135,7 +135,7 @@
     --note-text: #2a2a2a;
     --note-tape: #c9bd8e;
     --note-shadow-value:
-        0 2px 12px rgba(255, 255, 255, 0.12), 0 0 20px rgba(255, 255, 255, 0.08);
+        0 2px 8px rgba(255, 255, 255, 0.06), 0 0 12px rgba(255, 255, 255, 0.04);
 
     /* Selection text color - brighter in dark mode */
     --selection-text: var(--accent);
