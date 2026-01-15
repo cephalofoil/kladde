@@ -50,6 +50,7 @@ export interface FrameImageSection extends DocumentSectionBase {
   frameId: string;
   cachedFrameLabel?: string;
   cachedFrameStyle?: FrameStyle;
+  contentIncluded?: boolean;
 }
 
 export interface HeadingSection extends DocumentSectionBase {

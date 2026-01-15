@@ -7,6 +7,7 @@ import type {
   BoardElement,
   DocumentContent,
   DocumentSection,
+  FrameImageSection,
 } from "@/lib/board-types";
 import { TilesPicker } from "./tiles-picker";
 import { FramesPicker } from "./frames-picker";
@@ -212,6 +213,56 @@ export function DocumentEditorPanel({
     [documentContent, updateDocumentContent]
   );
 
+  const handleIncludeFrameContent = useCallback(
+    (frameId: string, frameSectionId: string) => {
+      // Get tiles within frame that have content
+      const frameTiles = allElements.filter(
+        (el) =>
+          el.type === "tile" &&
+          el.frameId === frameId &&
+          !el.hidden &&
+          tileHasContent(el)
+      );
+
+      if (frameTiles.length === 0) return;
+
+      // Sort by position (top-to-bottom, left-to-right)
+      frameTiles.sort((a, b) => {
+        const yDiff = (a.y ?? 0) - (b.y ?? 0);
+        if (Math.abs(yDiff) > 50) return yDiff;
+        return (a.x ?? 0) - (b.x ?? 0);
+      });
+
+      const sections = documentContent.layout.sections;
+      const frameIndex = sections.findIndex((s) => s.id === frameSectionId);
+      if (frameIndex === -1) return;
+
+      // Create TileContentSections for each tile
+      const tileSections = frameTiles.map((tile) =>
+        createTileContentSection(
+          tile.id,
+          tile.tileType,
+          tile.tileTitle,
+          tile.tileContent
+        )
+      );
+
+      // Insert tiles after frame and mark frame as contentIncluded
+      const newSections = [...sections];
+      newSections.splice(frameIndex + 1, 0, ...tileSections);
+      const frameSection = newSections[frameIndex] as FrameImageSection;
+      newSections[frameIndex] = {
+        ...frameSection,
+        contentIncluded: true,
+      };
+
+      updateDocumentContent({
+        layout: { ...documentContent.layout, sections: newSections },
+      });
+    },
+    [allElements, documentContent, updateDocumentContent]
+  );
+
   const handleExportPdf = useCallback(async () => {
     setIsExporting(true);
     try {
@@ -340,6 +391,7 @@ export function DocumentEditorPanel({
               onRemoveSection={handleRemoveSection}
               onUpdateSection={handleUpdateSection}
               onMoveSection={handleMoveSection}
+              onIncludeFrameContent={handleIncludeFrameContent}
             />
           </div>
         </div>

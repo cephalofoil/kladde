@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import { GripVertical, X, AlertTriangle, Square } from "lucide-react";
+import { GripVertical, X, AlertTriangle, Square, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardElement, FrameImageSection } from "@/lib/board-types";
 import {
@@ -30,6 +30,7 @@ interface FrameImageSectionRendererProps {
   allElements: BoardElement[];
   onRemove: () => void;
   onUpdate: (updates: Partial<FrameImageSection>) => void;
+  onIncludeContent: () => void;
 }
 
 export function FrameImageSectionRenderer({
@@ -37,6 +38,7 @@ export function FrameImageSectionRenderer({
   allElements,
   onRemove,
   onUpdate,
+  onIncludeContent,
 }: FrameImageSectionRendererProps) {
   const liveFrame = useMemo(
     () => allElements.find((el) => el.type === "frame" && el.id === section.frameId),
@@ -96,6 +98,26 @@ export function FrameImageSectionRenderer({
   );
   const isDeleted = !liveFrame;
 
+  const frameTileIds = useMemo(() => {
+    return allElements
+      .filter(
+        (el) =>
+          el.type === "tile" &&
+          el.frameId === section.frameId &&
+          !el.hidden &&
+          el.tileContent &&
+          (el.tileContent.richText ||
+            el.tileContent.noteText ||
+            el.tileContent.code ||
+            el.tileContent.chart ||
+            el.tileContent.imageSrc)
+      )
+      .map((tile) => tile.id);
+  }, [allElements, section.frameId]);
+
+  const frameTileCount = frameTileIds.length;
+  const hasTiles = frameTileCount > 0;
+
   return (
     <div
       className={cn(
@@ -126,6 +148,16 @@ export function FrameImageSectionRenderer({
               <AlertTriangle className="w-2.5 h-2.5" />
               <span>Source deleted</span>
             </div>
+          )}
+          {!isDeleted && hasTiles && (
+            <button
+              type="button"
+              onClick={onIncludeContent}
+              className="flex items-center gap-1 ml-auto px-2 py-0.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              <span>insert frame tiles below</span>
+            </button>
           )}
         </div>
 

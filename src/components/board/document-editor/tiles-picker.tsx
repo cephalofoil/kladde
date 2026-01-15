@@ -14,11 +14,10 @@ export function TilesPicker({
   onAddTile,
   documentSections,
 }: TilesPickerProps) {
-  // Check if a tile is already in the document
-  const isTileInDocument = (tileId: string) => {
-    return documentSections.some(
+  const getTileCount = (tileId: string) => {
+    return documentSections.filter(
       (section) => section.type === "tile-content" && section.tileId === tileId
-    );
+    ).length;
   };
 
   return (
@@ -40,7 +39,7 @@ export function TilesPicker({
               <TileCard
                 key={tile.id}
                 tile={tile}
-                isAdded={isTileInDocument(tile.id)}
+                addedCount={getTileCount(tile.id)}
                 onAdd={() => onAddTile(tile)}
               />
             ))}
