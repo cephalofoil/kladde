@@ -2069,7 +2069,10 @@ export function useCanvasRenderers({
           letterSpacing: elLetterSpacing,
           lineHeight: elLineHeight,
         });
-        const textWidth = Math.max(element.width ?? 0, fallbackSize.width);
+        const textWidth = Math.max(
+          element.width ?? 0,
+          fallbackSize.width + Math.ceil(fontSize * 0.1),
+        );
         const textHeight = Math.max(element.height ?? 0, fallbackSize.height);
 
         return (

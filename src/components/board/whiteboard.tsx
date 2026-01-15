@@ -22,9 +22,7 @@ import { InviteDialog } from "./invite-dialog";
 import { CollaborationBar } from "./collaboration-bar";
 import {
   getFontFaceLoadString,
-  getTextFontString,
   measureUnboundedTextSize,
-  measureTextWidthPx,
   measureWrappedTextHeightPx,
 } from "./canvas/text-utils";
 import {
@@ -1355,32 +1353,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       return { width, height };
     }
 
-    const font = getTextFontString(fontSize, resolvedFontFamily);
-    const lines = text.split("\n");
-    const measuredLineWidths = lines.map((line) => {
-      const raw = line.length ? line : " ";
-      const baseWidth = measureTextWidthPx(raw, font);
-      const spacingWidth = Math.max(0, raw.length - 1) * resolvedLetterSpacing;
-      return baseWidth + spacingWidth;
-    });
-    const maxLineWidth = Math.max(...measuredLineWidths, 0);
-    const chars = text.replace(/\s/g, "");
-    const samples = chars.length ? chars : "W";
-    let maxCharWidth = 0;
-    for (const char of samples) {
-      const width = measureTextWidthPx(char, font);
-      maxCharWidth = Math.max(maxCharWidth, width);
-    }
-    const minWidth = Math.max(
-      2,
-      maxCharWidth + Math.abs(resolvedLetterSpacing) + 12,
-    );
-    const width = Math.max(minWidth, Math.ceil(maxLineWidth + 2));
-    const lineCount = Math.max(1, lines.length);
-    const height = Math.max(
-      minHeight,
-      Math.ceil(fontSize * lineHeight * lineCount),
-    );
+    const width = Math.max(unboundedSize.width + Math.ceil(fontSize * 0.1), 2);
+    const height = Math.max(unboundedSize.height, minHeight);
     return { width, height };
   };
 
@@ -1393,10 +1367,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             const dimensions = getUpdatedTextDimensions(el, {
               fontFamily: font,
             });
+            const nextWidth = Math.max(el.width ?? 0, dimensions.width);
+            const nextHeight = Math.max(el.height ?? 0, dimensions.height);
             handleUpdateElement(el.id, {
               fontFamily: font,
-              width: dimensions.width,
-              height: dimensions.height,
+              width: nextWidth,
+              height: nextHeight,
             });
           }
         });
