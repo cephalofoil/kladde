@@ -1644,12 +1644,17 @@ export function Canvas({
               }
               // Save text on blur if there's content
               if (textValue.trim()) {
-                handleTextSubmit();
+                handleTextSubmit({
+                  skipSelect: true,
+                  skipToolChange: true,
+                });
+                setSelectedIds([]);
               } else {
                 setTextInput(null);
                 setTextValue("");
                 setEditingTextElementId(null);
                 setEditingTextStyle(null);
+                setSelectedIds([]);
               }
             }}
             className="absolute inset-0 bg-transparent outline-none text-foreground resize-none"

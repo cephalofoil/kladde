@@ -2665,6 +2665,18 @@ export function useCanvasHandlers({
         frameHandle,
       } = getEventTargetInfo(e);
 
+      if (textInput && tool === "text") {
+        const editor = textInputRef.current;
+        const target = e.target as HTMLElement | null;
+        const clickedInsideEditor =
+          !!editor &&
+          (target === editor || target?.closest?.("textarea") === editor);
+        if (!clickedInsideEditor) {
+          editor?.blur();
+          return;
+        }
+      }
+
       const clickedElement = clickedElementId
         ? currentElements.find((el) => el.id === clickedElementId)
         : null;
@@ -3829,7 +3841,7 @@ export function useCanvasHandlers({
   }, [handleMouseUp, setEraserCursorPos, setLaserCursorPos, setHoverCursor]);
 
   const handleTextSubmit = useCallback(
-    (options?: { skipToolChange?: boolean }) => {
+    (options?: { skipToolChange?: boolean; skipSelect?: boolean }) => {
       if (textInput && textValue.trim()) {
         // Create a text element; click creates auto-width text, drag creates a text box.
         const activeStrokeColor = editingTextStyle?.strokeColor ?? strokeColor;
@@ -3911,7 +3923,9 @@ export function useCanvasHandlers({
           onAddElement(nextElement);
         }
 
-        setSelectedIds([nextElementId]);
+        if (!options?.skipSelect) {
+          setSelectedIds([nextElementId]);
+        }
         if (onToolChange && !isToolLocked && !options?.skipToolChange) {
           onToolChange("select");
         }

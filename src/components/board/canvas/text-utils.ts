@@ -8,8 +8,29 @@ export function measureTextWidthPx(text: string, font: string): number {
   return ctx.measureText(text).width;
 }
 
+function resolveFontFamily(fontFamily: string): string {
+  if (typeof document === "undefined") return fontFamily;
+  if (!fontFamily.includes("var(")) return fontFamily;
+  return fontFamily.replace(/var\((--[^)]+)\)/g, (_match, name) => {
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim();
+    return value || `var(${name})`;
+  });
+}
+
 export function getTextFontString(fontSize: number, fontFamily: string) {
-  return `500 ${fontSize}px ${fontFamily}`;
+  const resolvedFamily = resolveFontFamily(fontFamily);
+  return `500 ${fontSize}px ${resolvedFamily}`;
+}
+
+export function getFontFaceLoadString(
+  fontSize: number,
+  fontFamily: string,
+  fontWeight = 500,
+) {
+  const resolvedFamily = resolveFontFamily(fontFamily).replace(/"/g, "");
+  return `${fontWeight} ${fontSize}px ${resolvedFamily}`.trim();
 }
 
 // Get the minimum width needed to display a single character without clipping

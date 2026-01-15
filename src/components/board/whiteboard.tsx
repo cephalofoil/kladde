@@ -21,7 +21,9 @@ import { HotkeysDialog } from "./hotkeys-dialog";
 import { InviteDialog } from "./invite-dialog";
 import { CollaborationBar } from "./collaboration-bar";
 import {
+  getFontFaceLoadString,
   getTextFontString,
+  measureUnboundedTextSize,
   measureTextWidthPx,
   measureWrappedTextHeightPx,
 } from "./canvas/text-utils";
@@ -1323,8 +1325,19 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const isTextBox = element.isTextBox ?? true;
     const minHeight = fontSize * lineHeight;
 
+    const unboundedSize = measureUnboundedTextSize({
+      text,
+      fontSize,
+      fontFamily: resolvedFontFamily,
+      letterSpacing,
+      lineHeight,
+    });
+
     if (isTextBox) {
-      const width = element.width ?? 200;
+      const width = Math.max(
+        element.width ?? 200,
+        unboundedSize.width + Math.ceil(fontSize * 0.1),
+      );
       const height = Math.max(
         minHeight,
         measureWrappedTextHeightPx({
@@ -1335,7 +1348,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           fontFamily: resolvedFontFamily,
           letterSpacing,
           textAlign,
-        }),
+        }) + Math.ceil(fontSize * 0.15),
       );
       return { width, height };
     }
@@ -1382,6 +1395,30 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             });
           }
         });
+        if (typeof document !== "undefined" && document.fonts?.load) {
+          const loaders = selectedElements
+            .filter((el) => el.type === "text")
+            .map((el) => {
+              const fontSize = el.fontSize ?? el.strokeWidth * 4 + 12;
+              const sampleText = el.text ?? "W";
+              const fontLoadString = getFontFaceLoadString(fontSize, font);
+              return document.fonts.load(fontLoadString, sampleText);
+            });
+          Promise.all(loaders)
+            .then(() => {
+              selectedElements.forEach((el) => {
+                if (el.type !== "text") return;
+                const dimensions = getUpdatedTextDimensions(el, {
+                  fontFamily: font,
+                });
+                handleUpdateElement(el.id, {
+                  width: dimensions.width,
+                  height: dimensions.height,
+                });
+              });
+            })
+            .catch(() => {});
+        }
       }
       setFontFamily(font);
     },
