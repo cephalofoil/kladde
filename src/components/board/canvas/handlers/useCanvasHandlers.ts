@@ -2767,6 +2767,9 @@ export function useCanvasHandlers({
           selectableClickedElement.type === "text" &&
           !isRemotelySelected
         ) {
+          if (onToolChange && !isToolLocked) {
+            onToolChange("text");
+          }
           const editFontSize =
             selectableClickedElement.fontSize ??
             selectableClickedElement.strokeWidth * 4 + 12;

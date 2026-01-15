@@ -1318,19 +1318,21 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       overrides.fontFamily ?? element.fontFamily ?? fontFamily;
     const fontSize =
       overrides.fontSize ?? element.fontSize ?? element.strokeWidth * 4 + 12;
-    const letterSpacing =
+    const resolvedLetterSpacing =
       overrides.letterSpacing ?? element.letterSpacing ?? letterSpacing;
-    const lineHeight = overrides.lineHeight ?? element.lineHeight ?? lineHeight;
-    const textAlign = overrides.textAlign ?? element.textAlign ?? textAlign;
+    const resolvedLineHeight =
+      overrides.lineHeight ?? element.lineHeight ?? lineHeight;
+    const resolvedTextAlign =
+      overrides.textAlign ?? element.textAlign ?? textAlign;
     const isTextBox = element.isTextBox ?? true;
-    const minHeight = fontSize * lineHeight;
+    const minHeight = fontSize * resolvedLineHeight;
 
     const unboundedSize = measureUnboundedTextSize({
       text,
       fontSize,
       fontFamily: resolvedFontFamily,
-      letterSpacing,
-      lineHeight,
+      letterSpacing: resolvedLetterSpacing,
+      lineHeight: resolvedLineHeight,
     });
 
     if (isTextBox) {
@@ -1344,10 +1346,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           text,
           width,
           fontSize,
-          lineHeight,
+          lineHeight: resolvedLineHeight,
           fontFamily: resolvedFontFamily,
-          letterSpacing,
-          textAlign,
+          letterSpacing: resolvedLetterSpacing,
+          textAlign: resolvedTextAlign,
         }) + Math.ceil(fontSize * 0.15),
       );
       return { width, height };
@@ -1358,7 +1360,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const measuredLineWidths = lines.map((line) => {
       const raw = line.length ? line : " ";
       const baseWidth = measureTextWidthPx(raw, font);
-      const spacingWidth = Math.max(0, raw.length - 1) * letterSpacing;
+      const spacingWidth = Math.max(0, raw.length - 1) * resolvedLetterSpacing;
       return baseWidth + spacingWidth;
     });
     const maxLineWidth = Math.max(...measuredLineWidths, 0);
@@ -1369,7 +1371,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
       const width = measureTextWidthPx(char, font);
       maxCharWidth = Math.max(maxCharWidth, width);
     }
-    const minWidth = Math.max(2, maxCharWidth + Math.abs(letterSpacing) + 12);
+    const minWidth = Math.max(
+      2,
+      maxCharWidth + Math.abs(resolvedLetterSpacing) + 12,
+    );
     const width = Math.max(minWidth, Math.ceil(maxLineWidth + 2));
     const lineCount = Math.max(1, lines.length);
     const height = Math.max(
