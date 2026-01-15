@@ -3869,6 +3869,10 @@ export function useCanvasHandlers({
           letterSpacing: activeLetterSpacing,
           lineHeight: activeLineHeight,
         });
+        const unboundedWidth =
+          textInput.width ?? measuredWidth ?? unboundedSize.width;
+        const unboundedHeight =
+          textInput.height ?? measuredHeight ?? unboundedSize.height;
         const nextElement: BoardElement = {
           id: nextElementId,
           type: "text",
@@ -3880,14 +3884,14 @@ export function useCanvasHandlers({
           y: textInput.y,
           width: isTextBox
             ? (measuredWidth ?? textInput.width ?? 200)
-            : unboundedSize.width,
+            : unboundedWidth,
           height: isTextBox
             ? (textBoxHeight ??
               textInput.height ??
               activeFontSize * activeLineHeight)
             : (measuredHeight ??
               textInput.height ??
-              unboundedSize.height ??
+              unboundedHeight ??
               activeFontSize * activeLineHeight * lineCount),
           isTextBox,
           scaleX: 1,
