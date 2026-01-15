@@ -2223,61 +2223,66 @@ export function useCanvasRenderers({
                     );
                 }
 
-                // Render simple multi-line text
+                // Render simple multi-line text (auto-width) using HTML for alignment parity.
                 const elTextAlign = element.textAlign || "left";
-                let textX = 0;
-                let textAnchor: "start" | "middle" | "end" = "start";
-
-                if (elTextAlign === "center") {
-                    textX = (element.width ?? 0) / 2;
-                    textAnchor = "middle";
-                } else if (elTextAlign === "right") {
-                    textX = element.width ?? 0;
-                    textAnchor = "end";
-                }
-
-                const lines = (element.text || "").split("\n");
-                const lineHeightPx = fontSize * elLineHeight;
+                const textWidth = element.width ?? 0;
+                const textHeight = element.height ?? fontSize * elLineHeight;
 
                 return (
                     <g key={element.id} transform={rotationTransform}>
-                        <text
-                            data-element-id={element.id}
+                        <rect
+                            x={x}
+                            y={y}
+                            width={textWidth}
+                            height={textHeight}
+                            fill="transparent"
+                            stroke="transparent"
+                            strokeWidth={1}
+                            pointerEvents="fill"
+                        />
+                        <foreignObject
+                            x={x}
+                            y={y}
+                            width={textWidth}
+                            height={textHeight}
+                            pointerEvents="none"
                             opacity={
                                 isMarkedForDeletion
                                     ? elOpacity * 0.3
                                     : elOpacity
                             }
-                            fill={element.strokeColor}
-                            fontSize={fontSize}
-                            fontFamily={
-                                element.fontFamily || "var(--font-inter)"
-                            }
-                            textAnchor={textAnchor}
-                            letterSpacing={`${elLetterSpacing}px`}
-                            x={textX}
-                            y={baselineOffset}
-                            transform={`translate(${x}, ${y}) scale(${scaleX}, ${scaleY})`}
-                            pointerEvents="auto"
                         >
-                            {lines.map((line, index) => (
-                                <tspan
-                                    key={`${element.id}-line-${index}`}
-                                    x={textX}
-                                    dy={index === 0 ? 0 : lineHeightPx}
-                                >
-                                    {line.length ? line : "\u00a0"}
-                                </tspan>
-                            ))}
-                        </text>
+                            <div
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    color: element.strokeColor,
+                                    fontFamily:
+                                        element.fontFamily ||
+                                        "var(--font-inter)",
+                                    fontSize: `${fontSize}px`,
+                                    lineHeight: `${elLineHeight}`,
+                                    letterSpacing: `${elLetterSpacing}px`,
+                                    whiteSpace: "pre",
+                                    overflowWrap: "normal",
+                                    wordBreak: "normal",
+                                    textAlign: elTextAlign,
+                                    padding: 0,
+                                    margin: 0,
+                                    boxSizing: "border-box",
+                                    overflow: "visible",
+                                }}
+                            >
+                                {element.text || ""}
+                            </div>
+                        </foreignObject>
                         {isMarkedForDeletion && (
                             <rect
                                 x={x}
                                 y={y}
-                                width={element.width ?? 100}
-                                height={element.height ?? 30}
+                                width={textWidth}
+                                height={textHeight}
                                 fill="rgba(0, 0, 0, 0.7)"
-                                transform={`scale(${scaleX}, ${scaleY})`}
                                 pointerEvents="none"
                             />
                         )}

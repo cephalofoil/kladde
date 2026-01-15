@@ -13,12 +13,7 @@ import { CollaboratorCursors } from "../collaborator-cursor";
 import { EraserTrail } from "@/lib/eraser-trail";
 import type { RemoteSelection, RemoteCursor } from "./types";
 import { chooseRotateHandleSide } from "./geometry";
-import {
-    getMinSingleCharWidth,
-    getTextFontString,
-    measureTextWidthPx,
-    measureWrappedTextHeightPx,
-} from "./text-utils";
+import { measureTextWidthPx, measureWrappedTextHeightPx } from "./text-utils";
 import { getBoundingBox, getCombinedBounds } from "./shapes";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasHandlers } from "./handlers/useCanvasHandlers";
@@ -816,26 +811,37 @@ export function Canvas({
                 nextHeight = Math.max(measuredContentHeight, minHeightPx);
             } else {
                 const lines = textValue.split("\n");
-                const font = getTextFontString(
-                    activeFontSize,
-                    activeFontFamily,
-                );
+                const computedFont = window.getComputedStyle(textarea).font;
                 const measuredLineWidths = lines.map((line) => {
                     const raw = line.length ? line : " ";
-                    const baseWidth = measureTextWidthPx(raw, font);
+                    const baseWidth = measureTextWidthPx(raw, computedFont);
                     const spacingWidth =
                         Math.max(0, raw.length - 1) * activeLetterSpacing;
                     return baseWidth + spacingWidth;
                 });
                 const maxLineWidth = Math.max(...measuredLineWidths, 0);
-                const minWidth = getMinSingleCharWidth(
-                    textValue,
-                    activeFontSize,
-                    activeFontFamily,
-                    activeLetterSpacing,
+                const chars = textValue.replace(/\s/g, "");
+                const samples = chars.length ? chars : "W";
+                let maxCharWidth = 0;
+                for (const char of samples) {
+                    const width = measureTextWidthPx(char, computedFont);
+                    maxCharWidth = Math.max(maxCharWidth, width);
+                }
+                const minWidth = Math.max(
+                    2,
+                    maxCharWidth + Math.abs(activeLetterSpacing) + 12,
                 );
-                nextWidth = Math.max(minWidth, Math.ceil(maxLineWidth + 2));
-                nextHeight = Math.max(1, lines.length) * minHeightPx;
+                const measuredWidth = Math.max(
+                    minWidth,
+                    Math.ceil(maxLineWidth + 2),
+                    Math.ceil(textarea.scrollWidth),
+                );
+                const measuredHeight = Math.max(
+                    minHeightPx,
+                    Math.ceil(textarea.scrollHeight),
+                );
+                nextWidth = measuredWidth;
+                nextHeight = measuredHeight;
             }
 
             // Use exact measured height without buffer to avoid extra space below text
@@ -844,9 +850,10 @@ export function Canvas({
             // Always update textInput size to match content (both growing and shrinking)
             const currentHeight = textInput.height ?? 0;
             const currentWidth = textInput.width ?? 0;
+            const sizeEpsilon = isTextBox ? 0.5 : 1.5;
             if (
-                Math.abs(currentHeight - nextHeight) > 0.5 ||
-                (!isTextBox && Math.abs(currentWidth - nextWidth) > 0.5)
+                Math.abs(currentHeight - nextHeight) > sizeEpsilon ||
+                (!isTextBox && Math.abs(currentWidth - nextWidth) > sizeEpsilon)
             ) {
                 setTextInput((prev) =>
                     prev
@@ -867,9 +874,10 @@ export function Canvas({
                 const el = elements.find((e) => e.id === editingTextElementId);
                 const textChanged = el?.text !== textValue;
                 const heightChanged =
-                    Math.abs((el?.height ?? 0) - nextHeight) > 0.5;
+                    Math.abs((el?.height ?? 0) - nextHeight) > sizeEpsilon;
                 const widthChanged =
-                    !isTextBox && Math.abs((el?.width ?? 0) - nextWidth) > 0.5;
+                    !isTextBox &&
+                    Math.abs((el?.width ?? 0) - nextWidth) > sizeEpsilon;
                 if (textChanged || heightChanged || widthChanged) {
                     onUpdateElementRef.current(editingTextElementId, {
                         text: textValue,
