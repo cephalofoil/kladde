@@ -1526,9 +1526,7 @@ export function Canvas({
               height={fontSize * lineHeight}
               fill="none"
               stroke={strokeColor}
-              strokeWidth={strokeWidth * 0.5}
-              strokeDasharray="4,4"
-              opacity={0.5}
+              strokeWidth={1}
               rx={4}
             />
           )}
@@ -1673,7 +1671,7 @@ export function Canvas({
               margin: 0,
               border: 0,
               outline: isTextBoxEditing
-                ? "2px dashed color-mix(in oklab, var(--accent) 60%, transparent)"
+                ? "1px solid color-mix(in oklab, var(--accent) 60%, transparent)"
                 : "none",
               outlineOffset: "0px",
               boxSizing: "content-box",
