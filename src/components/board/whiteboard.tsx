@@ -60,6 +60,7 @@ import {
 } from "@/lib/filesystem-storage";
 import { useBoardElements } from "@/hooks/use-board-elements";
 import { useFilesystemAutoSave } from "@/hooks/use-filesystem-auto-save";
+import { useDiskStorageSync } from "@/hooks/use-disk-storage-sync";
 import { useBoardStore } from "@/store/board-store";
 import { getBoundingBox, translateElement } from "./whiteboard/utils";
 import type { BoundingBox } from "./whiteboard/utils";
@@ -298,6 +299,17 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             isOwner,
             enabled: !isReadOnly,
         });
+
+    // Global disk storage sync (when enabled in settings)
+    const diskStorageEnabled = useBoardStore(
+        (s) => s.settings.diskStorageEnabled,
+    );
+    useDiskStorageSync({
+        boardId,
+        elements,
+        canvasBackground,
+        enabled: !isReadOnly && diskStorageEnabled,
+    });
 
     // Ref to store the setViewport function from Canvas
     const setViewportRef = useRef<

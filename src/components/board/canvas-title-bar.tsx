@@ -26,6 +26,9 @@ export function CanvasTitleBar({
     const boards = useBoardStore((s) => s.boards);
     const workstreams = useBoardStore((s) => s.workstreams);
     const updateBoard = useBoardStore((s) => s.updateBoard);
+    const diskStorageEnabled = useBoardStore(
+        (s) => s.settings.diskStorageEnabled,
+    );
 
     const [isRenaming, setIsRenaming] = useState(false);
     const [newName, setNewName] = useState("");
@@ -92,7 +95,9 @@ export function CanvasTitleBar({
     };
 
     // Determine save status indicator
-    const saveStatusIndicator = hasDiskFile ? (
+    // Show indicator if either per-file disk save OR global disk storage is active
+    const showSaveIndicator = hasDiskFile || diskStorageEnabled;
+    const saveStatusIndicator = showSaveIndicator ? (
         <span
             className={cn(
                 "text-xs px-1.5 py-0.5 rounded transition-colors select-none",

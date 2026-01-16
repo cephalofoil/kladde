@@ -94,6 +94,8 @@ export interface BoardStoreState {
     ui: UIState;
     settings: {
         collabInvitesEnabled: boolean; // Allow sharing collab invite links
+        diskStorageEnabled: boolean; // Whether global disk storage is active
+        diskStorageDirectoryName?: string; // Display name of selected folder
     };
 
     // Optimistic updates
@@ -147,6 +149,7 @@ export interface BoardStoreActions {
     getStorageStats: () => { boardCount: number; workspaceCount: number };
     clearAllData: () => Promise<void>;
     setCollabInvitesEnabled: (enabled: boolean) => void;
+    setDiskStorageEnabled: (enabled: boolean, directoryName?: string) => void;
 }
 
 /**
