@@ -2200,6 +2200,7 @@ export function useCanvasRenderers({
                                             element.fontFamily ||
                                             "var(--font-inter)",
                                         fontSize: `${fontSize}px`,
+                                        fontWeight: 500,
                                         lineHeight: `${elLineHeight}`,
                                         // At minimum width, use 0 letter-spacing to force 1 char per line
                                         letterSpacing: isAtMinWidth
@@ -2289,6 +2290,7 @@ export function useCanvasRenderers({
                                         element.fontFamily ||
                                         "var(--font-inter)",
                                     fontSize: `${fontSize}px`,
+                                    fontWeight: 500,
                                     lineHeight: `${elLineHeight}`,
                                     letterSpacing: `${elLetterSpacing}px`,
                                     whiteSpace: "pre",

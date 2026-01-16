@@ -1731,6 +1731,7 @@ export function Canvas({
                             fontSize: editingTextStyle?.fontSize ?? fontSize,
                             fontFamily:
                                 editingTextStyle?.fontFamily ?? fontFamily,
+                            fontWeight: 500,
                             letterSpacing: `${editingTextStyle?.letterSpacing ?? letterSpacing}px`,
                             color: editingTextStyle?.strokeColor ?? strokeColor,
                             lineHeight: (
