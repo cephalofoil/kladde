@@ -3,7 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useBoardStore } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
-import { MoreHorizontal, Pin, Pencil } from "lucide-react";
+import type { WorkspaceStorageType } from "@/lib/store-types";
+import type { BoardSyncStatus } from "@/store/board-sync-store";
+import {
+  MoreHorizontal,
+  Pin,
+  Pencil,
+  Database,
+  HardDrive,
+  Cloud,
+} from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,19 +21,60 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface BoardCardProps {
   board: Board;
   isPinned?: boolean;
   onTogglePin?: (boardId: string) => void;
   workstreamColor?: string;
+  storageType?: WorkspaceStorageType;
+  saveStatus?: BoardSyncStatus;
+}
+
+/**
+ * Get the icon component for a storage type
+ */
+function StorageIcon({
+  type,
+  className,
+}: {
+  type: WorkspaceStorageType;
+  className?: string;
+}) {
+  switch (type) {
+    case "disk":
+      return <HardDrive className={className} />;
+    case "cloud":
+      return <Cloud className={className} />;
+    case "browser":
+    default:
+      return <Database className={className} />;
+  }
+}
+
+/**
+ * Get the label for a storage type
+ */
+function getStorageLabel(type: WorkspaceStorageType): string {
+  switch (type) {
+    case "disk":
+      return "Disk";
+    case "cloud":
+      return "Cloud";
+    case "browser":
+    default:
+      return "Browser";
+  }
 }
 
 export function BoardCard({
   board,
   isPinned = false,
   onTogglePin,
-  workstreamColor
+  workstreamColor,
+  storageType = "browser",
+  saveStatus,
 }: BoardCardProps) {
   const router = useRouter();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -39,7 +89,7 @@ export function BoardCard({
   const handleClick = (e: React.MouseEvent) => {
     // Ctrl/Cmd + Click opens in new tab
     if (e.ctrlKey || e.metaKey) {
-      window.open(`/board/${board.id}`, '_blank');
+      window.open(`/board/${board.id}`, "_blank");
       return;
     }
     router.push(`/board/${board.id}`);
@@ -91,6 +141,19 @@ export function BoardCard({
       router.push(`/board/${newId}`);
     }
   };
+
+  // Determine save status display (only show for disk/cloud storage)
+  const showSaveStatus = storageType === "disk" || storageType === "cloud";
+  const saveStatusText =
+    saveStatus === "saving"
+      ? "Saving..."
+      : saveStatus === "unsaved"
+        ? "Unsaved"
+        : "Saved";
+  const saveStatusColor =
+    saveStatus === "saved"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : "text-amber-600 dark:text-amber-400";
 
   return (
     <div
@@ -147,41 +210,44 @@ export function BoardCard({
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={(event) => {
-                  event.stopPropagation();
-                  router.push(`/board/${board.id}`);
-                }}
-              >
-                Open
-              </DropdownMenuItem>
-              {onTogglePin && (
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onClick={(event) => {
                     event.stopPropagation();
-                    onTogglePin(board.id);
+                    router.push(`/board/${board.id}`);
                   }}
                 >
-                  {isPinned ? "Unpin Board" : "Pin Board"}
+                  Open
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={handleDuplicate}>
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleDelete}
-                className="text-destructive focus:text-destructive"
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+                {onTogglePin && (
+                  <DropdownMenuItem
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onTogglePin(board.id);
+                    }}
+                  >
+                    {isPinned ? "Unpin Board" : "Pin Board"}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleDuplicate}>
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </div>
 
-      <div className="flex-1" onClick={(e) => isRenaming && e.stopPropagation()}>
+      <div
+        className="flex-1"
+        onClick={(e) => isRenaming && e.stopPropagation()}
+      >
         {isRenaming ? (
           <input
             ref={inputRef}
@@ -204,9 +270,30 @@ export function BoardCard({
           </h3>
         )}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded bg-muted px-2 py-0.5 capitalize text-muted-foreground">
-            temporary
+          {/* Storage type indicator */}
+          <span className="flex items-center gap-1 rounded bg-muted px-2 py-0.5">
+            <StorageIcon type={storageType} className="h-3 w-3" />
+            <span>{getStorageLabel(storageType)}</span>
           </span>
+
+          {/* Save status indicator (only for disk/cloud storage) */}
+          {showSaveStatus && saveStatus && (
+            <span
+              className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors",
+                saveStatusColor,
+              )}
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  saveStatus === "saved" ? "bg-emerald-500" : "bg-amber-500",
+                  saveStatus === "saving" && "animate-pulse",
+                )}
+              />
+              <span>{saveStatusText}</span>
+            </span>
+          )}
         </div>
       </div>
     </div>

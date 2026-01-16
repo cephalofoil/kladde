@@ -1,529 +1,449 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Database, HardDrive, Cloud, Check, FolderOpen } from "lucide-react";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
+  Database,
+  HardDrive,
+  Cloud,
+  Check,
+  FolderOpen,
+  ChevronDown,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { useBoardStore } from "@/store/board-store";
 import {
-    getKladdeStorageSize,
-    getBrowserStorageQuota,
-    calculateStorageBreakdown,
-    formatBytes,
-    getStoragePercentage,
-    type StorageBreakdown,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
+import type { WorkspaceStorageType, Workstream } from "@/lib/store-types";
+import {
+  getKladdeStorageSize,
+  getBrowserStorageQuota,
+  calculateStorageBreakdown,
+  formatBytes,
+  getStoragePercentage,
+  type StorageBreakdown,
 } from "@/lib/storage-utils";
 import {
-    isFileSystemAccessSupported,
-    requestGlobalStorageDirectory,
-    getGlobalStorageDirectoryName,
-    clearGlobalStorageDirectory,
-    hasGlobalStorageDirectory,
-    saveBoardToGlobalStorage,
+  isFileSystemAccessSupported,
+  requestGlobalStorageDirectory,
+  hasGlobalStorageDirectory,
+  saveBoardToGlobalStorage,
 } from "@/lib/filesystem-storage";
 import type { ShadeworksFile } from "@/lib/board-types";
 
-const QUICK_BOARDS_WORKSPACE_ID = "quick-boards";
 const QUICKBOARDS_FOLDER_NAME = "quickboards";
 
-interface StorageOptionProps {
-    icon: React.ReactNode;
-    title: string;
-    description: string;
-    active?: boolean;
-    disabled?: boolean;
-    badge?: string;
-    onClick?: () => void;
-    children?: React.ReactNode;
+/**
+ * Get the icon component for a storage type
+ */
+function StorageTypeIcon({
+  type,
+  className,
+}: {
+  type: WorkspaceStorageType;
+  className?: string;
+}) {
+  switch (type) {
+    case "disk":
+      return <HardDrive className={className} />;
+    case "cloud":
+      return <Cloud className={className} />;
+    case "browser":
+    default:
+      return <Database className={className} />;
+  }
 }
 
-function StorageOption({
-    icon,
-    title,
-    description,
-    active,
-    disabled,
-    badge,
-    onClick,
-    children,
-}: StorageOptionProps) {
-    const isClickable = !!onClick && !disabled;
+/**
+ * Get the label for a storage type
+ */
+function getStorageLabel(type: WorkspaceStorageType): string {
+  switch (type) {
+    case "disk":
+      return "Disk";
+    case "cloud":
+      return "Cloud";
+    case "browser":
+    default:
+      return "Browser";
+  }
+}
 
-    return (
+interface WorkspaceStorageRowProps {
+  workspace: Workstream;
+  fsApiSupported: boolean;
+  onChangeStorageType: (
+    workspaceId: string,
+    type: WorkspaceStorageType,
+    directoryName?: string,
+  ) => void;
+  isSyncing: boolean;
+}
+
+function WorkspaceStorageRow({
+  workspace,
+  fsApiSupported,
+  onChangeStorageType,
+  isSyncing,
+}: WorkspaceStorageRowProps) {
+  const storageType = workspace.storageType || "browser";
+  const [isSelectingFolder, setIsSelectingFolder] = useState(false);
+
+  const handleSelectDisk = async () => {
+    if (!fsApiSupported) return;
+
+    setIsSelectingFolder(true);
+    try {
+      const handle = await requestGlobalStorageDirectory();
+      if (handle) {
+        onChangeStorageType(workspace.id, "disk", handle.name);
+      }
+    } catch (error) {
+      console.error("Failed to select folder:", error);
+    } finally {
+      setIsSelectingFolder(false);
+    }
+  };
+
+  const handleSelectBrowser = () => {
+    onChangeStorageType(workspace.id, "browser");
+  };
+
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-border last:border-b-0">
+      <div className="flex items-center gap-3">
         <div
-            onClick={isClickable ? onClick : undefined}
-            className={`flex items-start gap-3 rounded-lg border p-4 ${
-                active
-                    ? "border-primary bg-primary/5"
-                    : disabled
-                      ? "border-muted bg-muted/30 opacity-60"
-                      : isClickable
-                        ? "border-border hover:border-primary/50 hover:bg-muted/30 cursor-pointer transition-colors"
-                        : "border-border"
-            }`}
-        >
-            <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                    active
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                }`}
-            >
-                {icon}
-            </div>
-            <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                    <span
-                        className={`font-medium ${disabled ? "text-muted-foreground" : ""}`}
-                    >
-                        {title}
-                    </span>
-                    {badge && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            {badge}
-                        </span>
-                    )}
-                    {active && <Check className="h-4 w-4 text-primary" />}
-                </div>
-                <p
-                    className={`text-sm ${disabled ? "text-muted-foreground/70" : "text-muted-foreground"}`}
-                >
-                    {description}
-                </p>
-                {children}
-            </div>
+          className="h-3 w-3 rounded-full shrink-0"
+          style={{ backgroundColor: workspace.color }}
+        />
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate">{workspace.name}</p>
+          {storageType === "disk" && workspace.storageConfig?.directoryName && (
+            <p className="text-xs text-muted-foreground truncate">
+              {workspace.storageConfig.directoryName}
+            </p>
+          )}
         </div>
-    );
+      </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            disabled={isSyncing || isSelectingFolder}
+          >
+            <StorageTypeIcon type={storageType} className="h-3.5 w-3.5" />
+            <span>{getStorageLabel(storageType)}</span>
+            <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleSelectBrowser} className="gap-2">
+            <Database className="h-4 w-4" />
+            <span>Browser</span>
+            {storageType === "browser" && <Check className="h-4 w-4 ml-auto" />}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={handleSelectDisk}
+            disabled={!fsApiSupported}
+            className="gap-2"
+          >
+            <HardDrive className="h-4 w-4" />
+            <span>Disk</span>
+            {!fsApiSupported && (
+              <span className="text-xs text-muted-foreground ml-auto">
+                Chrome/Edge only
+              </span>
+            )}
+            {storageType === "disk" && fsApiSupported && (
+              <Check className="h-4 w-4 ml-auto" />
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled className="gap-2">
+            <Cloud className="h-4 w-4" />
+            <span>Cloud</span>
+            <span className="text-xs text-muted-foreground ml-auto">
+              Coming Soon
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
 export function StorageSection() {
-    const [mounted, setMounted] = useState(false);
-    const [actualStorageSize, setActualStorageSize] = useState(0);
-    const [browserQuota, setBrowserQuota] = useState(0);
-    const [breakdown, setBreakdown] = useState<StorageBreakdown | null>(null);
-    const [isEnablingDiskStorage, setIsEnablingDiskStorage] = useState(false);
-    const [syncProgress, setSyncProgress] = useState<{
-        current: number;
-        total: number;
-    } | null>(null);
-    const [fsApiSupported, setFsApiSupported] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [actualStorageSize, setActualStorageSize] = useState(0);
+  const [browserQuota, setBrowserQuota] = useState(0);
+  const [breakdown, setBreakdown] = useState<StorageBreakdown | null>(null);
+  const [fsApiSupported, setFsApiSupported] = useState(false);
+  const [syncingWorkspaceId, setSyncingWorkspaceId] = useState<string | null>(
+    null,
+  );
 
-    const boards = useBoardStore((s) => s.boards);
-    const boardData = useBoardStore((s) => s.boardData);
-    const workstreams = useBoardStore((s) => s.workstreams);
-    const getStorageStats = useBoardStore((s) => s.getStorageStats);
-    const settings = useBoardStore((s) => s.settings);
-    const setDiskStorageEnabled = useBoardStore((s) => s.setDiskStorageEnabled);
+  const boards = useBoardStore((s) => s.boards);
+  const boardData = useBoardStore((s) => s.boardData);
+  const workstreams = useBoardStore((s) => s.workstreams);
+  const getStorageStats = useBoardStore((s) => s.getStorageStats);
+  const setWorkspaceStorageType = useBoardStore(
+    (s) => s.setWorkspaceStorageType,
+  );
 
-    // Get board filename based on type
-    const getBoardFileName = useCallback(
-        (boardId: string): string => {
-            const board = boards.get(boardId);
-            if (!board) return boardId;
+  // Get workspaces as array, excluding Quick Boards for now (we can add it back if needed)
+  const workspacesList = Array.from(workstreams.values()).filter(
+    (ws) => ws.id !== QUICK_BOARDS_WORKSPACE_ID,
+  );
 
-            if (board.workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
-                // Get quick board number by sorting all quick boards by creation date
-                const quickBoards = Array.from(boards.values())
-                    .filter((b) => b.workstreamId === QUICK_BOARDS_WORKSPACE_ID)
-                    .sort(
-                        (a, b) =>
-                            new Date(a.createdAt).getTime() -
-                            new Date(b.createdAt).getTime(),
-                    );
-                const index = quickBoards.findIndex((b) => b.id === board.id);
-                return `${index + 1}`;
-            }
+  // Sync all boards in a workspace to disk
+  const syncWorkspaceBoardsToDisk = useCallback(async (workspaceId: string) => {
+    const storeState = useBoardStore.getState();
+    const currentBoards = storeState.boards;
+    const currentBoardData = storeState.boardData;
+    const currentWorkstreams = storeState.workstreams;
+    const workspace = currentWorkstreams.get(workspaceId);
 
-            // Use board name if it looks like a custom name
-            const name = board.name.trim();
-            if (name && !name.startsWith("Quick Board")) {
-                return name;
-            }
+    if (!workspace) return;
 
-            // Fall back to creation date
-            const date = new Date(board.createdAt);
-            return date.toISOString().split("T")[0]; // YYYY-MM-DD
-        },
-        [boards],
+    const workspaceBoards = Array.from(currentBoards.values()).filter(
+      (b) => b.workstreamId === workspaceId,
     );
 
-    // Get workspace folder name
-    const getWorkspaceFolderName = useCallback(
-        (workstreamId: string): string => {
-            if (workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
-                return QUICKBOARDS_FOLDER_NAME;
-            }
-            const workstream = workstreams.get(workstreamId);
-            return workstream?.name || "Personal";
+    if (workspaceBoards.length === 0) return;
+
+    const folderName =
+      workspaceId === QUICK_BOARDS_WORKSPACE_ID
+        ? QUICKBOARDS_FOLDER_NAME
+        : workspace.name;
+
+    for (let i = 0; i < workspaceBoards.length; i++) {
+      const board = workspaceBoards[i];
+      const data = currentBoardData.get(board.id);
+
+      // Get file name
+      let fileName: string;
+      if (workspaceId === QUICK_BOARDS_WORKSPACE_ID) {
+        const quickBoards = workspaceBoards.sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+        const index = quickBoards.findIndex((b) => b.id === board.id);
+        fileName = `${index + 1}`;
+      } else {
+        const name = board.name.trim();
+        if (name && !name.startsWith("Quick Board")) {
+          fileName = name;
+        } else {
+          const date = new Date(board.createdAt);
+          fileName = date.toISOString().split("T")[0];
+        }
+      }
+
+      const elements = data?.elements || [];
+      const kladdeFile: ShadeworksFile = {
+        type: "kladde",
+        version: 1,
+        elements,
+        appState: {
+          canvasBackground:
+            (board.settings.backgroundColor as
+              | "none"
+              | "dots"
+              | "lines"
+              | "grid") || "none",
         },
-        [workstreams],
-    );
+      };
 
-    // Sync all existing boards to disk
-    const syncAllBoardsToDisk = useCallback(async () => {
-        // Get fresh data directly from the store to avoid stale closures
-        const storeState = useBoardStore.getState();
-        const currentBoards = storeState.boards;
-        const currentBoardData = storeState.boardData;
-        const currentWorkstreams = storeState.workstreams;
+      const jsonString = JSON.stringify(kladdeFile, null, 2);
+      await saveBoardToGlobalStorage(folderName, fileName, jsonString);
+    }
+  }, []);
 
-        const allBoards = Array.from(currentBoards.values());
-        const total = allBoards.length;
+  const handleChangeStorageType = useCallback(
+    async (
+      workspaceId: string,
+      type: WorkspaceStorageType,
+      directoryName?: string,
+    ) => {
+      // Update the store
+      setWorkspaceStorageType(workspaceId, type, directoryName);
 
-        if (total === 0) {
-            console.log("No boards to sync");
-            return;
+      // If switching to disk, sync all boards in this workspace
+      if (type === "disk") {
+        setSyncingWorkspaceId(workspaceId);
+        try {
+          // Check if we have directory access
+          const hasAccess = await hasGlobalStorageDirectory();
+          if (hasAccess) {
+            await syncWorkspaceBoardsToDisk(workspaceId);
+          }
+        } catch (error) {
+          console.error("Failed to sync workspace to disk:", error);
+        } finally {
+          setSyncingWorkspaceId(null);
         }
+      }
+    },
+    [setWorkspaceStorageType, syncWorkspaceBoardsToDisk],
+  );
 
-        console.log(`Syncing ${total} boards to disk...`);
-        setSyncProgress({ current: 0, total });
+  useEffect(() => {
+    setMounted(true);
+    setFsApiSupported(isFileSystemAccessSupported());
 
-        for (let i = 0; i < allBoards.length; i++) {
-            const board = allBoards[i];
-            const data = currentBoardData.get(board.id);
+    const fetchStorageInfo = async () => {
+      // Get actual Kladde storage size from IndexedDB
+      const kladdeSize = await getKladdeStorageSize();
+      setActualStorageSize(kladdeSize);
 
-            // Get folder name
-            let folderName: string;
-            if (board.workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
-                folderName = QUICKBOARDS_FOLDER_NAME;
-            } else {
-                const workstream = currentWorkstreams.get(board.workstreamId);
-                folderName = workstream?.name || "Personal";
-            }
+      // Get browser quota (for reference)
+      const quota = await getBrowserStorageQuota();
+      setBrowserQuota(quota);
 
-            // Get file name
-            let fileName: string;
-            if (board.workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
-                const quickBoards = allBoards
-                    .filter((b) => b.workstreamId === QUICK_BOARDS_WORKSPACE_ID)
-                    .sort(
-                        (a, b) =>
-                            new Date(a.createdAt).getTime() -
-                            new Date(b.createdAt).getTime(),
-                    );
-                const index = quickBoards.findIndex((b) => b.id === board.id);
-                fileName = `${index + 1}`;
-            } else {
-                const name = board.name.trim();
-                if (name && !name.startsWith("Quick Board")) {
-                    fileName = name;
-                } else {
-                    const date = new Date(board.createdAt);
-                    fileName = date.toISOString().split("T")[0];
-                }
-            }
-
-            const elements = data?.elements || [];
-            const kladdeFile: ShadeworksFile = {
-                type: "kladde",
-                version: 1,
-                elements,
-                appState: {
-                    canvasBackground:
-                        (board.settings.backgroundColor as
-                            | "none"
-                            | "dots"
-                            | "lines"
-                            | "grid") || "none",
-                },
-            };
-
-            const jsonString = JSON.stringify(kladdeFile, null, 2);
-            const result = await saveBoardToGlobalStorage(
-                folderName,
-                fileName,
-                jsonString,
-            );
-            console.log(
-                `Saved board "${board.name}" to ${folderName}/${fileName}.kladde:`,
-                result ? "success" : "failed",
-            );
-
-            setSyncProgress({ current: i + 1, total });
-        }
-
-        console.log("Sync complete!");
-        setSyncProgress(null);
-    }, []);
-
-    useEffect(() => {
-        setMounted(true);
-        setFsApiSupported(isFileSystemAccessSupported());
-
-        const fetchStorageInfo = async () => {
-            // Get actual Kladde storage size from IndexedDB
-            const kladdeSize = await getKladdeStorageSize();
-            setActualStorageSize(kladdeSize);
-
-            // Get browser quota (for reference)
-            const quota = await getBrowserStorageQuota();
-            setBrowserQuota(quota);
-
-            // Calculate breakdown from in-memory state (estimated)
-            const storeBreakdown = calculateStorageBreakdown(
-                boards,
-                boardData,
-                workstreams,
-            );
-            setBreakdown(storeBreakdown);
-
-            // Check if disk storage is still accessible
-            if (settings.diskStorageEnabled) {
-                const hasAccess = await hasGlobalStorageDirectory();
-                if (!hasAccess) {
-                    // Lost access, try to get the name for display
-                    const dirName = await getGlobalStorageDirectoryName();
-                    if (!dirName) {
-                        // Completely lost, disable
-                        setDiskStorageEnabled(false);
-                    }
-                }
-            }
-        };
-
-        fetchStorageInfo();
-    }, [
+      // Calculate breakdown from in-memory state (estimated)
+      const storeBreakdown = calculateStorageBreakdown(
         boards,
         boardData,
         workstreams,
-        settings.diskStorageEnabled,
-        setDiskStorageEnabled,
-    ]);
+      );
+      setBreakdown(storeBreakdown);
+    };
 
-    const handleEnableDiskStorage = useCallback(async () => {
-        if (!fsApiSupported) return;
+    fetchStorageInfo();
+  }, [boards, boardData, workstreams]);
 
-        setIsEnablingDiskStorage(true);
-        try {
-            const handle = await requestGlobalStorageDirectory();
-            if (handle) {
-                setDiskStorageEnabled(true, handle.name);
-                // Sync all existing boards to disk
-                await syncAllBoardsToDisk();
-            }
-        } catch (error) {
-            console.error("Failed to enable disk storage:", error);
-        } finally {
-            setIsEnablingDiskStorage(false);
-        }
-    }, [fsApiSupported, setDiskStorageEnabled, syncAllBoardsToDisk]);
+  const stats = mounted
+    ? getStorageStats()
+    : { boardCount: 0, workspaceCount: 0 };
+  const usagePercentage = getStoragePercentage(actualStorageSize, browserQuota);
 
-    const handleDisableDiskStorage = useCallback(async () => {
-        await clearGlobalStorageDirectory();
-        setDiskStorageEnabled(false);
-    }, [setDiskStorageEnabled]);
-
-    const handleChangeFolder = useCallback(async () => {
-        if (!fsApiSupported) return;
-
-        setIsEnablingDiskStorage(true);
-        try {
-            const handle = await requestGlobalStorageDirectory();
-            if (handle) {
-                setDiskStorageEnabled(true, handle.name);
-            }
-        } catch (error) {
-            console.error("Failed to change disk storage folder:", error);
-        } finally {
-            setIsEnablingDiskStorage(false);
-        }
-    }, [fsApiSupported, setDiskStorageEnabled]);
-
-    const stats = mounted
-        ? getStorageStats()
-        : { boardCount: 0, workspaceCount: 0 };
-    const usagePercentage = getStoragePercentage(
-        actualStorageSize,
-        browserQuota,
-    );
-
-    if (!mounted) {
-        return (
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Storage Location</CardTitle>
-                        <CardDescription>
-                            Where your data is stored
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-48" />
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
-    const diskStorageActive = settings.diskStorageEnabled;
-    const diskStorageDescription = diskStorageActive
-        ? `Boards are automatically saved to "${settings.diskStorageDirectoryName}"`
-        : fsApiSupported
-          ? "Save all boards automatically to a folder on your computer."
-          : "Not supported in this browser. Use Chrome or Edge.";
-
+  if (!mounted) {
     return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Storage Location</CardTitle>
-                    <CardDescription>
-                        Where your boards and workspaces are stored
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <StorageOption
-                        icon={<Database className="h-5 w-5" />}
-                        title="Browser Storage"
-                        description="Your boards are stored locally in your browser using IndexedDB."
-                        active={!diskStorageActive}
-                    />
-                    <StorageOption
-                        icon={<HardDrive className="h-5 w-5" />}
-                        title="Local Disk Storage"
-                        description={diskStorageDescription}
-                        active={diskStorageActive}
-                        disabled={!fsApiSupported}
-                        onClick={
-                            !diskStorageActive && fsApiSupported
-                                ? handleEnableDiskStorage
-                                : undefined
-                        }
-                    >
-                        {diskStorageActive && (
-                            <div
-                                className="flex items-center gap-2 mt-2"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleChangeFolder}
-                                    disabled={isEnablingDiskStorage}
-                                >
-                                    <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
-                                    Change Folder
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleDisableDiskStorage}
-                                >
-                                    Disable
-                                </Button>
-                            </div>
-                        )}
-                        {!diskStorageActive &&
-                            fsApiSupported &&
-                            isEnablingDiskStorage && (
-                                <p className="text-xs text-muted-foreground mt-2">
-                                    {syncProgress
-                                        ? `Syncing boards... ${syncProgress.current}/${syncProgress.total}`
-                                        : "Selecting folder..."}
-                                </p>
-                            )}
-                    </StorageOption>
-                    <StorageOption
-                        icon={<Cloud className="h-5 w-5" />}
-                        title="Cloud Storage"
-                        description="Sync your boards across devices with cloud backup."
-                        disabled
-                        badge="Coming Soon"
-                    />
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Storage Usage</CardTitle>
-                    <CardDescription>
-                        Current storage consumption
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">
-                                Kladde Data
-                            </span>
-                            <span className="font-medium">
-                                {formatBytes(actualStorageSize)}
-                            </span>
-                        </div>
-                        <Progress
-                            value={
-                                usagePercentage ||
-                                (actualStorageSize > 0 ? 1 : 0)
-                            }
-                            className="h-2"
-                        />
-                        {browserQuota > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                                {usagePercentage.toFixed(2)}% of{" "}
-                                {formatBytes(browserQuota)} browser quota
-                            </p>
-                        )}
-                    </div>
-
-                    {breakdown && breakdown.total > 0 && (
-                        <div className="space-y-2 border-t pt-4">
-                            <p className="text-sm font-medium">
-                                Breakdown (estimated)
-                            </p>
-                            <div className="space-y-1 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                        Board metadata
-                                    </span>
-                                    <span>{formatBytes(breakdown.boards)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                        Board content (drawings, tiles)
-                                    </span>
-                                    <span>
-                                        {formatBytes(breakdown.boardData)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                        Workspaces
-                                    </span>
-                                    <span>
-                                        {formatBytes(breakdown.workstreams)}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="space-y-1 border-t pt-4 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                                Total boards
-                            </span>
-                            <span className="font-medium">
-                                {stats.boardCount}
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                                Total workspaces
-                            </span>
-                            <span className="font-medium">
-                                {stats.workspaceCount}
-                            </span>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Workspace Storage</CardTitle>
+            <CardDescription>
+              Configure storage for each workspace
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48" />
+          </CardContent>
+        </Card>
+      </div>
     );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Workspace Storage</CardTitle>
+          <CardDescription>
+            Configure where each workspace stores its boards
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y divide-border">
+            {workspacesList.map((workspace) => (
+              <WorkspaceStorageRow
+                key={workspace.id}
+                workspace={workspace}
+                fsApiSupported={fsApiSupported}
+                onChangeStorageType={handleChangeStorageType}
+                isSyncing={syncingWorkspaceId === workspace.id}
+              />
+            ))}
+          </div>
+
+          {workspacesList.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No workspaces found
+            </p>
+          )}
+
+          {!fsApiSupported && (
+            <p className="text-xs text-muted-foreground mt-4 p-3 bg-muted/50 rounded-lg">
+              Disk storage requires Chrome or Edge browser with File System
+              Access API support.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Storage Usage</CardTitle>
+          <CardDescription>Current storage consumption</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Kladde Data</span>
+              <span className="font-medium">
+                {formatBytes(actualStorageSize)}
+              </span>
+            </div>
+            <Progress
+              value={usagePercentage || (actualStorageSize > 0 ? 1 : 0)}
+              className="h-2"
+            />
+            {browserQuota > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {usagePercentage.toFixed(2)}% of {formatBytes(browserQuota)}{" "}
+                browser quota
+              </p>
+            )}
+          </div>
+
+          {breakdown && breakdown.total > 0 && (
+            <div className="space-y-2 border-t pt-4">
+              <p className="text-sm font-medium">Breakdown (estimated)</p>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Board metadata</span>
+                  <span>{formatBytes(breakdown.boards)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Board content (drawings, tiles)
+                  </span>
+                  <span>{formatBytes(breakdown.boardData)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Workspaces</span>
+                  <span>{formatBytes(breakdown.workstreams)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1 border-t pt-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total boards</span>
+              <span className="font-medium">{stats.boardCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total workspaces</span>
+              <span className="font-medium">{stats.workspaceCount}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
