@@ -16,6 +16,7 @@ interface UseDiskStorageSyncOptions {
   elements: BoardElement[];
   canvasBackground: "none" | "dots" | "lines" | "grid";
   enabled?: boolean;
+  /** Debounce time in milliseconds before auto-saving (default: 5000ms = 5 seconds of inactivity) */
   debounceMs?: number;
 }
 
@@ -79,7 +80,7 @@ export function useDiskStorageSync({
   elements,
   canvasBackground,
   enabled = true,
-  debounceMs = 1000,
+  debounceMs = 5000,
 }: UseDiskStorageSyncOptions): DiskStorageSyncStatus {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedHashRef = useRef<string>("");

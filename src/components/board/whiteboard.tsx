@@ -1960,8 +1960,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         e.preventDefault();
         handleCopySelected();
       }
-      // Ctrl/Cmd+S: Manual save
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      // Ctrl/Cmd+S: Manual save to disk
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "s"
+      ) {
         e.preventDefault();
         if (isDiskStorage) {
           void saveToDiskNow();
