@@ -1,81 +1,134 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import type { BoardElement, ShadeworksFile } from "@/lib/board-types";
 import {
-  getBoardFileHandle,
-  writeToFileHandle,
+    getBoardFileHandle,
+    writeToFileHandle,
 } from "@/lib/filesystem-storage";
 
 interface UseFilesystemAutoSaveOptions {
-  boardId: string;
-  elements: BoardElement[];
-  canvasBackground: "none" | "dots" | "lines" | "grid";
-  isOwner: boolean;
-  enabled?: boolean;
-  debounceMs?: number;
+    boardId: string;
+    elements: BoardElement[];
+    canvasBackground: "none" | "dots" | "lines" | "grid";
+    isOwner: boolean;
+    enabled?: boolean;
+    debounceMs?: number;
+}
+
+export interface FilesystemAutoSaveStatus {
+    hasDiskFile: boolean;
+    isDirty: boolean;
+    isSaving: boolean;
+    recheckFileHandle: () => void;
 }
 
 export function useFilesystemAutoSave({
-  boardId,
-  elements,
-  canvasBackground,
-  isOwner,
-  enabled = true,
-  debounceMs = 800,
-}: UseFilesystemAutoSaveOptions) {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedRef = useRef<string>("");
+    boardId,
+    elements,
+    canvasBackground,
+    isOwner,
+    enabled = true,
+    debounceMs = 800,
+}: UseFilesystemAutoSaveOptions): FilesystemAutoSaveStatus {
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastSavedRef = useRef<string>("");
+    const [hasDiskFile, setHasDiskFile] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
 
-  const save = useCallback(async () => {
-    if (!isOwner || !enabled) return;
+    // Function to check file handle status
+    const checkFileHandle = useCallback(async () => {
+        const handle = await getBoardFileHandle(boardId);
+        setHasDiskFile(!!handle);
+        if (handle) {
+            // Initialize lastSavedRef if we have a file handle
+            lastSavedRef.current = JSON.stringify({
+                elements,
+                canvasBackground,
+            });
+            setIsDirty(false);
+        }
+    }, [boardId, elements, canvasBackground]);
 
-    const handle = await getBoardFileHandle(boardId);
-    if (!handle) return;
+    // Check if this board has a file handle on mount and when boardId changes
+    useEffect(() => {
+        void checkFileHandle();
+    }, [boardId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const hash = JSON.stringify({ elements, canvasBackground });
-    if (hash === lastSavedRef.current) return;
-    lastSavedRef.current = hash;
+    // Track dirty state when content changes
+    useEffect(() => {
+        if (!hasDiskFile) return;
+        const currentHash = JSON.stringify({ elements, canvasBackground });
+        setIsDirty(currentHash !== lastSavedRef.current);
+    }, [elements, canvasBackground, hasDiskFile]);
 
-    const kladdeFile: ShadeworksFile = {
-      type: "kladde",
-      version: 1,
-      elements,
-      appState: {
-        canvasBackground,
-      },
-    };
+    const save = useCallback(async () => {
+        if (!isOwner || !enabled) return;
 
-    try {
-      const jsonString = JSON.stringify(kladdeFile, null, 2);
-      await writeToFileHandle(handle, jsonString);
-    } catch (error) {
-      console.error("Failed to auto-save to filesystem:", error);
-    }
-  }, [boardId, elements, canvasBackground, isOwner, enabled]);
+        const handle = await getBoardFileHandle(boardId);
+        if (!handle) {
+            setHasDiskFile(false);
+            return;
+        }
 
-  useEffect(() => {
-    if (!isOwner || !enabled) return;
+        setHasDiskFile(true);
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+        const hash = JSON.stringify({ elements, canvasBackground });
+        if (hash === lastSavedRef.current) return;
 
-    timeoutRef.current = setTimeout(() => {
-      void save();
-    }, debounceMs);
+        setIsSaving(true);
 
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [elements, canvasBackground, isOwner, enabled, debounceMs, save]);
+        const kladdeFile: ShadeworksFile = {
+            type: "kladde",
+            version: 1,
+            elements,
+            appState: {
+                canvasBackground,
+            },
+        };
 
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        void save();
-      }
-    };
-  }, [save]);
+        try {
+            const jsonString = JSON.stringify(kladdeFile, null, 2);
+            await writeToFileHandle(handle, jsonString);
+            lastSavedRef.current = hash;
+            setIsDirty(false);
+        } catch (error) {
+            console.error("Failed to auto-save to filesystem:", error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, [boardId, elements, canvasBackground, isOwner, enabled]);
+
+    useEffect(() => {
+        if (!isOwner || !enabled) return;
+
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
+
+        timeoutRef.current = setTimeout(() => {
+            void save();
+        }, debounceMs);
+
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, [elements, canvasBackground, isOwner, enabled, debounceMs, save]);
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                void save();
+            }
+        };
+    }, [save]);
+
+    // Expose a function to manually recheck file handle (e.g., after saving via modal)
+    const recheckFileHandle = useCallback(() => {
+        void checkFileHandle();
+    }, [checkFileHandle]);
+
+    return { hasDiskFile, isDirty, isSaving, recheckFileHandle };
 }

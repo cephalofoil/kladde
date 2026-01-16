@@ -290,13 +290,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const isUndoingRef = useRef(false);
     const elementsRef = useRef<BoardElement[]>(elements);
 
-    useFilesystemAutoSave({
-        boardId,
-        elements,
-        canvasBackground,
-        isOwner,
-        enabled: !isReadOnly,
-    });
+    const { hasDiskFile, isDirty, isSaving, recheckFileHandle } =
+        useFilesystemAutoSave({
+            boardId,
+            elements,
+            canvasBackground,
+            isOwner,
+            enabled: !isReadOnly,
+        });
 
     // Ref to store the setViewport function from Canvas
     const setViewportRef = useRef<
@@ -2623,7 +2624,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         isReadOnly={isReadOnly}
                         isGuest={!isOwner}
                     />
-                    <CanvasTitleBar boardId={boardId} isGuest={!isOwner} />
+                    <CanvasTitleBar
+                        boardId={boardId}
+                        isGuest={!isOwner}
+                        hasDiskFile={hasDiskFile}
+                        isDirty={isDirty}
+                        isSaving={isSaving}
+                    />
                     {false && (
                         <a
                             href="/dashboard"
@@ -2937,7 +2944,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 {/* Save Modal */}
                 <SaveModal
                     isOpen={showSaveModal}
-                    onClose={() => setShowSaveModal(false)}
+                    onClose={() => {
+                        setShowSaveModal(false);
+                        recheckFileHandle();
+                    }}
                     elements={elements}
                     canvasBackground={canvasBackground}
                     boardId={boardId}

@@ -9,12 +9,18 @@ interface CanvasTitleBarProps {
     boardId: string;
     className?: string;
     isGuest?: boolean;
+    hasDiskFile?: boolean;
+    isDirty?: boolean;
+    isSaving?: boolean;
 }
 
 export function CanvasTitleBar({
     boardId,
     className,
     isGuest = false,
+    hasDiskFile = false,
+    isDirty = false,
+    isSaving = false,
 }: CanvasTitleBarProps) {
     const router = useRouter();
     const boards = useBoardStore((s) => s.boards);
@@ -84,6 +90,22 @@ export function CanvasTitleBar({
             handleRenameSubmit();
         }, 150);
     };
+
+    // Determine save status indicator
+    const saveStatusIndicator = hasDiskFile ? (
+        <span
+            className={cn(
+                "text-xs px-1.5 py-0.5 rounded transition-colors select-none",
+                isSaving
+                    ? "text-amber-600 dark:text-amber-400"
+                    : isDirty
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-emerald-600 dark:text-emerald-400",
+            )}
+        >
+            {isSaving ? "Saving..." : isDirty ? "Unsaved" : "Saved"}
+        </span>
+    ) : null;
 
     return (
         <div
@@ -163,6 +185,9 @@ export function CanvasTitleBar({
             >
                 {boardName}
             </span>
+
+            {/* Save status indicator */}
+            {saveStatusIndicator}
         </div>
     );
 }
