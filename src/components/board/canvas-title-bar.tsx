@@ -45,6 +45,7 @@ export function CanvasTitleBar({
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const wasHiddenRef = useRef(false);
 
   const {
     boardName,
@@ -176,14 +177,17 @@ export function CanvasTitleBar({
     // If saving or dirty, show the indicator with fade-in animation
     if (isSaving || isDirty) {
       setIsAnimatingOut(false);
-      // If not already showing, trigger fade-in
-      if (!showSaveStatus) {
+      // If was hidden, trigger fade-in animation
+      if (wasHiddenRef.current) {
+        wasHiddenRef.current = false;
         setIsAnimatingIn(true);
         setShowSaveStatus(true);
         // Clear animating-in state after animation completes
         animationTimerRef.current = setTimeout(() => {
           setIsAnimatingIn(false);
         }, 300);
+      } else {
+        setShowSaveStatus(true);
       }
       return;
     }
@@ -195,6 +199,7 @@ export function CanvasTitleBar({
       animationTimerRef.current = setTimeout(() => {
         setShowSaveStatus(false);
         setIsAnimatingOut(false);
+        wasHiddenRef.current = true;
       }, 300);
     }, 10000);
 

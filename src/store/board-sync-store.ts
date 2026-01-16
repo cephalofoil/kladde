@@ -25,6 +25,9 @@ export const useBoardSyncStore = create<BoardSyncState>()((set, get) => ({
   syncStatus: new Map(),
 
   setSyncStatus: (boardId: string, status: BoardSyncStatus) => {
+    const currentStatus = get().syncStatus.get(boardId);
+    // Only update if status actually changed
+    if (currentStatus === status) return;
     set((state) => {
       const syncStatus = new Map(state.syncStatus);
       syncStatus.set(boardId, status);

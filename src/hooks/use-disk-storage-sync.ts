@@ -186,14 +186,23 @@ export function useDiskStorageSync({
     await syncToDisk(true);
   }, [syncToDisk]);
 
+  // Use refs to avoid triggering effects when these change
+  const elementsRef = useRef(elements);
+  const canvasBackgroundRef = useRef(canvasBackground);
+  elementsRef.current = elements;
+  canvasBackgroundRef.current = canvasBackground;
+
   // Mark as unsaved when content changes (for disk storage workspaces)
   useEffect(() => {
     if (!isDiskStorage || !enabled) return;
 
     const currentHash = JSON.stringify({ elements, canvasBackground });
     if (currentHash !== lastSavedHashRef.current) {
-      setIsDirty(true);
-      setSyncStatus(boardId, "unsaved");
+      // Only update if not already dirty
+      setIsDirty((prev) => {
+        if (!prev) setSyncStatus(boardId, "unsaved");
+        return true;
+      });
     }
   }, [
     boardId,
@@ -233,35 +242,14 @@ export function useDiskStorageSync({
 
   // Sync on unmount if there are pending changes
   useEffect(() => {
+    const syncOnUnmount = syncToDisk;
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
-        void syncToDisk();
+        void syncOnUnmount();
       }
     };
   }, [syncToDisk]);
-
-  // Initialize sync status on mount for disk storage boards
-  useEffect(() => {
-    if (isDiskStorage && enabled) {
-      // Check if there are unsaved changes
-      const currentHash = JSON.stringify({ elements, canvasBackground });
-      if (currentHash !== lastSavedHashRef.current) {
-        setIsDirty(true);
-        setSyncStatus(boardId, "unsaved");
-      } else {
-        setIsDirty(false);
-        setSyncStatus(boardId, "saved");
-      }
-    }
-  }, [
-    boardId,
-    isDiskStorage,
-    enabled,
-    elements,
-    canvasBackground,
-    setSyncStatus,
-  ]);
 
   return {
     isSaving,
