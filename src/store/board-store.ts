@@ -796,6 +796,7 @@ export const useBoardStore = create<BoardStore>()(
           state.settings = {
             collabInvitesEnabled: true,
             diskStorageEnabled: false,
+            autoSaveEnabled: true,
           };
         }
         // Ensure diskStorageEnabled exists (for existing stores)
