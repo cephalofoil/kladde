@@ -110,6 +110,7 @@ export interface BoardStoreState {
     collabInvitesEnabled: boolean; // Allow sharing collab invite links
     diskStorageEnabled: boolean; // Whether global disk storage is active
     diskStorageDirectoryName?: string; // Display name of selected folder
+    autoSaveEnabled: boolean; // Whether auto-save is enabled for disk storage
   };
 
   // Optimistic updates
@@ -169,6 +170,7 @@ export interface BoardStoreActions {
   clearAllData: () => Promise<void>;
   setCollabInvitesEnabled: (enabled: boolean) => void;
   setDiskStorageEnabled: (enabled: boolean, directoryName?: string) => void;
+  setAutoSaveEnabled: (enabled: boolean) => void;
 }
 
 /**

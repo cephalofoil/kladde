@@ -64,8 +64,11 @@ function getWorkspaceFolderName(
 }
 
 export interface DiskStorageSyncStatus {
-  isSyncing: boolean;
-  lastSyncedAt: Date | null;
+  isSaving: boolean;
+  isDirty: boolean;
+  lastSavedAt: Date | null;
+  isDiskStorage: boolean;
+  saveNow: () => Promise<void>;
 }
 
 /**
@@ -80,11 +83,15 @@ export function useDiskStorageSync({
 }: UseDiskStorageSyncOptions): DiskStorageSyncStatus {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedHashRef = useRef<string>("");
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const boards = useBoardStore((s) => s.boards);
   const workstreams = useBoardStore((s) => s.workstreams);
+  const autoSaveEnabled = useBoardStore(
+    (s) => s.settings?.autoSaveEnabled ?? true,
+  );
 
   // Get the workspace storage type for this board
   const board = boards.get(boardId);
@@ -95,72 +102,88 @@ export function useDiskStorageSync({
   // Get sync store actions
   const setSyncStatus = useBoardSyncStore((s) => s.setSyncStatus);
 
-  const syncToDisk = useCallback(async () => {
-    if (!isDiskStorage || !enabled) return;
+  const syncToDisk = useCallback(
+    async (force = false) => {
+      if (!isDiskStorage || !enabled) return;
 
-    // Check if we still have access to the directory
-    const hasAccess = await hasGlobalStorageDirectory();
-    if (!hasAccess) return;
+      // Check if we still have access to the directory
+      const hasAccess = await hasGlobalStorageDirectory();
+      if (!hasAccess) return;
 
-    const currentBoard = useBoardStore.getState().boards.get(boardId);
-    if (!currentBoard) return;
+      const currentBoard = useBoardStore.getState().boards.get(boardId);
+      if (!currentBoard) return;
 
-    const currentHash = JSON.stringify({ elements, canvasBackground });
-    if (currentHash === lastSavedHashRef.current) {
-      // Already saved, ensure status is "saved"
-      setSyncStatus(boardId, "saved");
-      return;
-    }
-
-    setIsSyncing(true);
-    setSyncStatus(boardId, "saving");
-
-    try {
-      const currentWorkstreams = useBoardStore.getState().workstreams;
-      const currentBoards = useBoardStore.getState().boards;
-
-      const folderName = getWorkspaceFolderName(
-        currentBoard.workstreamId,
-        currentWorkstreams,
-      );
-      const fileName = getBoardFileName(currentBoard, currentBoards);
-
-      const kladdeFile: ShadeworksFile = {
-        type: "kladde",
-        version: 1,
-        elements,
-        appState: {
-          canvasBackground,
-        },
-      };
-
-      const jsonString = JSON.stringify(kladdeFile, null, 2);
-      const result = await saveBoardToGlobalStorage(
-        folderName,
-        fileName,
-        jsonString,
-      );
-
-      if (result) {
-        lastSavedHashRef.current = currentHash;
-        setLastSyncedAt(new Date());
+      const currentHash = JSON.stringify({ elements, canvasBackground });
+      if (!force && currentHash === lastSavedHashRef.current) {
+        // Already saved, ensure status is "saved"
+        setIsDirty(false);
         setSyncStatus(boardId, "saved");
+        return;
       }
-    } catch (error) {
-      console.error("Failed to sync board to disk:", error);
-      // Keep as unsaved on error
-      setSyncStatus(boardId, "unsaved");
-    } finally {
-      setIsSyncing(false);
+
+      setIsSaving(true);
+      setSyncStatus(boardId, "saving");
+
+      try {
+        const currentWorkstreams = useBoardStore.getState().workstreams;
+        const currentBoards = useBoardStore.getState().boards;
+
+        const folderName = getWorkspaceFolderName(
+          currentBoard.workstreamId,
+          currentWorkstreams,
+        );
+        const fileName = getBoardFileName(currentBoard, currentBoards);
+
+        const kladdeFile: ShadeworksFile = {
+          type: "kladde",
+          version: 1,
+          elements,
+          appState: {
+            canvasBackground,
+          },
+        };
+
+        const jsonString = JSON.stringify(kladdeFile, null, 2);
+        const result = await saveBoardToGlobalStorage(
+          folderName,
+          fileName,
+          jsonString,
+        );
+
+        if (result) {
+          lastSavedHashRef.current = currentHash;
+          setLastSavedAt(new Date());
+          setIsDirty(false);
+          setSyncStatus(boardId, "saved");
+        }
+      } catch (error) {
+        console.error("Failed to sync board to disk:", error);
+        // Keep as unsaved on error
+        setIsDirty(true);
+        setSyncStatus(boardId, "unsaved");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      boardId,
+      elements,
+      canvasBackground,
+      isDiskStorage,
+      enabled,
+      setSyncStatus,
+    ],
+  );
+
+  // Manual save function
+  const saveNow = useCallback(async () => {
+    // Clear any pending auto-save
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-  }, [
-    boardId,
-    elements,
-    canvasBackground,
-    isDiskStorage,
-    enabled,
-    setSyncStatus,
-  ]);
+    await syncToDisk(true);
+  }, [syncToDisk]);
 
   // Mark as unsaved when content changes (for disk storage workspaces)
   useEffect(() => {
@@ -168,6 +191,7 @@ export function useDiskStorageSync({
 
     const currentHash = JSON.stringify({ elements, canvasBackground });
     if (currentHash !== lastSavedHashRef.current) {
+      setIsDirty(true);
       setSyncStatus(boardId, "unsaved");
     }
   }, [
@@ -179,9 +203,9 @@ export function useDiskStorageSync({
     setSyncStatus,
   ]);
 
-  // Debounced sync on content change
+  // Debounced auto-save on content change (only if auto-save is enabled)
   useEffect(() => {
-    if (!isDiskStorage || !enabled) return;
+    if (!isDiskStorage || !enabled || !autoSaveEnabled) return;
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -201,6 +225,7 @@ export function useDiskStorageSync({
     canvasBackground,
     isDiskStorage,
     enabled,
+    autoSaveEnabled,
     debounceMs,
     syncToDisk,
   ]);
@@ -221,8 +246,10 @@ export function useDiskStorageSync({
       // Check if there are unsaved changes
       const currentHash = JSON.stringify({ elements, canvasBackground });
       if (currentHash !== lastSavedHashRef.current) {
+        setIsDirty(true);
         setSyncStatus(boardId, "unsaved");
       } else {
+        setIsDirty(false);
         setSyncStatus(boardId, "saved");
       }
     }
@@ -236,7 +263,10 @@ export function useDiskStorageSync({
   ]);
 
   return {
-    isSyncing,
-    lastSyncedAt,
+    isSaving,
+    isDirty,
+    lastSavedAt,
+    isDiskStorage,
+    saveNow,
   };
 }

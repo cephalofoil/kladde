@@ -296,12 +296,22 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     });
 
   // Disk storage sync (when workspace has disk storage enabled)
-  useDiskStorageSync({
+  const {
+    isSaving: isDiskSaving,
+    isDirty: isDiskDirty,
+    isDiskStorage,
+    saveNow: saveToDiskNow,
+  } = useDiskStorageSync({
     boardId,
     elements,
     canvasBackground,
     enabled: !isReadOnly,
   });
+
+  // Combine save status from both file auto-save and disk storage sync
+  const combinedIsSaving = isSaving || isDiskSaving;
+  const combinedIsDirty = isDirty || isDiskDirty;
+  const showDiskSaveIndicator = hasDiskFile || isDiskStorage;
 
   // Ref to store the setViewport function from Canvas
   const setViewportRef = useRef<
@@ -1950,6 +1960,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         e.preventDefault();
         handleCopySelected();
       }
+      // Ctrl/Cmd+S: Manual save
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (isDiskStorage) {
+          void saveToDiskNow();
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -1962,6 +1979,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     handleCopySelected,
     isReadOnly,
     selectedElements,
+    isDiskStorage,
+    saveToDiskNow,
   ]);
 
   const handleDeleteSelected = useCallback(() => {
@@ -2505,9 +2524,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           <CanvasTitleBar
             boardId={boardId}
             isGuest={!isOwner}
-            hasDiskFile={hasDiskFile}
-            isDirty={isDirty}
-            isSaving={isSaving}
+            hasDiskFile={showDiskSaveIndicator}
+            isDirty={combinedIsDirty}
+            isSaving={combinedIsSaving}
           />
           {false && (
             <a

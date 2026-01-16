@@ -8,6 +8,7 @@ import {
   Check,
   FolderOpen,
   ChevronDown,
+  Save,
 } from "lucide-react";
 import {
   Card,
@@ -24,6 +25,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import type { WorkspaceStorageType, Workstream } from "@/lib/store-types";
 import {
@@ -202,6 +205,8 @@ export function StorageSection() {
   const setWorkspaceStorageType = useBoardStore(
     (s) => s.setWorkspaceStorageType,
   );
+  const autoSaveEnabled = useBoardStore((s) => s.settings.autoSaveEnabled);
+  const setAutoSaveEnabled = useBoardStore((s) => s.setAutoSaveEnabled);
 
   // Get workspaces as array, excluding Quick Boards for now (we can add it back if needed)
   const workspacesList = Array.from(workstreams.values()).filter(
@@ -382,6 +387,38 @@ export function StorageSection() {
               Access API support.
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Auto-Save</CardTitle>
+          <CardDescription>
+            Automatically save changes to disk storage
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-save-toggle" className="text-sm font-medium">
+                Enable auto-save
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Automatically save boards to disk when changes are made.
+                <br />
+                Use{" "}
+                <kbd className="px-1 py-0.5 text-xs bg-muted rounded">
+                  Ctrl+S
+                </kbd>{" "}
+                to save manually.
+              </p>
+            </div>
+            <Switch
+              id="auto-save-toggle"
+              checked={autoSaveEnabled}
+              onCheckedChange={setAutoSaveEnabled}
+            />
+          </div>
         </CardContent>
       </Card>
 

@@ -163,6 +163,7 @@ export const useBoardStore = create<BoardStore>()(
       settings: {
         collabInvitesEnabled: true,
         diskStorageEnabled: false,
+        autoSaveEnabled: true,
       },
       patchQueue: [],
       flushStatus: "idle",
@@ -726,6 +727,7 @@ export const useBoardStore = create<BoardStore>()(
           settings: {
             collabInvitesEnabled: true,
             diskStorageEnabled: false,
+            autoSaveEnabled: true,
           },
           patchQueue: [],
           flushStatus: "idle",
@@ -745,6 +747,14 @@ export const useBoardStore = create<BoardStore>()(
             ...state.settings,
             diskStorageEnabled: enabled,
             diskStorageDirectoryName: enabled ? directoryName : undefined,
+          },
+        }));
+      },
+      setAutoSaveEnabled: (enabled: boolean) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            autoSaveEnabled: enabled,
           },
         }));
       },
@@ -791,6 +801,10 @@ export const useBoardStore = create<BoardStore>()(
         // Ensure diskStorageEnabled exists (for existing stores)
         if (state.settings.diskStorageEnabled === undefined) {
           state.settings.diskStorageEnabled = false;
+        }
+        // Ensure autoSaveEnabled exists (for existing stores)
+        if (state.settings.autoSaveEnabled === undefined) {
+          state.settings.autoSaveEnabled = true;
         }
 
         // Rebuild workstream board links and fix orphaned boards after hydration

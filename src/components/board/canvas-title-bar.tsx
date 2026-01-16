@@ -38,8 +38,10 @@ export function CanvasTitleBar({
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState("");
+  const [showSaveStatus, setShowSaveStatus] = useState(true);
   const spanRef = useRef<HTMLSpanElement>(null);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     boardName,
@@ -156,18 +158,45 @@ export function CanvasTitleBar({
     }, 150);
   };
 
+  // Auto-hide save status after 10 seconds of being "Saved"
+  useEffect(() => {
+    // Clear any existing timer
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+
+    // If saving or dirty, show the indicator
+    if (isSaving || isDirty) {
+      setShowSaveStatus(true);
+      return;
+    }
+
+    // If saved, start 10 second timer to hide
+    hideTimerRef.current = setTimeout(() => {
+      setShowSaveStatus(false);
+    }, 10000);
+
+    return () => {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+    };
+  }, [isSaving, isDirty]);
+
   // Determine save status indicator
   // Show indicator if either per-file disk save OR workspace has disk storage
-  const showSaveIndicator = hasDiskFile || isDiskStorageWorkspace;
-  const saveStatusIndicator = showSaveIndicator ? (
+  const hasDiskStorage = hasDiskFile || isDiskStorageWorkspace;
+  const saveStatusIndicator = hasDiskStorage ? (
     <span
       className={cn(
-        "text-xs px-1.5 py-0.5 rounded transition-colors select-none",
+        "text-xs px-1.5 py-0.5 rounded select-none transition-all duration-300",
         isSaving
           ? "text-amber-600 dark:text-amber-400"
           : isDirty
             ? "text-amber-600 dark:text-amber-400"
             : "text-emerald-600 dark:text-emerald-400",
+        showSaveStatus ? "opacity-100" : "opacity-0",
       )}
     >
       {isSaving ? "Saving..." : isDirty ? "Unsaved" : "Saved"}
