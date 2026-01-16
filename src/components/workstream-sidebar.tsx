@@ -2,7 +2,8 @@
 
 import { useBoardStore } from "@/store/board-store";
 import { Folder, Plus, Edit2, Trash2, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
+import { renameWorkspaceFolderInGlobalStorage } from "@/lib/filesystem-storage";
 
 export function WorkstreamSidebar() {
     const [isCreating, setIsCreating] = useState(false);
@@ -19,6 +20,9 @@ export function WorkstreamSidebar() {
     const createWorkstream = useBoardStore((s) => s.createWorkstream);
     const updateWorkstream = useBoardStore((s) => s.updateWorkstream);
     const deleteWorkstream = useBoardStore((s) => s.deleteWorkstream);
+    const diskStorageEnabled = useBoardStore(
+        (s) => s.settings.diskStorageEnabled,
+    );
 
     const switchWorkstream = (id: string) => {
         useBoardStore.setState((state) => ({
@@ -48,13 +52,29 @@ export function WorkstreamSidebar() {
         setEditName(name);
     };
 
-    const handleSaveEdit = (id: string) => {
-        if (editName.trim()) {
-            updateWorkstream(id, { name: editName.trim() });
-        }
-        setEditingId(null);
-        setEditName("");
-    };
+    const handleSaveEdit = useCallback(
+        async (id: string) => {
+            const newName = editName.trim();
+            if (newName) {
+                const workstream = workstreamsMap.get(id);
+                const oldName = workstream?.name;
+
+                // Update in store
+                updateWorkstream(id, { name: newName });
+
+                // Rename folder on disk if disk storage is enabled
+                if (diskStorageEnabled && oldName && oldName !== newName) {
+                    await renameWorkspaceFolderInGlobalStorage(
+                        oldName,
+                        newName,
+                    );
+                }
+            }
+            setEditingId(null);
+            setEditName("");
+        },
+        [editName, workstreamsMap, updateWorkstream, diskStorageEnabled],
+    );
 
     const handleDelete = (id: string, name: string) => {
         if (id === "personal") return; // Can't delete personal

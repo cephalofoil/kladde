@@ -26,7 +26,12 @@ import {
     getGlobalStorageDirectoryName,
     clearGlobalStorageDirectory,
     hasGlobalStorageDirectory,
+    saveBoardToGlobalStorage,
 } from "@/lib/filesystem-storage";
+import type { ShadeworksFile } from "@/lib/board-types";
+
+const QUICK_BOARDS_WORKSPACE_ID = "quick-boards";
+const QUICKBOARDS_FOLDER_NAME = "quickboards";
 
 interface StorageOptionProps {
     icon: React.ReactNode;
@@ -104,6 +109,10 @@ export function StorageSection() {
     const [browserQuota, setBrowserQuota] = useState(0);
     const [breakdown, setBreakdown] = useState<StorageBreakdown | null>(null);
     const [isEnablingDiskStorage, setIsEnablingDiskStorage] = useState(false);
+    const [syncProgress, setSyncProgress] = useState<{
+        current: number;
+        total: number;
+    } | null>(null);
     const [fsApiSupported, setFsApiSupported] = useState(false);
 
     const boards = useBoardStore((s) => s.boards);
@@ -112,6 +121,137 @@ export function StorageSection() {
     const getStorageStats = useBoardStore((s) => s.getStorageStats);
     const settings = useBoardStore((s) => s.settings);
     const setDiskStorageEnabled = useBoardStore((s) => s.setDiskStorageEnabled);
+
+    // Get board filename based on type
+    const getBoardFileName = useCallback(
+        (boardId: string): string => {
+            const board = boards.get(boardId);
+            if (!board) return boardId;
+
+            if (board.workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
+                // Get quick board number by sorting all quick boards by creation date
+                const quickBoards = Array.from(boards.values())
+                    .filter((b) => b.workstreamId === QUICK_BOARDS_WORKSPACE_ID)
+                    .sort(
+                        (a, b) =>
+                            new Date(a.createdAt).getTime() -
+                            new Date(b.createdAt).getTime(),
+                    );
+                const index = quickBoards.findIndex((b) => b.id === board.id);
+                return `${index + 1}`;
+            }
+
+            // Use board name if it looks like a custom name
+            const name = board.name.trim();
+            if (name && !name.startsWith("Quick Board")) {
+                return name;
+            }
+
+            // Fall back to creation date
+            const date = new Date(board.createdAt);
+            return date.toISOString().split("T")[0]; // YYYY-MM-DD
+        },
+        [boards],
+    );
+
+    // Get workspace folder name
+    const getWorkspaceFolderName = useCallback(
+        (workstreamId: string): string => {
+            if (workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
+                return QUICKBOARDS_FOLDER_NAME;
+            }
+            const workstream = workstreams.get(workstreamId);
+            return workstream?.name || "Personal";
+        },
+        [workstreams],
+    );
+
+    // Sync all existing boards to disk
+    const syncAllBoardsToDisk = useCallback(async () => {
+        // Get fresh data directly from the store to avoid stale closures
+        const storeState = useBoardStore.getState();
+        const currentBoards = storeState.boards;
+        const currentBoardData = storeState.boardData;
+        const currentWorkstreams = storeState.workstreams;
+
+        const allBoards = Array.from(currentBoards.values());
+        const total = allBoards.length;
+
+        if (total === 0) {
+            console.log("No boards to sync");
+            return;
+        }
+
+        console.log(`Syncing ${total} boards to disk...`);
+        setSyncProgress({ current: 0, total });
+
+        for (let i = 0; i < allBoards.length; i++) {
+            const board = allBoards[i];
+            const data = currentBoardData.get(board.id);
+
+            // Get folder name
+            let folderName: string;
+            if (board.workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
+                folderName = QUICKBOARDS_FOLDER_NAME;
+            } else {
+                const workstream = currentWorkstreams.get(board.workstreamId);
+                folderName = workstream?.name || "Personal";
+            }
+
+            // Get file name
+            let fileName: string;
+            if (board.workstreamId === QUICK_BOARDS_WORKSPACE_ID) {
+                const quickBoards = allBoards
+                    .filter((b) => b.workstreamId === QUICK_BOARDS_WORKSPACE_ID)
+                    .sort(
+                        (a, b) =>
+                            new Date(a.createdAt).getTime() -
+                            new Date(b.createdAt).getTime(),
+                    );
+                const index = quickBoards.findIndex((b) => b.id === board.id);
+                fileName = `${index + 1}`;
+            } else {
+                const name = board.name.trim();
+                if (name && !name.startsWith("Quick Board")) {
+                    fileName = name;
+                } else {
+                    const date = new Date(board.createdAt);
+                    fileName = date.toISOString().split("T")[0];
+                }
+            }
+
+            const elements = data?.elements || [];
+            const kladdeFile: ShadeworksFile = {
+                type: "kladde",
+                version: 1,
+                elements,
+                appState: {
+                    canvasBackground:
+                        (board.settings.backgroundColor as
+                            | "none"
+                            | "dots"
+                            | "lines"
+                            | "grid") || "none",
+                },
+            };
+
+            const jsonString = JSON.stringify(kladdeFile, null, 2);
+            const result = await saveBoardToGlobalStorage(
+                folderName,
+                fileName,
+                jsonString,
+            );
+            console.log(
+                `Saved board "${board.name}" to ${folderName}/${fileName}.kladde:`,
+                result ? "success" : "failed",
+            );
+
+            setSyncProgress({ current: i + 1, total });
+        }
+
+        console.log("Sync complete!");
+        setSyncProgress(null);
+    }, []);
 
     useEffect(() => {
         setMounted(true);
@@ -165,13 +305,15 @@ export function StorageSection() {
             const handle = await requestGlobalStorageDirectory();
             if (handle) {
                 setDiskStorageEnabled(true, handle.name);
+                // Sync all existing boards to disk
+                await syncAllBoardsToDisk();
             }
         } catch (error) {
             console.error("Failed to enable disk storage:", error);
         } finally {
             setIsEnablingDiskStorage(false);
         }
-    }, [fsApiSupported, setDiskStorageEnabled]);
+    }, [fsApiSupported, setDiskStorageEnabled, syncAllBoardsToDisk]);
 
     const handleDisableDiskStorage = useCallback(async () => {
         await clearGlobalStorageDirectory();
@@ -282,7 +424,9 @@ export function StorageSection() {
                             fsApiSupported &&
                             isEnablingDiskStorage && (
                                 <p className="text-xs text-muted-foreground mt-2">
-                                    Selecting folder...
+                                    {syncProgress
+                                        ? `Syncing boards... ${syncProgress.current}/${syncProgress.total}`
+                                        : "Selecting folder..."}
                                 </p>
                             )}
                     </StorageOption>

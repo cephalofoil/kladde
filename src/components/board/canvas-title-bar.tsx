@@ -1,9 +1,18 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useBoardStore } from "@/store/board-store";
 import { cn } from "@/lib/utils";
+import {
+    renameBoardInGlobalStorage,
+    saveBoardToGlobalStorage,
+    sanitizeFileName,
+} from "@/lib/filesystem-storage";
+import type { ShadeworksFile } from "@/lib/board-types";
+
+const QUICK_BOARDS_WORKSPACE_ID = "quick-boards";
+const QUICKBOARDS_FOLDER_NAME = "quickboards";
 
 interface CanvasTitleBarProps {
     boardId: string;
@@ -76,13 +85,62 @@ export function CanvasTitleBar({
         setIsRenaming(true);
     };
 
+    // Rename file on disk when board is renamed
+    const renameBoardOnDisk = useCallback(
+        async (oldName: string, newBoardName: string) => {
+            if (!diskStorageEnabled) return;
+
+            const board = boards.get(boardId);
+            if (!board) return;
+
+            // Quick boards use numbers, not names
+            if (board.workstreamId === QUICK_BOARDS_WORKSPACE_ID) return;
+
+            const boardData = useBoardStore.getState().boardData.get(boardId);
+            const elements = boardData?.elements || [];
+
+            // Get folder name
+            const workstream = workstreams.get(board.workstreamId);
+            const folderName = workstream?.name || "Personal";
+
+            // Create file content
+            const kladdeFile: ShadeworksFile = {
+                type: "kladde",
+                version: 1,
+                elements,
+                appState: {
+                    canvasBackground:
+                        (board.settings.backgroundColor as
+                            | "none"
+                            | "dots"
+                            | "lines"
+                            | "grid") || "none",
+                },
+            };
+
+            const jsonString = JSON.stringify(kladdeFile, null, 2);
+
+            // Rename (save with new name, delete old)
+            await renameBoardInGlobalStorage(
+                folderName,
+                oldName,
+                newBoardName,
+                jsonString,
+            );
+        },
+        [boardId, boards, workstreams, diskStorageEnabled],
+    );
+
     const handleRenameSubmit = () => {
         if (blurTimeoutRef.current) {
             clearTimeout(blurTimeoutRef.current);
             blurTimeoutRef.current = null;
         }
         if (newName.trim() && newName.trim() !== boardName) {
+            const oldName = boardName;
             updateBoard(boardId, { name: newName.trim() });
+            // Also rename on disk if disk storage is enabled
+            void renameBoardOnDisk(oldName, newName.trim());
         }
         setIsRenaming(false);
     };

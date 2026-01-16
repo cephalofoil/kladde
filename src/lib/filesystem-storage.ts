@@ -843,3 +843,8 @@ export async function listBoardsInWorkspaceFolder(
         return [];
     }
 }
+
+/**
+ * Export type for directory handle
+ */
+export type { FSDirectoryHandle };
