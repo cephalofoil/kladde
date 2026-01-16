@@ -34,11 +34,16 @@ import {
     AlignVerticalJustifyStart,
     AlignVerticalJustifyCenter,
     AlignVerticalJustifyEnd,
-    MoreHorizontal,
     SlidersHorizontal,
     Spline,
     Lock,
     Unlock,
+    PenTool,
+    TypeIcon,
+    Code,
+    BookOpen,
+    ChevronDown,
+    MoreHorizontal,
 } from "lucide-react";
 import {
     Tool,
@@ -46,6 +51,7 @@ import {
     STROKE_WIDTHS,
     HIGHLIGHTER_STROKE_WIDTHS,
     FONTS,
+    EXTRA_FONTS,
     FONT_SIZES,
     BoardElement,
     FrameStyle,
@@ -233,6 +239,9 @@ export function ToolSidebar({
     const [openFillMenu, setOpenFillMenu] = useState(false);
     const [openOptionsMenu, setOpenOptionsMenu] = useState(false);
     const [openMoreMenu, setOpenMoreMenu] = useState(false);
+    const [showFontSubmenu, setShowFontSubmenu] = useState(false);
+    const fontSubmenuRef = useRef<HTMLDivElement | null>(null);
+    const fontSubmenuButtonRef = useRef<HTMLButtonElement | null>(null);
     const arrowStartButtonRef = useRef<HTMLButtonElement | null>(null);
     const arrowEndButtonRef = useRef<HTMLButtonElement | null>(null);
     const arrowEndMenuRef = useRef<HTMLDivElement | null>(null);
@@ -281,6 +290,50 @@ export function ToolSidebar({
             );
         };
     }, [openArrowEndMenu]);
+
+    // Close font submenu on click outside
+    useEffect(() => {
+        if (!showFontSubmenu) return;
+
+        const handlePointerDown = (e: PointerEvent) => {
+            const target = e.target as Node | null;
+            if (!target) return;
+
+            if (fontSubmenuRef.current?.contains(target)) return;
+            if (fontSubmenuButtonRef.current?.contains(target)) return;
+
+            setShowFontSubmenu(false);
+        };
+
+        window.addEventListener("pointerdown", handlePointerDown, {
+            capture: true,
+        });
+        return () => {
+            window.removeEventListener("pointerdown", handlePointerDown, {
+                capture: true,
+            });
+        };
+    }, [showFontSubmenu]);
+
+    // Apply a custom font from the preset list
+    const applyCustomFont = (fontName: string) => {
+        const trimmed = fontName.trim();
+        if (!trimmed) return;
+
+        // Load the font from Google Fonts
+        const linkId = `google-font-${trimmed.replace(/\s+/g, "-")}`;
+        if (!document.getElementById(linkId)) {
+            const link = document.createElement("link");
+            link.id = linkId;
+            link.rel = "stylesheet";
+            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(trimmed)}:wght@400;500;700&display=swap`;
+            document.head.appendChild(link);
+        }
+
+        const fontValue = `"${trimmed}", sans-serif`;
+        onFontFamilyChange(fontValue);
+        setShowFontSubmenu(false);
+    };
 
     const arrowEndOptions = useMemo(
         () =>
@@ -828,100 +881,170 @@ export function ToolSidebar({
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Font
                     </label>
-                    <div className="grid grid-cols-2 gap-1">
-                        {FONTS.map((font) => (
-                            <Button
-                                key={font.value}
-                                onClick={() => onFontFamilyChange(font.value)}
-                                className={cn(
-                                    "h-8 w-full justify-center px-2 text-xs",
-                                    CONTROL_BUTTON,
-                                    fontFamily === font.value
-                                        ? CONTROL_BUTTON_SELECTED
-                                        : undefined,
-                                )}
-                                variant="outline"
-                                size="sm"
-                                style={{ fontFamily: font.value }}
-                            >
-                                {font.name}
-                            </Button>
-                        ))}
-                    </div>
+                    <ToggleGroup
+                        type="single"
+                        value={fontFamily}
+                        onValueChange={(value) => {
+                            if (!value) return;
+                            onFontFamilyChange(value);
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="flex gap-1"
+                    >
+                        {FONTS.map((font) => {
+                            const IconComponent =
+                                font.icon === "hand"
+                                    ? PenTool
+                                    : font.icon === "code"
+                                      ? Code
+                                      : TypeIcon;
+                            return (
+                                <ToggleGroupItem
+                                    key={font.value}
+                                    value={font.value}
+                                    aria-label={font.name}
+                                    className={cn(
+                                        CONTROL_BUTTON,
+                                        "h-8 flex-1 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
+                                    )}
+                                    title={font.name}
+                                >
+                                    <IconComponent className="w-3.5 h-3.5" />
+                                </ToggleGroupItem>
+                            );
+                        })}
+                        <button
+                            ref={fontSubmenuButtonRef}
+                            type="button"
+                            onClick={() => setShowFontSubmenu(!showFontSubmenu)}
+                            className={cn(
+                                CONTROL_BUTTON,
+                                "h-8 flex-1 p-0 flex items-center justify-center",
+                                showFontSubmenu ||
+                                    !FONTS.some((f) => f.value === fontFamily)
+                                    ? "bg-muted/70 border-foreground/20 shadow-sm text-foreground"
+                                    : undefined,
+                            )}
+                            title="More fonts"
+                        >
+                            {(() => {
+                                const selectedExtra = EXTRA_FONTS.find(
+                                    (f) => f.value === fontFamily,
+                                );
+                                if (selectedExtra) {
+                                    const SelectedIcon =
+                                        selectedExtra.icon === "hand"
+                                            ? PenTool
+                                            : selectedExtra.icon === "code"
+                                              ? Code
+                                              : selectedExtra.icon === "serif"
+                                                ? BookOpen
+                                                : TypeIcon;
+                                    return (
+                                        <SelectedIcon className="w-3.5 h-3.5" />
+                                    );
+                                }
+                                return (
+                                    <ChevronDown
+                                        className={cn(
+                                            "w-3.5 h-3.5 transition-transform",
+                                            showFontSubmenu && "-rotate-90",
+                                        )}
+                                    />
+                                );
+                            })()}
+                        </button>
+                    </ToggleGroup>
                 </div>
             )}
 
             {isTextTool && (
                 <div className="space-y-2">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Size &amp; Align
+                        Size
                     </label>
-                    <div className="flex gap-1">
-                        <Select
-                            value={fontSize.toString()}
-                            onValueChange={(value) =>
-                                onFontSizeChange(Number(value))
-                            }
+                    <ToggleGroup
+                        type="single"
+                        value={fontSize.toString()}
+                        onValueChange={(value) => {
+                            if (!value) return;
+                            onFontSizeChange(Number(value));
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="flex gap-1"
+                    >
+                        {FONT_SIZES.map((size, index) => {
+                            const labels = ["S", "M", "L", "XL"];
+                            return (
+                                <ToggleGroupItem
+                                    key={size}
+                                    value={size.toString()}
+                                    aria-label={`${labels[index]} (${size}px)`}
+                                    className={cn(
+                                        CONTROL_BUTTON,
+                                        "h-8 flex-1 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
+                                    )}
+                                    title={`${size}px`}
+                                >
+                                    {labels[index]}
+                                </ToggleGroupItem>
+                            );
+                        })}
+                    </ToggleGroup>
+                </div>
+            )}
+
+            {isTextTool && (
+                <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Align
+                    </label>
+                    <ToggleGroup
+                        type="single"
+                        value={textAlign}
+                        onValueChange={(value) => {
+                            if (!value) return;
+                            onTextAlignChange(
+                                value as "left" | "center" | "right",
+                            );
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="flex gap-1"
+                    >
+                        <ToggleGroupItem
+                            value="left"
+                            aria-label="Align left"
+                            className={cn(
+                                CONTROL_BUTTON,
+                                "h-8 flex-1 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
+                            )}
                         >
-                            <SelectTrigger className="flex-1 h-8 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {FONT_SIZES.map((size) => (
-                                    <SelectItem
-                                        key={size}
-                                        value={size.toString()}
-                                    >
-                                        {size}px
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <ToggleGroup
-                            type="single"
-                            value={textAlign}
-                            onValueChange={(value) => {
-                                if (!value) return;
-                                onTextAlignChange(
-                                    value as "left" | "center" | "right",
-                                );
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="gap-1"
+                            <AlignLeft className="w-3.5 h-3.5" />
+                        </ToggleGroupItem>
+                        <ToggleGroupItem
+                            value="center"
+                            aria-label="Align center"
+                            className={cn(
+                                CONTROL_BUTTON,
+                                "h-8 flex-1 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
+                            )}
                         >
-                            <ToggleGroupItem
-                                value="left"
-                                aria-label="Align left"
-                                className={cn(
-                                    CONTROL_BUTTON,
-                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
-                                )}
-                            >
-                                <AlignLeft className="w-3.5 h-3.5" />
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                                value="center"
-                                aria-label="Align center"
-                                className={cn(
-                                    CONTROL_BUTTON,
-                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
-                                )}
-                            >
-                                <AlignCenter className="w-3.5 h-3.5" />
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                                value="right"
-                                aria-label="Align right"
-                                className={cn(
-                                    CONTROL_BUTTON,
-                                    "h-8 w-8 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
-                                )}
-                            >
-                                <AlignRight className="w-3.5 h-3.5" />
-                            </ToggleGroupItem>
-                        </ToggleGroup>
-                    </div>
+                            <AlignCenter className="w-3.5 h-3.5" />
+                        </ToggleGroupItem>
+                        <ToggleGroupItem
+                            value="right"
+                            aria-label="Align right"
+                            className={cn(
+                                CONTROL_BUTTON,
+                                "h-8 flex-1 p-0 data-[state=on]:bg-muted/70 data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm data-[state=on]:text-foreground",
+                            )}
+                        >
+                            <AlignRight className="w-3.5 h-3.5" />
+                        </ToggleGroupItem>
+                    </ToggleGroup>
                 </div>
             )}
 
@@ -2262,6 +2385,58 @@ export function ToolSidebar({
                 showEyedropper={true}
                 showSwatches={true}
             />
+
+            {/* Font Submenu - slides out to the left */}
+            {showFontSubmenu && (
+                <div
+                    ref={fontSubmenuRef}
+                    className="fixed z-[9999] w-[180px] bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl p-2 text-foreground"
+                    style={{
+                        right: `calc(${rightOffset}px + 245px)`,
+                        top: fontSubmenuButtonRef.current
+                            ? fontSubmenuButtonRef.current.getBoundingClientRect()
+                                  .top - 8
+                            : 200,
+                    }}
+                >
+                    <div className="space-y-0.5">
+                        {EXTRA_FONTS.map((font) => {
+                            const IconComponent =
+                                font.icon === "hand"
+                                    ? PenTool
+                                    : font.icon === "code"
+                                      ? Code
+                                      : font.icon === "serif"
+                                        ? BookOpen
+                                        : TypeIcon;
+                            const isSelected = fontFamily === font.value;
+                            return (
+                                <button
+                                    key={font.name}
+                                    type="button"
+                                    onClick={() => {
+                                        applyCustomFont(font.name);
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded transition-colors",
+                                        isSelected
+                                            ? "bg-muted/70 text-foreground"
+                                            : "hover:bg-muted/60",
+                                    )}
+                                >
+                                    <IconComponent className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+                                    <span
+                                        className="truncate"
+                                        style={{ fontFamily: font.value }}
+                                    >
+                                        {font.name}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Arrow End Picker Menu - Outside overflow container */}
             {openArrowEndMenu && arrowEndMenuPos && (

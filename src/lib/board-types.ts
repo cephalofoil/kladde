@@ -317,12 +317,31 @@ export const STROKE_WIDTHS = [2, 4, 6, 8, 12];
 export const HIGHLIGHTER_STROKE_WIDTHS = [8, 12, 16, 24, 32];
 
 export const FONTS = [
-    { name: "Virgil", value: "var(--font-caveat)" },
-    { name: "Helvetica", value: "var(--font-inter)" },
-    { name: "Cascadia", value: "var(--font-fira-code)" },
-];
+    { name: "Virgil", value: "var(--font-caveat)", icon: "hand" },
+    { name: "Helvetica", value: "var(--font-inter)", icon: "normal" },
+    { name: "Cascadia", value: "var(--font-fira-code)", icon: "code" },
+] as const;
 
-export const FONT_SIZES = [16, 20, 28];
+export const EXTRA_FONTS = [
+    { name: "Comic Neue", value: '"Comic Neue", cursive', icon: "hand" },
+    { name: "Pacifico", value: '"Pacifico", cursive', icon: "hand" },
+    { name: "Roboto", value: '"Roboto", sans-serif', icon: "normal" },
+    { name: "Open Sans", value: '"Open Sans", sans-serif', icon: "normal" },
+    { name: "Playfair", value: '"Playfair Display", serif', icon: "serif" },
+    { name: "Merriweather", value: '"Merriweather", serif', icon: "serif" },
+    {
+        name: "JetBrains Mono",
+        value: '"JetBrains Mono", monospace',
+        icon: "code",
+    },
+    {
+        name: "Source Code Pro",
+        value: '"Source Code Pro", monospace',
+        icon: "code",
+    },
+] as const;
+
+export const FONT_SIZES = [16, 20, 28, 36];
 
 export const DEFAULT_PEN_FILL_COLOR = "#d1d5db";
 
