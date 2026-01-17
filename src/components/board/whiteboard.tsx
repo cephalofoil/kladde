@@ -129,6 +129,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right">(
     "left",
   );
+  const [textVerticalAlign, setTextVerticalAlign] = useState<
+    "top" | "middle" | "bottom"
+  >("middle");
   const [fontSize, setFontSize] = useState(20);
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineHeight, setLineHeight] = useState(1.25);
@@ -1453,6 +1456,25 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     [selectedElements, saveToUndoStack, handleUpdateElement],
   );
 
+  const handleTextVerticalAlignChange = useCallback(
+    (align: "top" | "middle" | "bottom") => {
+      if (selectedElements.length > 0) {
+        saveToUndoStack();
+        selectedElements.forEach((el) => {
+          if (
+            el.type === "rectangle" ||
+            el.type === "diamond" ||
+            el.type === "ellipse"
+          ) {
+            handleUpdateElement(el.id, { textVerticalAlign: align });
+          }
+        });
+      }
+      setTextVerticalAlign(align);
+    },
+    [selectedElements, saveToUndoStack, handleUpdateElement],
+  );
+
   const handleFontSizeChange = useCallback(
     (size: number) => {
       if (selectedElements.length > 0) {
@@ -2715,6 +2737,8 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             onFontFamilyChange={handleFontFamilyChange}
             textAlign={textAlign}
             onTextAlignChange={handleTextAlignChange}
+            textVerticalAlign={textVerticalAlign}
+            onTextVerticalAlignChange={handleTextVerticalAlignChange}
             fontSize={fontSize}
             onFontSizeChange={handleFontSizeChange}
             letterSpacing={letterSpacing}

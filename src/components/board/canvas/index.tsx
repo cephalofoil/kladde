@@ -197,6 +197,8 @@ export function Canvas({
       setEditingTextElementId,
       editingTextStyle,
       setEditingTextStyle,
+      editingShapeTextId,
+      setEditingShapeTextId,
     },
     eraser: {
       eraserMarkedIds,
@@ -970,6 +972,7 @@ export function Canvas({
     remoteSelections,
     remotelyEditingTextIds,
     editingTextElementId,
+    editingShapeTextId,
     eraserMarkedIds,
     snapTarget,
     zoom,
@@ -1584,98 +1587,138 @@ export function Canvas({
       )}
 
       {/* Text Input */}
-      {textInput && (
-        <div
-          ref={textEditorWrapperRef}
-          className="absolute pointer-events-auto z-[40]"
-          style={{
-            left: textInput.x * zoom + pan.x,
-            top: textInput.y * zoom + pan.y,
-            width: textInputMetrics?.width ?? textInput.width ?? 200,
-            height:
-              textInputMetrics?.height ??
-              textInput.height ??
-              (editingTextStyle?.fontSize ?? fontSize) *
-                (editingTextStyle?.lineHeight ?? lineHeight),
-            transform: `scale(${zoom})`,
-            transformOrigin: "top left",
-            overflow: "visible",
-          }}
-        >
-          <textarea
-            ref={textInputRef}
-            value={textValue}
-            wrap="off"
-            rows={1}
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="off"
-            autoComplete="off"
-            onChange={(e) => handleTextChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setTextInput(null);
-                setTextValue("");
-                setEditingTextElementId(null);
-                setEditingTextStyle(null);
-              }
-            }}
-            onBlur={(e) => {
-              // Don't close if clicking on sidebar or other UI elements
-              const relatedTarget = e.relatedTarget as HTMLElement;
-              if (
-                relatedTarget &&
-                (relatedTarget.closest(".fixed.right-4") || // Sidebar
-                  relatedTarget.tagName === "BUTTON" ||
-                  relatedTarget.tagName === "SELECT" ||
-                  relatedTarget.tagName === "INPUT")
-              ) {
-                return;
-              }
-              // Save text on blur if there's content
-              if (textValue.trim()) {
-                handleTextSubmit({
-                  skipSelect: true,
-                });
-                setSelectedIds([]);
-              } else {
-                setTextInput(null);
-                setTextValue("");
-                setEditingTextElementId(null);
-                setEditingTextStyle(null);
-                setSelectedIds([]);
-              }
-            }}
-            className="absolute inset-0 bg-transparent outline-none text-foreground resize-none"
-            style={{
-              width: "100%",
-              height: "100%",
-              fontSize: editingTextStyle?.fontSize ?? fontSize,
-              fontFamily: editingTextStyle?.fontFamily ?? fontFamily,
-              fontWeight: 500,
-              letterSpacing: `${editingTextStyle?.letterSpacing ?? letterSpacing}px`,
-              color: editingTextStyle?.strokeColor ?? strokeColor,
-              lineHeight: (
-                editingTextStyle?.lineHeight ?? lineHeight
-              ).toString(),
-              textAlign: editingTextStyle?.textAlign ?? textAlign,
-              padding: isTextBoxEditing ? 4 : 0,
-              margin: 0,
-              border: 0,
-              outline: isTextBoxEditing
-                ? "1px solid color-mix(in oklab, var(--accent) 60%, transparent)"
-                : "none",
-              outlineOffset: "0px",
-              boxSizing: "border-box",
-              overflow: "hidden",
-              wordBreak: isTextBoxEditing ? "break-word" : "normal",
-              overflowWrap: isTextBoxEditing ? "anywhere" : "normal",
-              whiteSpace: isTextBoxEditing ? "pre-wrap" : "pre",
-              caretColor: editingTextStyle?.strokeColor ?? strokeColor,
-            }}
-          />
-        </div>
-      )}
+      {textInput &&
+        (() => {
+          const editingShape = editingShapeTextId
+            ? elements.find((el) => el.id === editingShapeTextId)
+            : null;
+          const shapeVerticalAlign =
+            editingShape?.textVerticalAlign ?? "middle";
+          const isShapeText = !!editingShapeTextId;
+
+          // Calculate flex alignment for shape text to match rendered text
+          const shapeAlignItems =
+            shapeVerticalAlign === "top"
+              ? "flex-start"
+              : shapeVerticalAlign === "bottom"
+                ? "flex-end"
+                : "center";
+
+          return (
+            <div
+              ref={textEditorWrapperRef}
+              className="absolute pointer-events-auto z-[40]"
+              style={{
+                left: textInput.x * zoom + pan.x,
+                top: textInput.y * zoom + pan.y,
+                width: isShapeText
+                  ? (textInput.width ?? 200)
+                  : (textInputMetrics?.width ?? textInput.width ?? 200),
+                height: isShapeText
+                  ? (textInput.height ?? 100)
+                  : (textInputMetrics?.height ??
+                    textInput.height ??
+                    (editingTextStyle?.fontSize ?? fontSize) *
+                      (editingTextStyle?.lineHeight ?? lineHeight)),
+                transform: `scale(${zoom})`,
+                transformOrigin: "top left",
+                overflow: "visible",
+                // For shape text editing, use flexbox to match rendered text positioning
+                ...(isShapeText && {
+                  display: "flex",
+                  alignItems: shapeAlignItems,
+                  justifyContent: "center",
+                  padding: "8px",
+                  boxSizing: "border-box",
+                }),
+              }}
+            >
+              <textarea
+                ref={textInputRef}
+                value={textValue}
+                wrap="off"
+                rows={1}
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                autoComplete="off"
+                onChange={(e) => handleTextChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setTextInput(null);
+                    setTextValue("");
+                    setEditingTextElementId(null);
+                    setEditingShapeTextId(null);
+                    setEditingTextStyle(null);
+                  }
+                }}
+                onBlur={(e) => {
+                  // Don't close if clicking on sidebar or other UI elements
+                  const relatedTarget = e.relatedTarget as HTMLElement;
+                  if (
+                    relatedTarget &&
+                    (relatedTarget.closest(".fixed.right-4") || // Sidebar
+                      relatedTarget.tagName === "BUTTON" ||
+                      relatedTarget.tagName === "SELECT" ||
+                      relatedTarget.tagName === "INPUT")
+                  ) {
+                    return;
+                  }
+                  // Save text on blur if there's content
+                  if (textValue.trim()) {
+                    handleTextSubmit({
+                      skipSelect: true,
+                    });
+                    setSelectedIds([]);
+                  } else {
+                    setTextInput(null);
+                    setTextValue("");
+                    setEditingTextElementId(null);
+                    setEditingShapeTextId(null);
+                    setEditingTextStyle(null);
+                    setSelectedIds([]);
+                  }
+                }}
+                className={`bg-transparent resize-none ${isShapeText ? "" : "absolute inset-0"}`}
+                style={{
+                  ...(isShapeText
+                    ? {
+                        width: "100%",
+                        maxWidth: "100%",
+                      }
+                    : {
+                        width: "100%",
+                        height: "100%",
+                      }),
+                  fontSize: editingTextStyle?.fontSize ?? fontSize,
+                  fontFamily: editingTextStyle?.fontFamily ?? fontFamily,
+                  fontWeight: 500,
+                  letterSpacing: `${editingTextStyle?.letterSpacing ?? letterSpacing}px`,
+                  color: editingTextStyle?.strokeColor ?? strokeColor,
+                  lineHeight: (
+                    editingTextStyle?.lineHeight ?? lineHeight
+                  ).toString(),
+                  textAlign: isShapeText
+                    ? "center"
+                    : (editingTextStyle?.textAlign ?? textAlign),
+                  padding: 0,
+                  margin: 0,
+                  border: "none",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  overflow: "visible",
+                  wordBreak:
+                    isTextBoxEditing || isShapeText ? "break-word" : "normal",
+                  overflowWrap:
+                    isTextBoxEditing || isShapeText ? "anywhere" : "normal",
+                  whiteSpace:
+                    isTextBoxEditing || isShapeText ? "pre-wrap" : "pre",
+                  caretColor: editingTextStyle?.strokeColor ?? strokeColor,
+                }}
+              />
+            </div>
+          );
+        })()}
 
       {/* Zoom Controls and Undo/Redo */}
       <div

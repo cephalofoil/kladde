@@ -124,6 +124,10 @@ export function useCanvasState({
     letterSpacing: number;
     lineHeight: number;
   } | null>(null);
+  // Track when editing text inside a shape (rectangle, diamond, ellipse)
+  const [editingShapeTextId, setEditingShapeTextId] = useState<string | null>(
+    null,
+  );
 
   // Eraser state
   const [eraserMarkedIds, setEraserMarkedIds] = useState<Set<string>>(
@@ -256,6 +260,8 @@ export function useCanvasState({
       setEditingTextElementId,
       editingTextStyle,
       setEditingTextStyle,
+      editingShapeTextId,
+      setEditingShapeTextId,
     },
     eraser: {
       eraserMarkedIds,
