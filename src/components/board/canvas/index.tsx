@@ -1683,7 +1683,15 @@ export function Canvas({
                 whiteSpace:
                   isTextBoxEditing || isShapeText ? "pre-wrap" : "pre",
                 caretColor: editingTextStyle?.strokeColor ?? strokeColor,
-                ...(isShapeText ? {} : { height: "100%" }),
+                ...(isShapeText
+                  ? {
+                      height: "auto",
+                      minHeight: 0,
+                      verticalAlign: "top",
+                      display: "block",
+                      marginTop: "+6px", // Compensate for textarea baseline offset
+                    }
+                  : { height: "100%" }),
               }}
             />
           );
@@ -1709,32 +1717,17 @@ export function Canvas({
                 transform: `scale(${zoom})`,
                 transformOrigin: "top left",
                 overflow: "visible",
+                // For shape text, use flex to match renderShapeText exactly
+                ...(isShapeText && {
+                  display: "flex",
+                  alignItems: shapeAlignItems,
+                  justifyContent: "center",
+                  padding: "8px",
+                  boxSizing: "border-box" as const,
+                }),
               }}
             >
-              {isShapeText ? (
-                // Match the exact structure of renderShapeText for consistent positioning
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: shapeAlignItems,
-                    justifyContent: "center",
-                    width: "100%",
-                    height: "100%",
-                    minHeight: "100%",
-                    padding: "8px",
-                    boxSizing: "border-box",
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                  }}
-                >
-                  {textareaElement}
-                </div>
-              ) : (
-                textareaElement
-              )}
+              {textareaElement}
             </div>
           );
         })()}
