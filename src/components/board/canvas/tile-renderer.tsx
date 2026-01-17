@@ -280,7 +280,7 @@ export function TileRenderer({
       case "tile-mermaid":
         if (isEditing) {
           return (
-            <div className="absolute left-1 right-1 bottom-1 top-10 pointer-events-auto rounded-b-lg overflow-hidden">
+            <div className="absolute inset-0 pointer-events-auto rounded-lg overflow-hidden">
               <MermaidCodeEditor
                 initialCode={content?.chart || ""}
                 onSave={(code) => {
@@ -294,7 +294,12 @@ export function TileRenderer({
                 }}
                 onCancel={() => setIsEditing(false)}
                 width={width - 8}
-                height={height - 48}
+                height={height - 8}
+                tileTitle={tileTitle}
+                isEditingTitle={isEditingTitle}
+                onStartTitleEdit={() => setIsEditingTitle(true)}
+                onTitleChange={(value) => onUpdate?.({ tileTitle: value })}
+                onFinishTitleEdit={() => setIsEditingTitle(false)}
               />
             </div>
           );
@@ -359,6 +364,7 @@ export function TileRenderer({
 
   // Note tiles have a special sticky-note design without header
   const isNoteTile = element.tileType === "tile-note";
+  const shouldRenderHeader = !(element.tileType === "tile-mermaid" && isEditing);
 
   if (isNoteTile) {
     const content = element.tileContent;
@@ -444,7 +450,7 @@ export function TileRenderer({
       >
         <div
           className={cn(
-            "relative w-full h-full rounded-lg shadow-lg border-2 transition-all select-none",
+            "relative w-full h-full rounded-lg shadow-lg border-2 transition-all select-none overflow-hidden",
             "border-gray-200 dark:border-neutral-700",
           )}
           style={{
@@ -462,110 +468,111 @@ export function TileRenderer({
           />
 
           {/* Title Bar */}
-          <div
-            data-tile-header="true"
-            data-element-id={element.id}
-            className={cn(
-              "absolute top-0 left-0 right-0 h-10 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors z-10",
-              !element.tileContent?.headerBgColor &&
-                (isEditingTitle
-                  ? "bg-white dark:bg-neutral-800 border-accent dark:border-accent pointer-events-auto"
-                  : "bg-gray-50 dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 hover:bg-gray-100 dark:hover:bg-neutral-700 pointer-events-auto"),
-              element.tileContent?.headerBgColor && "pointer-events-auto",
-              isSelected ? "cursor-move" : "cursor-pointer",
-            )}
-            style={{
-              backgroundColor: element.tileContent?.headerBgColor || undefined,
-              borderBottomColor:
-                element.tileContent?.headerBgColor || undefined,
-              color: element.tileContent?.headerBgColor
-                ? getContrastTextColor(element.tileContent.headerBgColor)
-                : undefined,
-            }}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              setIsEditingTitle(true);
-            }}
-          >
-            {isEditingTitle ? (
-              <input
-                type="text"
-                value={tileTitle}
-                onChange={(e) => onUpdate?.({ tileTitle: e.target.value })}
-                onBlur={() => setIsEditingTitle(false)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") setIsEditingTitle(false);
-                  e.stopPropagation();
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="flex-1 bg-transparent text-sm font-medium border-none outline-none"
-                placeholder="Enter title..."
-                autoFocus
-              />
-            ) : (
-              <div className="flex-1 text-sm font-medium truncate">
-                {tileTitle}
-              </div>
-            )}
-
-            {/* Dropdown Menu */}
-            {isSelected && !isEditingTitle && (
-              <DropdownMenu>
-                <DropdownMenuTrigger
+          {shouldRenderHeader && (
+            <div
+              data-tile-header="true"
+              data-element-id={element.id}
+              className={cn(
+                "absolute top-0 left-0 right-0 h-12 rounded-t-lg border-b-2 flex items-center px-3 gap-2 transition-colors z-10 backdrop-blur",
+                !element.tileContent?.headerBgColor &&
+                  (isEditingTitle
+                    ? "bg-card border-accent dark:border-accent pointer-events-auto"
+                    : "bg-card/95 border-border hover:bg-muted/40 pointer-events-auto"),
+                element.tileContent?.headerBgColor && "pointer-events-auto",
+                isSelected ? "cursor-move" : "cursor-pointer",
+              )}
+              style={{
+                backgroundColor: element.tileContent?.headerBgColor || undefined,
+                borderBottomColor:
+                  element.tileContent?.headerBgColor || undefined,
+                color: element.tileContent?.headerBgColor
+                  ? getContrastTextColor(element.tileContent.headerBgColor)
+                  : undefined,
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setIsEditingTitle(true);
+              }}
+            >
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={tileTitle}
+                  onChange={(e) => onUpdate?.({ tileTitle: e.target.value })}
+                  onBlur={() => setIsEditingTitle(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setIsEditingTitle(false);
+                    e.stopPropagation();
+                  }}
                   onClick={(e) => e.stopPropagation()}
-                  className={cn(
-                    "p-1 rounded",
-                    !element.tileContent?.headerBgColor &&
-                      "hover:bg-gray-200 dark:hover:bg-neutral-600",
-                  )}
-                  style={{
-                    color: element.tileContent?.headerBgColor
-                      ? getContrastTextColor(element.tileContent.headerBgColor)
-                      : undefined,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (element.tileContent?.headerBgColor) {
-                      e.currentTarget.style.backgroundColor =
-                        element.tileContent.headerBgColor;
-                      e.currentTarget.style.filter = "brightness(0.9)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (element.tileContent?.headerBgColor) {
-                      e.currentTarget.style.backgroundColor = "transparent";
-                      e.currentTarget.style.filter = "none";
-                    }
-                  }}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                    Edit Content
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowColorPicker(true);
+                  className="flex-1 bg-transparent text-base font-semibold border-none outline-none"
+                  placeholder="Enter title..."
+                  autoFocus
+                />
+              ) : (
+                <div className="flex-1 text-base font-semibold truncate">
+                  {tileTitle}
+                </div>
+              )}
+
+              {/* Dropdown Menu */}
+              {isSelected && !isEditingTitle && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    onClick={(e) => e.stopPropagation()}
+                    className={cn(
+                      "p-1 rounded",
+                      !element.tileContent?.headerBgColor && "hover:bg-muted",
+                    )}
+                    style={{
+                      color: element.tileContent?.headerBgColor
+                        ? getContrastTextColor(element.tileContent.headerBgColor)
+                        : undefined,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (element.tileContent?.headerBgColor) {
+                        e.currentTarget.style.backgroundColor =
+                          element.tileContent.headerBgColor;
+                        e.currentTarget.style.filter = "brightness(0.9)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (element.tileContent?.headerBgColor) {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.filter = "none";
+                      }
                     }}
                   >
-                    Header Color
-                  </DropdownMenuItem>
-                  {onDelete && (
-                    <DropdownMenuItem
-                      onClick={onDelete}
-                      className="text-red-600"
-                    >
-                      Delete
+                    <MoreHorizontal className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
+                      Rename
                     </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                      Edit Content
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowColorPicker(true);
+                      }}
+                    >
+                      Header Color
+                    </DropdownMenuItem>
+                    {onDelete && (
+                      <DropdownMenuItem
+                        onClick={onDelete}
+                        className="text-red-600"
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          )}
 
           {/* Tile Content */}
           {renderTileContent()}

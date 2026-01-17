@@ -4,11 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   Check,
+  ChevronDown,
+  Code2,
   Copy,
   Eraser,
-  LayoutGrid,
+  Eye,
+  ExternalLink,
   Maximize2,
   RotateCcw,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -38,12 +42,18 @@ interface MermaidCodeEditorProps {
   onExpand?: () => void;
   width?: number;
   height?: number;
+  tileTitle?: string;
+  isEditingTitle?: boolean;
+  onStartTitleEdit?: () => void;
+  onTitleChange?: (value: string) => void;
+  onFinishTitleEdit?: () => void;
   className?: string;
 }
 
 const MERMAID_TEMPLATES = [
   {
     name: "Flowchart",
+    icon: "F",
     code: `graph TD
     A[Start] --> B{Decision}
     B -->|Yes| C[Action 1]
@@ -52,7 +62,8 @@ const MERMAID_TEMPLATES = [
     D --> E`,
   },
   {
-    name: "Sequence Diagram",
+    name: "Sequence",
+    icon: "S",
     code: `sequenceDiagram
     participant A as Alice
     participant B as Bob
@@ -60,7 +71,8 @@ const MERMAID_TEMPLATES = [
     B->>A: Hello Alice!`,
   },
   {
-    name: "Class Diagram",
+    name: "Class",
+    icon: "C",
     code: `classDiagram
     class Animal {
         +String name
@@ -73,7 +85,8 @@ const MERMAID_TEMPLATES = [
     Animal <|-- Dog`,
   },
   {
-    name: "State Diagram",
+    name: "State",
+    icon: "T",
     code: `stateDiagram-v2
     [*] --> Still
     Still --> Moving
@@ -83,20 +96,33 @@ const MERMAID_TEMPLATES = [
   },
 ];
 
+const PROMPT_OPTIONS: Array<{ key: MermaidPromptVariantKey | "general"; label: string }> = [
+  { key: "general", label: "General" },
+  { key: "flowchart", label: "Flowchart" },
+  { key: "sequence", label: "Sequence" },
+  { key: "er", label: "ER Diagram" },
+];
+
 export function MermaidCodeEditor({
   initialCode,
   onSave,
   onCancel,
   onExpand,
-  width = 800,
   height = 600,
+  tileTitle,
+  isEditingTitle = false,
+  onStartTitleEdit,
+  onTitleChange,
+  onFinishTitleEdit,
   className,
 }: MermaidCodeEditorProps) {
   const [code, setCode] = useState(initialCode);
   const [showPreview, setShowPreview] = useState(true);
-  const [templateValue, setTemplateValue] = useState<string | undefined>(undefined);
+  const [templateValue, setTemplateValue] = useState<string | undefined>(
+    undefined,
+  );
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
-    "idle"
+    "idle",
   );
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [canRestore, setCanRestore] = useState(false);
@@ -135,7 +161,7 @@ export function MermaidCodeEditor({
 
   const templatePromptMap: Record<string, MermaidPromptVariantKey> = {
     Flowchart: "flowchart",
-    "Sequence Diagram": "sequence",
+    Sequence: "sequence",
   };
 
   const getPromptText = (variant?: MermaidPromptVariantKey) => {
@@ -191,187 +217,286 @@ export function MermaidCodeEditor({
     setCanRestore(false);
   };
 
-  const editorHeight = Math.max(200, height - 100);
-  const previewWidth = showPreview ? Math.floor(width * 0.5) : 0;
-  const editorWidth = showPreview ? Math.floor(width * 0.5) : width;
+  const editorHeight = Math.max(200, height - 120);
 
   return (
-    <div className={cn("flex flex-col h-full bg-transparent", className)}>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 pt-4 pb-2 text-foreground">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">Mermaid Editor</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="h-7 px-2.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
-          >
-            {showPreview ? "Hide" : "Show"} Preview
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
-              >
-                <Copy className="h-3 w-3" />
-                {copyState === "copied"
-                  ? "Copied"
-                  : copyState === "error"
-                    ? "Copy failed"
-                    : "Copy Prompt"}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-40">
-              <DropdownMenuItem onClick={() => handleCopyPrompt()}>
-                General prompt
-              </DropdownMenuItem>
-              {templateValue && templatePromptMap[templateValue] && (
-                <DropdownMenuItem
-                  onClick={() =>
-                    handleCopyPrompt(templatePromptMap[templateValue])
-                  }
+    <TooltipProvider delayDuration={200}>
+      <div className={cn("flex flex-col h-full bg-background", className)}>
+        <div className="flex items-center justify-between px-3 h-12 border-b-2 border-border bg-card/95">
+          <div className="flex items-center gap-3 min-w-0">
+            {tileTitle ? (
+              isEditingTitle ? (
+                <input
+                  type="text"
+                  value={tileTitle}
+                  onChange={(e) => onTitleChange?.(e.target.value)}
+                  onBlur={onFinishTitleEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onFinishTitleEdit?.();
+                    if (e.key === "Escape") onFinishTitleEdit?.();
+                    e.stopPropagation();
+                  }}
+                  className="flex-1 bg-transparent text-base font-semibold border-none outline-none"
+                  placeholder="Enter title..."
+                  autoFocus
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={onStartTitleEdit}
+                  className="text-base font-semibold text-foreground truncate hover:text-foreground/80 transition-colors"
                 >
-                  Selected template prompt
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => handleCopyPrompt("flowchart")}>
-                Flowchart prompt
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCopyPrompt("sequence")}>
-                Sequence prompt
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCopyPrompt("er")}>
-                ER prompt
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button
-            onClick={canRestore ? handleRestore : handleClear}
-            className="flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
-            disabled={!code.trim() && !canRestore}
-          >
-            {canRestore ? (
-              <>
-                <RotateCcw className="h-3 w-3" />
-                Restore
-              </>
+                  {tileTitle}
+                </button>
+              )
             ) : (
-              <>
-                <Eraser className="h-3 w-3" />
-                Clear
-              </>
+              <span className="text-sm font-semibold text-foreground">
+                Mermaid Editor
+              </span>
             )}
-          </button>
-          {onExpand && (
-            <button
-              onClick={onExpand}
-              className="flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
-              title="Open Fullscreen Editor"
-            >
-              <Maximize2 className="h-3 w-3" />
-              Expand
-            </button>
-          )}
-          {onCancel && (
-            <button
-              onClick={handleCancel}
-              className="flex items-center gap-1 h-7 px-2.5 text-xs text-muted-foreground hover:bg-muted rounded-md transition-colors"
-            >
-              <X className="h-3 w-3" />
-              Cancel
-            </button>
-          )}
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-1 h-7 px-2.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors"
-          >
-            <Check className="h-3 w-3" />
-            Save
-          </button>
-        </div>
-      </div>
-
-      {/* Editor and Preview */}
-      <div className="flex flex-1 gap-3 px-3 pb-3 overflow-hidden">
-        {/* Code Editor */}
-        <div
-          className="flex flex-col flex-1 min-w-0"
-          style={{ width: editorWidth }}
-        >
-          <textarea
-            value={code}
-            onChange={handleCodeChange}
-            className="flex-1 w-full p-3 text-sm font-mono bg-background text-foreground rounded-md border border-border outline-none resize-none focus:border-ring focus:ring-0 scrollbar-thin scrollbar-thumb-muted-foreground/40 scrollbar-track-transparent"
-            placeholder="Enter mermaid diagram code here..."
-            spellCheck={false}
-            style={{ height: editorHeight }}
-          />
-        </div>
-
-        {/* Preview */}
-        {showPreview && (
-          <div className="flex flex-col flex-1 min-w-0" style={{ width: previewWidth }}>
-            <ScrollArea
-              className="flex-1 bg-background rounded-md border border-border"
-              showHorizontal
-              scrollbarClassName="w-2 h-2"
-              scrollbarThumbClassName="bg-muted-foreground/30 hover:bg-muted-foreground/50"
-            >
-              <div className="p-4">
-                {code ? (
-                  <MermaidRenderer
-                    chart={code}
-                    width={previewWidth - 32}
-                    height={editorHeight - 50}
-                    className="w-full h-full"
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="flex flex-col gap-2 w-full max-w-xs">
-                      <TooltipProvider delayDuration={300}>
-                        {MERMAID_TEMPLATES.map((template) => (
-                          <Tooltip key={template.name}>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => handleTemplateSelect(template.name, true)}
-                                className="group flex items-center gap-3 rounded-md border border-dashed border-border bg-background/80 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
-                              >
-                                <span className="flex items-center justify-center w-8 h-8 rounded-md border border-border bg-background flex-shrink-0">
-                                  <LayoutGrid className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                                </span>
-                                <span className="text-sm font-medium text-foreground">
-                                  {template.name}
-                                </span>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">
-                              <p>Start with a {template.name.toLowerCase()} template</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </TooltipProvider>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
           </div>
-        )}
-      </div>
 
-      {/* Help Text */}
-      <div className="px-3 py-2 border-t border-border text-xs text-muted-foreground">
-        Learn more about Mermaid syntax at{" "}
-        <a
-          href="https://mermaid.js.org"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:underline"
-        >
-          mermaid.js.org
-        </a>
+          <div className="flex items-center gap-1">
+            <div className="flex items-center p-0.5 rounded-lg bg-muted/50 mr-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setShowPreview(false)}
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-md transition-all",
+                      !showPreview
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Code2 className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Code only</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setShowPreview(true)}
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-md transition-all",
+                      showPreview
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Split view</TooltipContent>
+              </Tooltip>
+            </div>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={canRestore ? handleRestore : handleClear}
+                  disabled={!code.trim() && !canRestore}
+                  className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-lg transition-all",
+                    "text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed",
+                  )}
+                >
+                  {canRestore ? (
+                    <RotateCcw className="w-4 h-4" />
+                  ) : (
+                    <Eraser className="w-4 h-4" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {canRestore ? "Restore code" : "Clear code"}
+              </TooltipContent>
+            </Tooltip>
+
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex items-center justify-center w-8 h-8 rounded-lg transition-all",
+                        "text-muted-foreground hover:text-foreground hover:bg-muted",
+                        copyState === "copied" && "text-emerald-500",
+                      )}
+                    >
+                      {copyState === "copied" ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Copy AI prompt</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-44">
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  Copy prompt for
+                </div>
+                {PROMPT_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.key}
+                    onClick={() =>
+                      option.key === "general"
+                        ? handleCopyPrompt()
+                        : handleCopyPrompt(option.key)
+                    }
+                    className="text-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {onExpand && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onExpand}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Fullscreen</TooltipContent>
+              </Tooltip>
+            )}
+
+            <div className="w-px h-6 bg-border mx-1" />
+
+            {onCancel && (
+              <button
+                onClick={handleCancel}
+                className="flex items-center gap-1.5 h-8 px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
+              >
+                <X className="w-3.5 h-3.5" />
+                Cancel
+              </button>
+            )}
+
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-1.5 h-8 px-4 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-all"
+            >
+              <Check className="w-3.5 h-3.5" />
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          <div
+            className={cn(
+              "flex flex-col min-w-0 transition-all duration-300",
+              showPreview ? "w-1/2" : "w-full",
+            )}
+          >
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Code
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    Templates
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {MERMAID_TEMPLATES.map((template) => (
+                    <DropdownMenuItem
+                      key={template.name}
+                      onClick={() => handleTemplateSelect(template.name, true)}
+                      className="text-sm"
+                    >
+                      <span className="w-5 text-center mr-2 text-muted-foreground">
+                        {template.icon}
+                      </span>
+                      {template.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <textarea
+              value={code}
+              onChange={handleCodeChange}
+              className="flex-1 w-full p-4 text-sm font-mono bg-card text-foreground outline-none resize-none placeholder:text-muted-foreground/50"
+              placeholder="Enter mermaid diagram code..."
+              spellCheck={false}
+              style={{ height: editorHeight }}
+            />
+          </div>
+
+          {showPreview && <div className="w-px bg-border" />}
+
+          {showPreview && (
+            <div className="flex flex-col w-1/2 min-w-0">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Preview
+                </span>
+                <a
+                  href="https://mermaid.js.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Docs
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <ScrollArea className="flex-1 bg-card">
+                <div className="p-4 min-h-full" style={{ minHeight: editorHeight }}>
+                  {code ? (
+                    <MermaidRenderer
+                      chart={code}
+                      className="w-full h-full min-h-[200px]"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-foreground mb-1">
+                          No diagram yet
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Start typing or pick a template
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                        {MERMAID_TEMPLATES.map((template) => (
+                          <button
+                            key={template.name}
+                            onClick={() =>
+                              handleTemplateSelect(template.name, true)
+                            }
+                            className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all group"
+                          >
+                            <span className="text-lg text-muted-foreground group-hover:text-foreground transition-colors">
+                              {template.icon}
+                            </span>
+                            <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                              {template.name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
