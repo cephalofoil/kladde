@@ -2162,6 +2162,7 @@ export function useCanvasRenderers({
         }
 
         // Render simple multi-line text (auto-width) using HTML for alignment parity.
+        // If the element has been resized (has explicit width), use wrapping like a text box
         const elTextAlign = element.textAlign || "left";
         const fallbackSize = measureUnboundedTextSize({
           text: element.text || "",
@@ -2170,9 +2171,14 @@ export function useCanvasRenderers({
           letterSpacing: elLetterSpacing,
           lineHeight: elLineHeight,
         });
+        // Check if text has been manually resized (width is smaller than natural width)
+        const hasBeenResized =
+          element.width !== undefined && element.width < fallbackSize.width;
         const textWidth = Math.max(
           element.width ?? 0,
-          fallbackSize.width + Math.ceil(fontSize * 0.1),
+          hasBeenResized
+            ? element.width!
+            : fallbackSize.width + Math.ceil(fontSize * 0.1),
         );
         const textHeight = Math.max(element.height ?? 0, fallbackSize.height);
 
@@ -2209,9 +2215,9 @@ export function useCanvasRenderers({
                   fontWeight: 500,
                   lineHeight: `${elLineHeight}`,
                   letterSpacing: `${elLetterSpacing}px`,
-                  whiteSpace: "pre",
-                  overflowWrap: "normal",
-                  wordBreak: "normal",
+                  whiteSpace: hasBeenResized ? "pre-wrap" : "pre",
+                  overflowWrap: hasBeenResized ? "anywhere" : "normal",
+                  wordBreak: hasBeenResized ? "break-word" : "normal",
                   textAlign: elTextAlign,
                   padding: 0,
                   margin: 0,
