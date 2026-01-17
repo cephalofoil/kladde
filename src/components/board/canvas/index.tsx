@@ -1656,7 +1656,7 @@ export function Canvas({
                   setSelectedIds([]);
                 }
               }}
-              className="bg-transparent resize-none"
+              className={`bg-transparent resize-none ${isShapeText ? "" : "absolute inset-0"}`}
               style={{
                 width: "100%",
                 fontSize: editingTextStyle?.fontSize ?? fontSize,
@@ -1670,12 +1670,17 @@ export function Canvas({
                 textAlign: isShapeText
                   ? "center"
                   : (editingTextStyle?.textAlign ?? textAlign),
-                padding: 0,
+                padding: isShapeText ? 0 : isTextBoxEditing ? 4 : 0,
                 margin: 0,
-                border: "none",
-                outline: "none",
+                border: 0,
+                outline: isShapeText
+                  ? "none"
+                  : isTextBoxEditing
+                    ? "1px solid color-mix(in oklab, var(--accent) 60%, transparent)"
+                    : "none",
+                outlineOffset: "0px",
                 boxSizing: "border-box",
-                overflow: "visible",
+                overflow: isShapeText ? "visible" : "hidden",
                 wordBreak:
                   isTextBoxEditing || isShapeText ? "break-word" : "normal",
                 overflowWrap:
