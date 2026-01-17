@@ -7,6 +7,7 @@ interface MermaidTileControlsProps {
   scale: number;
   onScaleChange: (scale: number) => void;
   onEdit: () => void;
+  onExpand?: () => void;
   onCopyImage?: () => void;
   onDownloadImage?: () => void;
   className?: string;
@@ -16,6 +17,7 @@ export function MermaidTileControls({
   scale,
   onScaleChange,
   onEdit,
+  onExpand,
   onCopyImage,
   onDownloadImage,
   className,
@@ -71,6 +73,17 @@ export function MermaidTileControls({
       >
         <Edit className="h-4 w-4 text-gray-700 dark:text-gray-300" />
       </button>
+
+      {/* Expand Button */}
+      {onExpand && (
+        <button
+          onClick={onExpand}
+          className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+          title="Open Fullscreen Editor"
+        >
+          <Maximize2 className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+        </button>
+      )}
 
       {/* Copy Image */}
       {onCopyImage && (

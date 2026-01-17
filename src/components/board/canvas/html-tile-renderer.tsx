@@ -36,6 +36,7 @@ interface HtmlTileRendererProps {
   onUpdate?: (updates: Partial<BoardElement>) => void;
   onDelete?: () => void;
   onOpenDocumentEditor?: (elementId: string) => void;
+  onOpenMermaidEditor?: (elementId: string) => void;
 }
 
 export function HtmlTileRenderer({
@@ -46,6 +47,7 @@ export function HtmlTileRenderer({
   onUpdate,
   onDelete,
   onOpenDocumentEditor,
+  onOpenMermaidEditor,
 }: HtmlTileRendererProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -288,6 +290,10 @@ export function HtmlTileRenderer({
                   setIsEditing(false);
                 }}
                 onCancel={() => setIsEditing(false)}
+                onExpand={() => {
+                  setIsEditing(false);
+                  onOpenMermaidEditor?.(element.id);
+                }}
                 width={width - 8}
                 height={height - 48}
               />
@@ -308,6 +314,7 @@ export function HtmlTileRenderer({
                   scale={mermaidScale}
                   onScaleChange={handleMermaidScaleChange}
                   onEdit={() => setIsEditing(true)}
+                  onExpand={() => onOpenMermaidEditor?.(element.id)}
                   className="bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm rounded-lg shadow-md p-1"
                 />
               </div>

@@ -12,6 +12,7 @@ import { LayersSidebar } from "./layers-sidebar";
 import { HistorySidebar } from "./history-sidebar";
 
 import { DocumentEditorPanel } from "./document-editor";
+import { MermaidEditorModal } from "./mermaid-editor-modal";
 import { BurgerMenu } from "./burger-menu";
 import { CanvasTitleBar } from "./canvas-title-bar";
 import { ExportImageModal } from "./export-image-modal";
@@ -263,6 +264,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(
     null,
   );
+  const [editingMermaidId, setEditingMermaidId] = useState<string | null>(null);
   const [pendingName, setPendingName] = useState<string | null>(null);
   const [highlightedElementIds, setHighlightedElementIds] = useState<string[]>(
     [],
@@ -2845,6 +2847,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           showRemoteCursors={!isReadOnly}
           showUndoRedo={!isReadOnly}
           onOpenDocumentEditor={setEditingDocumentId}
+          onOpenMermaidEditor={setEditingMermaidId}
         />
 
         {/* Save Modal */}
@@ -2927,6 +2930,24 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
               onClose={() => setEditingDocumentId(null)}
               onUpdateDocument={(updates) =>
                 handleUpdateElement(editingDocumentId, updates)
+              }
+            />
+          );
+        })()}
+
+      {/* Mermaid Editor Modal */}
+      {editingMermaidId &&
+        (() => {
+          const mermaidElement = elements.find(
+            (el) => el.id === editingMermaidId,
+          );
+          if (!mermaidElement) return null;
+          return (
+            <MermaidEditorModal
+              mermaidElement={mermaidElement}
+              onClose={() => setEditingMermaidId(null)}
+              onUpdateMermaid={(updates) =>
+                handleUpdateElement(editingMermaidId, updates)
               }
             />
           );

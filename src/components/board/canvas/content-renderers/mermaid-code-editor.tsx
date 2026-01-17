@@ -7,6 +7,7 @@ import {
   Copy,
   Eraser,
   LayoutGrid,
+  Maximize2,
   RotateCcw,
   X,
 } from "lucide-react";
@@ -22,12 +23,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MermaidRenderer } from "./mermaid-renderer";
 
 interface MermaidCodeEditorProps {
   initialCode: string;
   onSave: (code: string) => void;
   onCancel?: () => void;
+  onExpand?: () => void;
   width?: number;
   height?: number;
   className?: string;
@@ -79,6 +87,7 @@ export function MermaidCodeEditor({
   initialCode,
   onSave,
   onCancel,
+  onExpand,
   width = 800,
   height = 600,
   className,
@@ -254,6 +263,16 @@ export function MermaidCodeEditor({
               </>
             )}
           </button>
+          {onExpand && (
+            <button
+              onClick={onExpand}
+              className="flex items-center gap-1 h-7 px-2.5 text-xs rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+              title="Open Fullscreen Editor"
+            >
+              <Maximize2 className="h-3 w-3" />
+              Expand
+            </button>
+          )}
           {onCancel && (
             <button
               onClick={handleCancel}
@@ -309,24 +328,29 @@ export function MermaidCodeEditor({
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center">
-                    <div className="grid grid-cols-2 gap-3 w-full max-w-md">
-                      {MERMAID_TEMPLATES.map((template) => (
-                        <button
-                          key={template.name}
-                          onClick={() => handleTemplateSelect(template.name, true)}
-                          className="group flex flex-col items-center gap-2 rounded-md border border-dashed border-border bg-background/80 px-3 py-4 text-center text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
-                        >
-                          <span className="flex items-center justify-center w-9 h-9 rounded-md border border-border bg-background">
-                            <LayoutGrid className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                          </span>
-                          <span className="text-sm font-medium text-foreground">
-                            {template.name}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Start with a {template.name.toLowerCase()} template
-                          </span>
-                        </button>
-                      ))}
+                    <div className="flex flex-col gap-2 w-full max-w-xs">
+                      <TooltipProvider delayDuration={300}>
+                        {MERMAID_TEMPLATES.map((template) => (
+                          <Tooltip key={template.name}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => handleTemplateSelect(template.name, true)}
+                                className="group flex items-center gap-3 rounded-md border border-dashed border-border bg-background/80 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
+                              >
+                                <span className="flex items-center justify-center w-8 h-8 rounded-md border border-border bg-background flex-shrink-0">
+                                  <LayoutGrid className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                                </span>
+                                <span className="text-sm font-medium text-foreground">
+                                  {template.name}
+                                </span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              <p>Start with a {template.name.toLowerCase()} template</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </TooltipProvider>
                     </div>
                   </div>
                 )}

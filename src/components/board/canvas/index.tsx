@@ -90,6 +90,7 @@ interface CanvasProps {
   showRemoteCursors?: boolean;
   showUndoRedo?: boolean;
   onOpenDocumentEditor?: (elementId: string) => void;
+  onOpenMermaidEditor?: (elementId: string) => void;
 }
 
 export function Canvas({
@@ -145,6 +146,7 @@ export function Canvas({
   showRemoteCursors = true,
   showUndoRedo = true,
   onOpenDocumentEditor,
+  onOpenMermaidEditor,
 }: CanvasProps) {
   const TEXT_CLIP_BUFFER_PX = 2;
   const LASER_HOLD_DURATION_MS = 3000;
@@ -1342,6 +1344,7 @@ export function Canvas({
                   onUpdate={(updates) => onUpdateElement(el.id, updates)}
                   onDelete={() => onDeleteElement(el.id)}
                   onOpenDocumentEditor={onOpenDocumentEditor}
+                  onOpenMermaidEditor={onOpenMermaidEditor}
                 />
               </div>
             ))}
