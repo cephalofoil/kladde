@@ -4,11 +4,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useBoardStore } from "@/store/board-store";
 import { cn } from "@/lib/utils";
-import {
-  renameBoardInGlobalStorage,
-  saveBoardToGlobalStorage,
-  sanitizeFileName,
-} from "@/lib/filesystem-storage";
+import { renameBoardInWorkspaceStorage } from "@/lib/filesystem-storage";
 import type { ShadeworksFile } from "@/lib/board-types";
 
 const QUICK_BOARDS_WORKSPACE_ID = "quick-boards";
@@ -18,18 +14,12 @@ interface CanvasTitleBarProps {
   boardId: string;
   className?: string;
   isGuest?: boolean;
-  hasDiskFile?: boolean;
-  isDirty?: boolean;
-  isSaving?: boolean;
 }
 
 export function CanvasTitleBar({
   boardId,
   className,
   isGuest = false,
-  hasDiskFile = false,
-  isDirty = false,
-  isSaving = false,
 }: CanvasTitleBarProps) {
   const router = useRouter();
   const boards = useBoardStore((s) => s.boards);
@@ -38,14 +28,8 @@ export function CanvasTitleBar({
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState("");
-  const [showSaveStatus, setShowSaveStatus] = useState(true);
-  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const spanRef = useRef<HTMLSpanElement>(null);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const animationTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const wasHiddenRef = useRef(false);
 
   const {
     boardName,
@@ -109,10 +93,6 @@ export function CanvasTitleBar({
       const boardData = useBoardStore.getState().boardData.get(boardId);
       const elements = boardData?.elements || [];
 
-      // Get folder name
-      const workstream = workstreams.get(board.workstreamId);
-      const folderName = workstream?.name || "Personal";
-
       // Create file content
       const kladdeFile: ShadeworksFile = {
         type: "kladde",
@@ -131,8 +111,8 @@ export function CanvasTitleBar({
       const jsonString = JSON.stringify(kladdeFile, null, 2);
 
       // Rename (save with new name, delete old)
-      await renameBoardInGlobalStorage(
-        folderName,
+      await renameBoardInWorkspaceStorage(
+        board.workstreamId,
         oldName,
         newBoardName,
         jsonString,
@@ -161,80 +141,6 @@ export function CanvasTitleBar({
       handleRenameSubmit();
     }, 150);
   };
-
-  // Auto-hide save status after 10 seconds of being "Saved"
-  useEffect(() => {
-    // Clear any existing timers
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
-    }
-    if (animationTimerRef.current) {
-      clearTimeout(animationTimerRef.current);
-      animationTimerRef.current = null;
-    }
-
-    // If saving or dirty, show the indicator with fade-in animation
-    if (isSaving || isDirty) {
-      setIsAnimatingOut(false);
-      // If was hidden, trigger fade-in animation
-      if (wasHiddenRef.current) {
-        wasHiddenRef.current = false;
-        setIsAnimatingIn(true);
-        setShowSaveStatus(true);
-        // Clear animating-in state after animation completes
-        animationTimerRef.current = setTimeout(() => {
-          setIsAnimatingIn(false);
-        }, 300);
-      } else {
-        setShowSaveStatus(true);
-      }
-      return;
-    }
-
-    // If saved, start 10 second timer to begin fade-out animation
-    hideTimerRef.current = setTimeout(() => {
-      setIsAnimatingOut(true);
-      // After animation completes (300ms), actually hide the element
-      animationTimerRef.current = setTimeout(() => {
-        setShowSaveStatus(false);
-        setIsAnimatingOut(false);
-        wasHiddenRef.current = true;
-      }, 300);
-    }, 10000);
-
-    return () => {
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-      }
-      if (animationTimerRef.current) {
-        clearTimeout(animationTimerRef.current);
-      }
-    };
-  }, [isSaving, isDirty]);
-
-  // Determine save status indicator
-  // Show indicator if either per-file disk save OR workspace has disk storage
-  const hasDiskStorage = hasDiskFile || isDiskStorageWorkspace;
-  // Only render the indicator when visible - removes element entirely when hidden so no extra gap space
-  const saveStatusIndicator =
-    hasDiskStorage && showSaveStatus ? (
-      <span
-        className={cn(
-          "text-xs py-0.5 rounded select-none transition-all duration-300 overflow-hidden whitespace-nowrap",
-          isSaving
-            ? "text-amber-600 dark:text-amber-400"
-            : isDirty
-              ? "text-amber-600 dark:text-amber-400"
-              : "text-emerald-600 dark:text-emerald-400",
-          isAnimatingOut || isAnimatingIn
-            ? "opacity-0 max-w-0 px-0 ml-0"
-            : "opacity-100 max-w-[80px] px-1.5 ml-2",
-        )}
-      >
-        {isSaving ? "Saving..." : isDirty ? "Unsaved" : "Saved"}
-      </span>
-    ) : null;
 
   return (
     <div
@@ -314,9 +220,6 @@ export function CanvasTitleBar({
       >
         {boardName}
       </span>
-
-      {/* Save status indicator */}
-      {saveStatusIndicator}
     </div>
   );
 }

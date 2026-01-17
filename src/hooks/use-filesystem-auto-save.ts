@@ -27,13 +27,20 @@ export function useFilesystemAutoSave({
     canvasBackground,
     isOwner,
     enabled = true,
-    debounceMs = 800,
+    debounceMs = 400,
 }: UseFilesystemAutoSaveOptions): FilesystemAutoSaveStatus {
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedRef = useRef<string>("");
+    const inFlightRef = useRef(false);
+    const pendingSaveRef = useRef(false);
     const [hasDiskFile, setHasDiskFile] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
+
+    const elementsRef = useRef(elements);
+    const canvasBackgroundRef = useRef(canvasBackground);
+    elementsRef.current = elements;
+    canvasBackgroundRef.current = canvasBackground;
 
     // Function to check file handle status
     const checkFileHandle = useCallback(async () => {
@@ -42,12 +49,12 @@ export function useFilesystemAutoSave({
         if (handle) {
             // Initialize lastSavedRef if we have a file handle
             lastSavedRef.current = JSON.stringify({
-                elements,
-                canvasBackground,
+                elements: elementsRef.current,
+                canvasBackground: canvasBackgroundRef.current,
             });
             setIsDirty(false);
         }
-    }, [boardId, elements, canvasBackground]);
+    }, [boardId]);
 
     // Check if this board has a file handle on mount and when boardId changes
     useEffect(() => {
@@ -57,12 +64,19 @@ export function useFilesystemAutoSave({
     // Track dirty state when content changes
     useEffect(() => {
         if (!hasDiskFile) return;
-        const currentHash = JSON.stringify({ elements, canvasBackground });
+        const currentHash = JSON.stringify({
+            elements: elementsRef.current,
+            canvasBackground: canvasBackgroundRef.current,
+        });
         setIsDirty(currentHash !== lastSavedRef.current);
     }, [elements, canvasBackground, hasDiskFile]);
 
     const save = useCallback(async () => {
         if (!isOwner || !enabled) return;
+        if (inFlightRef.current) {
+            pendingSaveRef.current = true;
+            return;
+        }
 
         const handle = await getBoardFileHandle(boardId);
         if (!handle) {
@@ -72,17 +86,21 @@ export function useFilesystemAutoSave({
 
         setHasDiskFile(true);
 
-        const hash = JSON.stringify({ elements, canvasBackground });
+        const hash = JSON.stringify({
+            elements: elementsRef.current,
+            canvasBackground: canvasBackgroundRef.current,
+        });
         if (hash === lastSavedRef.current) return;
 
         setIsSaving(true);
+        inFlightRef.current = true;
 
         const kladdeFile: ShadeworksFile = {
             type: "kladde",
             version: 1,
-            elements,
+            elements: elementsRef.current,
             appState: {
-                canvasBackground,
+                canvasBackground: canvasBackgroundRef.current,
             },
         };
 
@@ -95,8 +113,13 @@ export function useFilesystemAutoSave({
             console.error("Failed to auto-save to filesystem:", error);
         } finally {
             setIsSaving(false);
+            inFlightRef.current = false;
+            if (pendingSaveRef.current) {
+                pendingSaveRef.current = false;
+                void save();
+            }
         }
-    }, [boardId, elements, canvasBackground, isOwner, enabled]);
+    }, [boardId, isOwner, enabled]);
 
     useEffect(() => {
         if (!isOwner || !enabled) return;

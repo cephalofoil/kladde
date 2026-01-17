@@ -199,7 +199,7 @@ export function BurgerMenu({
         onOpen?.();
       }
 
-      // Ctrl+Shift+S - Save to...
+      // Ctrl+Shift+S - Export board file
       if (ctrlKey && e.shiftKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         if (isReadOnly) return;
@@ -259,7 +259,7 @@ export function BurgerMenu({
 
         <DropdownMenuItem onClick={onSave} disabled={isReadOnly}>
           <Save className="w-4 h-4" />
-          <span>Save to...</span>
+          <span>Export Board File...</span>
           <div className="ml-auto flex gap-0.5">
             <Kbd>{modKey}</Kbd>
             <Kbd>⇧</Kbd>

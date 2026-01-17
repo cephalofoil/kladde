@@ -71,6 +71,12 @@ declare global {
 const DIRECTORY_HANDLE_KEY = "kladde-fs-directory-handle";
 const GLOBAL_STORAGE_HANDLE_KEY = "kladde-fs-global-storage-handle";
 const BOARD_FILE_HANDLE_PREFIX = "kladde-fs-board-file-handle:";
+const WORKSPACE_STORAGE_HANDLE_PREFIX =
+    "kladde-fs-workspace-storage-handle:";
+
+// Workspace storage is per-workspace to avoid cross-workspace folder reuse.
+// We request permission during picker selection and only store the handle
+// when read/write access is granted.
 
 /**
  * Check if File System Access API is supported
@@ -273,6 +279,115 @@ export async function clearBoardFileHandle(boardId: string): Promise<void> {
 }
 
 /**
+ * Request user to select a storage directory for a workspace
+ * Returns the directory handle or null if cancelled
+ */
+export async function requestWorkspaceStorageDirectory(
+    workspaceId: string,
+): Promise<FSDirectoryHandle | null> {
+    if (!isFileSystemAccessSupported()) {
+        throw new Error(
+            "File System Access API is not supported in this browser",
+        );
+    }
+
+    try {
+        const handle = await window.showDirectoryPicker!({
+            mode: "readwrite",
+            startIn: "documents",
+        });
+
+        const permission = await handle.requestPermission({
+            mode: "readwrite",
+        });
+        if (permission !== "granted") {
+            return null;
+        }
+
+        const key = `${WORKSPACE_STORAGE_HANDLE_PREFIX}${workspaceId}`;
+        await set(key, handle);
+
+        return handle;
+    } catch (error) {
+        if ((error as Error).name === "AbortError") {
+            return null;
+        }
+        throw error;
+    }
+}
+
+/**
+ * Check if workspace storage directory is configured and accessible
+ */
+export async function hasWorkspaceStorageDirectory(
+    workspaceId: string,
+): Promise<boolean> {
+    try {
+        const key = `${WORKSPACE_STORAGE_HANDLE_PREFIX}${workspaceId}`;
+        const handle = await get<FSDirectoryHandle>(key);
+        if (!handle) return false;
+
+        const permission = await handle.queryPermission({ mode: "readwrite" });
+        return permission === "granted";
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Get the workspace storage directory handle
+ * Returns null if not set or permission denied
+ */
+export async function getWorkspaceStorageDirectory(
+    workspaceId: string,
+): Promise<FSDirectoryHandle | null> {
+    try {
+        const key = `${WORKSPACE_STORAGE_HANDLE_PREFIX}${workspaceId}`;
+        const handle = await get<FSDirectoryHandle>(key);
+        if (!handle) return null;
+
+        const permission = await handle.queryPermission({ mode: "readwrite" });
+
+        if (permission === "granted") {
+            return handle;
+        }
+
+        if (permission === "prompt") {
+            const newPermission = await handle.requestPermission({
+                mode: "readwrite",
+            });
+            if (newPermission === "granted") {
+                return handle;
+            }
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Get the name of a workspace storage directory (for display)
+ */
+export async function getWorkspaceStorageDirectoryName(
+    workspaceId: string,
+): Promise<string | null> {
+    const handle = await getWorkspaceStorageDirectory(workspaceId);
+    return handle?.name ?? null;
+}
+
+/**
+ * Clear the workspace storage directory handle
+ */
+export async function clearWorkspaceStorageDirectory(
+    workspaceId: string,
+): Promise<void> {
+    const key = `${WORKSPACE_STORAGE_HANDLE_PREFIX}${workspaceId}`;
+    await del(key);
+}
+
+/**
  * Write content to a file in the storage directory
  */
 export async function writeFile(
@@ -429,6 +544,77 @@ export async function fileExists(path: string): Promise<boolean> {
         return content !== null;
     } catch {
         return false;
+    }
+}
+
+/**
+ * Save a board to a workspace storage directory
+ */
+export async function saveBoardToWorkspaceStorage(
+    workspaceId: string,
+    fileName: string,
+    content: string,
+): Promise<FSFileHandle | null> {
+    const rootHandle = await getWorkspaceStorageDirectory(workspaceId);
+    if (!rootHandle) return null;
+
+    try {
+        const sanitizedFileName = sanitizeFileName(fileName);
+        const fullFileName = sanitizedFileName.endsWith(".kladde")
+            ? sanitizedFileName
+            : `${sanitizedFileName}.kladde`;
+
+        const fileHandle = await rootHandle.getFileHandle(fullFileName, {
+            create: true,
+        });
+        await writeToFileHandle(fileHandle, content);
+
+        return fileHandle;
+    } catch (error) {
+        console.error("Failed to save board to workspace storage:", error);
+        return null;
+    }
+}
+
+/**
+ * Rename a board file in workspace storage
+ */
+export async function renameBoardInWorkspaceStorage(
+    workspaceId: string,
+    oldFileName: string,
+    newFileName: string,
+    content: string,
+): Promise<FSFileHandle | null> {
+    const rootHandle = await getWorkspaceStorageDirectory(workspaceId);
+    if (!rootHandle) return null;
+
+    try {
+        const sanitizedOldName = sanitizeFileName(oldFileName);
+        const sanitizedNewName = sanitizeFileName(newFileName);
+        const oldFullName = sanitizedOldName.endsWith(".kladde")
+            ? sanitizedOldName
+            : `${sanitizedOldName}.kladde`;
+        const newFullName = sanitizedNewName.endsWith(".kladde")
+            ? sanitizedNewName
+            : `${sanitizedNewName}.kladde`;
+
+        const newFileHandle = await rootHandle.getFileHandle(newFullName, {
+            create: true,
+        });
+        await writeToFileHandle(newFileHandle, content);
+
+        if (oldFullName !== newFullName) {
+            try {
+                await rootHandle.removeEntry(oldFullName);
+            } catch {
+                // Ignore if old file doesn't exist
+            }
+        }
+
+        return newFileHandle;
+    } catch (error) {
+        console.error("Failed to rename board in workspace storage:", error);
+        return null;
     }
 }
 

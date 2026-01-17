@@ -1,24 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Download,
-  HardDrive,
-  Cloud,
-  FolderOpen,
-  Check,
-  AlertCircle,
-  X,
-} from "lucide-react";
+import { Download, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  isFileSystemAccessSupported,
-  requestStorageDirectory,
-  getStorageDirectory,
-  getStorageDirectoryName,
-  writeFile,
-  setBoardFileHandle,
-} from "@/lib/filesystem-storage";
 import type { BoardElement, ShadeworksFile } from "@/lib/board-types";
 
 interface SaveModalProps {
@@ -29,8 +13,6 @@ interface SaveModalProps {
   boardId?: string;
   boardName?: string;
 }
-
-type SaveDestination = "download" | "filesystem" | "cloud";
 
 interface SaveOptionProps {
   icon: React.ReactNode;
@@ -119,15 +101,11 @@ export function SaveModal({
   onClose,
   elements,
   canvasBackground,
-  boardId,
+  boardId: _boardId,
   boardName,
 }: SaveModalProps) {
-  const [destination, setDestination] = useState<SaveDestination>("download");
   const [fileName, setFileName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [fsSupported, setFsSupported] = useState(false);
-  const [fsDirectoryName, setFsDirectoryName] = useState<string | null>(null);
-  const [hasExistingFsDirectory, setHasExistingFsDirectory] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Initialize state when modal opens
@@ -137,37 +115,8 @@ export function SaveModal({
         boardName || `kladde-${new Date().toISOString().split("T")[0]}`;
       setFileName(defaultName);
       setSaveSuccess(false);
-      setFsSupported(isFileSystemAccessSupported());
-
-      // Check for existing filesystem directory
-      const checkFs = async () => {
-        const dir = await getStorageDirectory();
-        if (dir) {
-          setHasExistingFsDirectory(true);
-          const name = await getStorageDirectoryName();
-          setFsDirectoryName(name);
-        } else {
-          setHasExistingFsDirectory(false);
-          setFsDirectoryName(null);
-        }
-      };
-      checkFs();
     }
   }, [isOpen, boardName]);
-
-  const handleSelectFolder = async () => {
-    try {
-      const handle = await requestStorageDirectory();
-      if (handle) {
-        const name = await getStorageDirectoryName();
-        setFsDirectoryName(name);
-        setHasExistingFsDirectory(true);
-        setDestination("filesystem");
-      }
-    } catch (error) {
-      console.error("Failed to select folder:", error);
-    }
-  };
 
   const handleSave = useCallback(async () => {
     if (!fileName.trim()) return;
@@ -190,34 +139,24 @@ export function SaveModal({
         ? fileName
         : `${fileName}.kladde`;
 
-      if (destination === "download") {
-        // Download as file
-        const blob = new Blob([jsonString], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileNameWithExt;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        setSaveSuccess(true);
-        setTimeout(() => onClose(), 500);
-      } else if (destination === "filesystem") {
-        // Save to filesystem and link board to this file
-        const fileHandle = await writeFile(fileNameWithExt, jsonString);
-        if (boardId) {
-          await setBoardFileHandle(boardId, fileHandle);
-        }
-        setSaveSuccess(true);
-        setTimeout(() => onClose(), 500);
-      }
+      // Download as file
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileNameWithExt;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setSaveSuccess(true);
+      setTimeout(() => onClose(), 500);
     } catch (error) {
       console.error("Failed to save:", error);
     } finally {
       setIsSaving(false);
     }
-  }, [fileName, destination, elements, canvasBackground, onClose, boardId]);
+  }, [fileName, elements, canvasBackground, onClose]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -243,7 +182,7 @@ export function SaveModal({
       <div className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-xl shadow-2xl w-[480px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
-          <h2 className="text-lg font-semibold">Save to...</h2>
+          <h2 className="text-lg font-semibold">Export Board File</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
@@ -281,77 +220,15 @@ export function SaveModal({
           {/* Save destination options */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-muted-foreground">
-              Save destination
+              Export destination
             </label>
-
             <SaveOption
               icon={<Download className="h-5 w-5" />}
               title="Download"
-              description="Download as a .kladde file to your downloads folder"
-              selected={destination === "download"}
-              onClick={() => setDestination("download")}
-            />
-
-            {fsSupported ? (
-              <SaveOption
-                icon={<HardDrive className="h-5 w-5" />}
-                title="Local Folder"
-                description={
-                  hasExistingFsDirectory && fsDirectoryName
-                    ? `Save to: ${fsDirectoryName}`
-                    : "Save directly to a folder on your computer"
-                }
-                selected={destination === "filesystem"}
-                onClick={() =>
-                  hasExistingFsDirectory
-                    ? setDestination("filesystem")
-                    : handleSelectFolder()
-                }
-                extra={
-                  destination === "filesystem" && hasExistingFsDirectory ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectFolder();
-                      }}
-                      className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent hover:underline"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      Change folder
-                    </button>
-                  ) : null
-                }
-              />
-            ) : (
-              <SaveOption
-                icon={<HardDrive className="h-5 w-5" />}
-                title="Local Folder"
-                description="Save directly to a folder on your computer"
-                disabled
-                badge="Chrome/Edge only"
-              />
-            )}
-
-            <SaveOption
-              icon={<Cloud className="h-5 w-5" />}
-              title="Cloud Storage"
-              description="Sync your boards across devices"
-              disabled
-              badge="Coming Soon"
+              description="Download a detached .kladde file to your downloads folder"
+              selected
             />
           </div>
-
-          {/* Browser compatibility note */}
-          {!fsSupported && (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-              <p className="text-xs text-amber-800 dark:text-amber-200">
-                Local folder saving requires Chrome or Edge. Firefox and Safari
-                don&apos;t support the File System Access API yet.
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -381,7 +258,7 @@ export function SaveModal({
                 Saved
               </span>
             ) : (
-              "Save"
+              "Export"
             )}
           </button>
         </div>

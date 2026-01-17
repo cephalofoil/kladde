@@ -6,9 +6,7 @@ import {
   HardDrive,
   Cloud,
   Check,
-  FolderOpen,
   ChevronDown,
-  Save,
 } from "lucide-react";
 import {
   Card,
@@ -39,13 +37,23 @@ import {
 } from "@/lib/storage-utils";
 import {
   isFileSystemAccessSupported,
-  requestGlobalStorageDirectory,
-  hasGlobalStorageDirectory,
-  saveBoardToGlobalStorage,
+  requestWorkspaceStorageDirectory,
+  getWorkspaceStorageDirectoryName,
+  hasWorkspaceStorageDirectory,
+  saveBoardToWorkspaceStorage,
 } from "@/lib/filesystem-storage";
 import type { ShadeworksFile } from "@/lib/board-types";
 
-const QUICKBOARDS_FOLDER_NAME = "quickboards";
+function getBoardBaseFileName(
+  board: { name: string; createdAt: Date },
+): string {
+  const name = board.name.trim();
+  if (name && !name.startsWith("Quick Board")) {
+    return name;
+  }
+  const date = new Date(board.createdAt);
+  return date.toISOString().split("T")[0];
+}
 
 /**
  * Get the icon component for a storage type
@@ -108,10 +116,16 @@ function WorkspaceStorageRow({
 
     setIsSelectingFolder(true);
     try {
-      const handle = await requestGlobalStorageDirectory();
-      if (handle) {
-        onChangeStorageType(workspace.id, "disk", handle.name);
+      const existingName = await getWorkspaceStorageDirectoryName(workspace.id);
+      if (existingName) {
+        onChangeStorageType(workspace.id, "disk", existingName);
+        return;
       }
+
+      const handle = await requestWorkspaceStorageDirectory(workspace.id);
+      if (!handle) return;
+
+      onChangeStorageType(workspace.id, "disk", handle.name);
     } catch (error) {
       console.error("Failed to select folder:", error);
     } finally {
@@ -229,10 +243,12 @@ export function StorageSection() {
 
     if (workspaceBoards.length === 0) return;
 
-    const folderName =
-      workspaceId === QUICK_BOARDS_WORKSPACE_ID
-        ? QUICKBOARDS_FOLDER_NAME
-        : workspace.name;
+    const baseNameCounts = new Map<string, number>();
+    workspaceBoards.forEach((board) => {
+      if (workspaceId === QUICK_BOARDS_WORKSPACE_ID) return;
+      const baseName = getBoardBaseFileName(board);
+      baseNameCounts.set(baseName, (baseNameCounts.get(baseName) ?? 0) + 1);
+    });
 
     for (let i = 0; i < workspaceBoards.length; i++) {
       const board = workspaceBoards[i];
@@ -248,13 +264,11 @@ export function StorageSection() {
         const index = quickBoards.findIndex((b) => b.id === board.id);
         fileName = `${index + 1}`;
       } else {
-        const name = board.name.trim();
-        if (name && !name.startsWith("Quick Board")) {
-          fileName = name;
-        } else {
-          const date = new Date(board.createdAt);
-          fileName = date.toISOString().split("T")[0];
-        }
+        const baseName = getBoardBaseFileName(board);
+        const hasCollision = (baseNameCounts.get(baseName) ?? 0) > 1;
+        fileName = hasCollision
+          ? `${baseName}-${board.id.slice(0, 8)}`
+          : baseName;
       }
 
       const elements = data?.elements || [];
@@ -273,7 +287,7 @@ export function StorageSection() {
       };
 
       const jsonString = JSON.stringify(kladdeFile, null, 2);
-      await saveBoardToGlobalStorage(folderName, fileName, jsonString);
+      await saveBoardToWorkspaceStorage(workspaceId, fileName, jsonString);
     }
   }, []);
 
@@ -291,7 +305,7 @@ export function StorageSection() {
         setSyncingWorkspaceId(workspaceId);
         try {
           // Check if we have directory access
-          const hasAccess = await hasGlobalStorageDirectory();
+          const hasAccess = await hasWorkspaceStorageDirectory(workspaceId);
           if (hasAccess) {
             await syncWorkspaceBoardsToDisk(workspaceId);
           }

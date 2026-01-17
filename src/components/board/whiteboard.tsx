@@ -15,6 +15,7 @@ import { DocumentEditorPanel } from "./document-editor";
 import { MermaidEditorModal } from "./mermaid-editor-modal";
 import { BurgerMenu } from "./burger-menu";
 import { CanvasTitleBar } from "./canvas-title-bar";
+import { SaveStatusIndicator } from "./save-status-indicator";
 import { ExportImageModal } from "./export-image-modal";
 import { SaveModal } from "./save-modal";
 import { FindCanvas } from "./find-canvas";
@@ -54,13 +55,8 @@ import {
   importKeyFromString,
   isEncryptionSupported,
 } from "@/lib/encryption";
-import {
-  clearBoardFileHandle,
-  isFileOpenPickerSupported,
-  requestOpenFile,
-} from "@/lib/filesystem-storage";
+import { isFileOpenPickerSupported, requestOpenFile } from "@/lib/filesystem-storage";
 import { useBoardElements } from "@/hooks/use-board-elements";
-import { useFilesystemAutoSave } from "@/hooks/use-filesystem-auto-save";
 import { useDiskStorageSync } from "@/hooks/use-disk-storage-sync";
 import { useBoardStore } from "@/store/board-store";
 import { getBoundingBox, translateElement } from "./whiteboard/utils";
@@ -187,6 +183,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     },
   );
   const board = useBoardStore((s) => s.boards.get(boardId));
+  const workstreams = useBoardStore((s) => s.workstreams);
+  const workspace = board ? workstreams.get(board.workstreamId) : null;
+  const workspaceFolderName = workspace?.storageConfig?.directoryName ?? null;
   const boardName = board?.name;
   const collabInvitesEnabled = useBoardStore(
     (s) => s.settings?.collabInvitesEnabled ?? true,
@@ -291,15 +290,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
   const isUndoingRef = useRef(false);
   const elementsRef = useRef<BoardElement[]>(elements);
 
-  const { hasDiskFile, isDirty, isSaving, recheckFileHandle } =
-    useFilesystemAutoSave({
-      boardId,
-      elements,
-      canvasBackground,
-      isOwner,
-      enabled: !isReadOnly,
-    });
-
   // Disk storage sync (when workspace has disk storage enabled)
   const {
     isSaving: isDiskSaving,
@@ -313,10 +303,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     enabled: !isReadOnly,
   });
 
-  // Combine save status from both file auto-save and disk storage sync
-  const combinedIsSaving = isSaving || isDiskSaving;
-  const combinedIsDirty = isDirty || isDiskDirty;
-  const showDiskSaveIndicator = hasDiskFile || isDiskStorage;
+  // Save status from workspace disk sync only
+  const combinedIsSaving = isDiskSaving;
+  const combinedIsDirty = isDiskDirty;
+  const showDiskSaveIndicator = isDiskStorage;
 
   // Ref to store the setViewport function from Canvas
   const setViewportRef = useRef<
@@ -897,7 +887,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           setCanvasBackground(data.appState.canvasBackground);
         }
 
-        await clearBoardFileHandle(boardId);
       } catch (error) {
         console.error("Error loading file:", error);
         alert("Failed to load file. Please ensure it is a valid .kladde file.");
@@ -942,7 +931,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     collaboration,
     setElements,
     setCanvasBackground,
-    boardId,
   ]);
 
   const handleExportImage = useCallback(() => {
@@ -2552,9 +2540,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           <CanvasTitleBar
             boardId={boardId}
             isGuest={!isOwner}
-            hasDiskFile={showDiskSaveIndicator}
-            isDirty={combinedIsDirty}
-            isSaving={combinedIsSaving}
           />
           {false && (
             <a
@@ -2575,51 +2560,65 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         </div>
 
         {/* Collaboration + Hotkeys - Top Right */}
-        {!isReadOnly && (
+        {(showDiskSaveIndicator || !isReadOnly) && (
           <div className="absolute top-4 right-4 z-50 flex items-stretch gap-2">
-            <CollaborationBar
-              peerCount={peerCount}
-              myName={myName || "Connecting..."}
-              collaboratorUsers={collaboratorUsers}
-              onFollowUser={handleFollowUser}
-              followedUserId={followedUserId}
-              spectatedUserIds={spectatedUserIds}
-              isBeingSpectated={
-                myUserId ? spectatedUserIds.has(myUserId) : false
-              }
-              onInvite={canInvite ? () => setShowInviteDialog(true) : undefined}
+            <SaveStatusIndicator
+              show={showDiskSaveIndicator}
+              isSaving={combinedIsSaving}
+              isDirty={combinedIsDirty}
+              storageFolderName={workspaceFolderName}
             />
-            {/* Version History Button (owner only) */}
-            {isOwner && (
-              <button
-                onClick={() =>
-                  setShowHistorySidebar((prev) =>
-                    isHistoryPinned ? true : !prev,
-                  )
-                }
-                className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-                aria-label="Version history"
-                title="Version history"
-              >
-                <History className="w-4 h-4" />
-              </button>
+            {!isReadOnly && (
+              <>
+                <CollaborationBar
+                  peerCount={peerCount}
+                  myName={myName || "Connecting..."}
+                  collaboratorUsers={collaboratorUsers}
+                  onFollowUser={handleFollowUser}
+                  followedUserId={followedUserId}
+                  spectatedUserIds={spectatedUserIds}
+                  isBeingSpectated={
+                    myUserId ? spectatedUserIds.has(myUserId) : false
+                  }
+                  onInvite={
+                    canInvite ? () => setShowInviteDialog(true) : undefined
+                  }
+                />
+                {/* Version History Button (owner only) */}
+                {isOwner && (
+                  <button
+                    onClick={() =>
+                      setShowHistorySidebar((prev) =>
+                        isHistoryPinned ? true : !prev,
+                      )
+                    }
+                    className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                    aria-label="Version history"
+                    title="Version history"
+                  >
+                    <History className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowHotkeysDialog(true)}
+                  className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                  aria-label="Keyboard shortcuts"
+                >
+                  <span className="text-base font-semibold leading-none">?</span>
+                </button>
+                <button
+                  onClick={() =>
+                    setShowLayersSidebar((prev) =>
+                      isLayersPinned ? true : !prev,
+                    )
+                  }
+                  className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                  aria-label="Toggle layers sidebar"
+                >
+                  <PanelRight className="w-4 h-4" />
+                </button>
+              </>
             )}
-            <button
-              onClick={() => setShowHotkeysDialog(true)}
-              className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-              aria-label="Keyboard shortcuts"
-            >
-              <span className="text-base font-semibold leading-none">?</span>
-            </button>
-            <button
-              onClick={() =>
-                setShowLayersSidebar((prev) => (isLayersPinned ? true : !prev))
-              }
-              className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-              aria-label="Toggle layers sidebar"
-            >
-              <PanelRight className="w-4 h-4" />
-            </button>
           </div>
         )}
 
@@ -2855,7 +2854,6 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
           isOpen={showSaveModal}
           onClose={() => {
             setShowSaveModal(false);
-            recheckFileHandle();
           }}
           elements={elements}
           canvasBackground={canvasBackground}
