@@ -139,6 +139,10 @@ export function TileRenderer({
     [element.tileContent, onUpdate],
   );
 
+  const stopHeaderActions = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   const buildMermaidPng = useCallback(async () => {
     if (!mermaidSvgContent) return null;
 
@@ -235,7 +239,7 @@ export function TileRenderer({
     switch (element.tileType) {
       case "tile-text":
         return (
-          <div className="absolute left-0 right-0 bottom-0 top-10 overflow-hidden pointer-events-auto rounded-b-lg">
+          <div className="absolute left-0 right-0 bottom-0 top-12 overflow-hidden pointer-events-auto rounded-b-lg">
             <RichTextRenderer
               content={content?.richText || ""}
               onChange={(text) =>
@@ -256,7 +260,7 @@ export function TileRenderer({
 
       case "tile-code":
         return (
-          <div className="absolute left-0 right-0 bottom-0 top-10 pointer-events-auto rounded-b-lg overflow-hidden">
+          <div className="absolute left-0 right-0 bottom-0 top-12 pointer-events-auto rounded-b-lg overflow-hidden">
             <CodeRenderer
               code={content?.code || ""}
               language={content?.language || "javascript"}
@@ -305,29 +309,17 @@ export function TileRenderer({
           );
         }
         return content?.chart ? (
-          <div className="absolute left-2 right-2 bottom-2 top-10 pointer-events-auto rounded-b-lg overflow-hidden">
-            {isSelected && (
-              <div className="absolute top-2 right-2 z-10">
-                <MermaidTileControls
-                  scale={mermaidScale}
-                  onScaleChange={handleMermaidScaleChange}
-                  onEdit={() => setIsEditing(true)}
-                  onCopyImage={handleMermaidCopyImage}
-                  onDownloadImage={handleMermaidDownloadImage}
-                  className="bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm rounded-lg shadow-md p-1"
-                />
-              </div>
-            )}
+          <div className="absolute left-2 right-2 bottom-2 top-12 pointer-events-auto rounded-b-lg overflow-hidden">
             <MermaidRenderer
               chart={content.chart}
               width={width - 16}
-              height={height - 48}
+              height={height - 50}
               scale={mermaidScale}
               onSvgReady={setMermaidSvgContent}
             />
           </div>
         ) : (
-          <div className="absolute left-0 right-0 bottom-0 top-10 flex items-center justify-center pointer-events-auto rounded-b-lg">
+          <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center pointer-events-auto rounded-b-lg">
             <button
               onClick={() => setIsEditing(true)}
               className="flex flex-col items-center justify-center gap-2 px-6 py-4 rounded-lg border-2 border-dashed border-sky-300 dark:border-sky-700 hover:border-sky-400 dark:hover:border-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
@@ -342,7 +334,7 @@ export function TileRenderer({
 
       case "tile-image":
         return (
-          <div className="absolute left-0 right-0 bottom-0 top-10 flex items-center justify-center overflow-hidden pointer-events-none rounded-b-lg">
+          <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center overflow-hidden pointer-events-none rounded-b-lg">
             {content?.imageSrc ? (
               <img
                 src={content.imageSrc}
@@ -455,7 +447,7 @@ export function TileRenderer({
           )}
           style={{
             opacity: (element.opacity || 100) / 100,
-            pointerEvents: isEditing ? "auto" : "none",
+            pointerEvents: "auto",
           }}
           onDoubleClick={handleDoubleClick}
         >
@@ -515,62 +507,80 @@ export function TileRenderer({
                 </div>
               )}
 
-              {/* Dropdown Menu */}
-              {isSelected && !isEditingTitle && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    onClick={(e) => e.stopPropagation()}
-                    className={cn(
-                      "p-1 rounded",
-                      !element.tileContent?.headerBgColor && "hover:bg-muted",
-                    )}
-                    style={{
-                      color: element.tileContent?.headerBgColor
-                        ? getContrastTextColor(element.tileContent.headerBgColor)
-                        : undefined,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (element.tileContent?.headerBgColor) {
-                        e.currentTarget.style.backgroundColor =
-                          element.tileContent.headerBgColor;
-                        e.currentTarget.style.filter = "brightness(0.9)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (element.tileContent?.headerBgColor) {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.filter = "none";
-                      }
-                    }}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                      Edit Content
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowColorPicker(true);
+              <div
+                className="ml-auto flex items-center gap-1"
+                onMouseDown={stopHeaderActions}
+                onClick={stopHeaderActions}
+              >
+                {element.tileType === "tile-mermaid" && !isEditing && (
+                  <MermaidTileControls
+                    scale={mermaidScale}
+                    onScaleChange={handleMermaidScaleChange}
+                    onEdit={() => setIsEditing(true)}
+                    onCopyImage={handleMermaidCopyImage}
+                    onDownloadImage={handleMermaidDownloadImage}
+                    className="bg-transparent p-0"
+                  />
+                )}
+                {!isEditingTitle && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      onClick={(e) => e.stopPropagation()}
+                      className={cn(
+                        "p-1 rounded",
+                        !element.tileContent?.headerBgColor && "hover:bg-muted",
+                      )}
+                      style={{
+                        color: element.tileContent?.headerBgColor
+                          ? getContrastTextColor(
+                              element.tileContent.headerBgColor,
+                            )
+                          : undefined,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (element.tileContent?.headerBgColor) {
+                          e.currentTarget.style.backgroundColor =
+                            element.tileContent.headerBgColor;
+                          e.currentTarget.style.filter = "brightness(0.9)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (element.tileContent?.headerBgColor) {
+                          e.currentTarget.style.backgroundColor =
+                            "transparent";
+                          e.currentTarget.style.filter = "none";
+                        }
                       }}
                     >
-                      Header Color
-                    </DropdownMenuItem>
-                    {onDelete && (
-                      <DropdownMenuItem
-                        onClick={onDelete}
-                        className="text-red-600"
-                      >
-                        Delete
+                      <MoreHorizontal className="h-4 w-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
+                        Rename
                       </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                      <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                        Edit Content
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowColorPicker(true);
+                        }}
+                      >
+                        Header Color
+                      </DropdownMenuItem>
+                      {onDelete && (
+                        <DropdownMenuItem
+                          onClick={onDelete}
+                          className="text-red-600"
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
           )}
 

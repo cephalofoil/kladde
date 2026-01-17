@@ -28,6 +28,8 @@ interface RichTextRendererProps {
   readOnly?: boolean;
   autoFocus?: boolean;
   showFloatingToolbar?: boolean;
+  toolbarVariant?: "floating" | "inline";
+  toolbarVisible?: boolean;
   className?: string;
 }
 
@@ -38,6 +40,8 @@ export function RichTextRenderer({
   readOnly = false,
   autoFocus = false,
   showFloatingToolbar = false,
+  toolbarVariant = "floating",
+  toolbarVisible = true,
   className,
 }: RichTextRendererProps) {
   return (
@@ -50,6 +54,8 @@ export function RichTextRenderer({
         autoFocus={autoFocus && !readOnly}
         showBorder={false}
         showFloatingToolbar={showFloatingToolbar}
+        toolbarVariant={toolbarVariant}
+        toolbarVisible={toolbarVisible}
         className={className}
       />
     </div>
