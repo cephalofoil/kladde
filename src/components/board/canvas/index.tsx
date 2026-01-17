@@ -1689,7 +1689,7 @@ export function Canvas({
                       minHeight: 0,
                       verticalAlign: "top",
                       display: "block",
-                      marginTop: "+6px", // Compensate for textarea baseline offset
+                      marginTop: "+8px", // Compensate for textarea baseline offset
                     }
                   : { height: "100%" }),
               }}
