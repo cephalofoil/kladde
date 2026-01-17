@@ -139,6 +139,96 @@ export function TileRenderer({
     [element.tileContent, onUpdate],
   );
 
+  const buildMermaidPng = useCallback(async () => {
+    if (!mermaidSvgContent) return null;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(mermaidSvgContent, "image/svg+xml");
+    const svg = doc.querySelector("svg");
+    if (!svg) return null;
+
+    const viewBox = svg.getAttribute("viewBox");
+    let svgWidth = parseFloat(svg.getAttribute("width") || "");
+    let svgHeight = parseFloat(svg.getAttribute("height") || "");
+
+    if ((!svgWidth || !svgHeight) && viewBox) {
+      const parts = viewBox.split(" ").map((value) => parseFloat(value));
+      if (parts.length === 4 && parts.every((value) => Number.isFinite(value))) {
+        svgWidth = parts[2];
+        svgHeight = parts[3];
+      }
+    }
+
+    if (!svgWidth || !svgHeight) {
+      svgWidth = Math.max(1, width - 16);
+      svgHeight = Math.max(1, height - 48);
+    }
+
+    svg.setAttribute("width", `${svgWidth}`);
+    svg.setAttribute("height", `${svgHeight}`);
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    try {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = svgUrl;
+      await image.decode();
+
+      const scale = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(svgWidth * scale);
+      canvas.height = Math.ceil(svgHeight * scale);
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.scale(scale, scale);
+      ctx.drawImage(image, 0, 0, svgWidth, svgHeight);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/png");
+      });
+
+      return blob;
+    } finally {
+      URL.revokeObjectURL(svgUrl);
+    }
+  }, [mermaidSvgContent, width, height]);
+
+  const handleMermaidCopyImage = useCallback(async () => {
+    try {
+      const blob = await buildMermaidPng();
+      if (!blob) return;
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]);
+    } catch (error) {
+      console.error("Failed to copy mermaid image:", error);
+    }
+  }, [buildMermaidPng]);
+
+  const handleMermaidDownloadImage = useCallback(async () => {
+    try {
+      const blob = await buildMermaidPng();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const safeName = tileTitle.trim() ? tileTitle.trim() : "mermaid-diagram";
+      link.href = url;
+      link.download = `${safeName}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download mermaid image:", error);
+    }
+  }, [buildMermaidPng, tileTitle]);
+
   const renderTileContent = () => {
     const content = element.tileContent;
 
@@ -217,6 +307,8 @@ export function TileRenderer({
                   scale={mermaidScale}
                   onScaleChange={handleMermaidScaleChange}
                   onEdit={() => setIsEditing(true)}
+                  onCopyImage={handleMermaidCopyImage}
+                  onDownloadImage={handleMermaidDownloadImage}
                   className="bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm rounded-lg shadow-md p-1"
                 />
               </div>
