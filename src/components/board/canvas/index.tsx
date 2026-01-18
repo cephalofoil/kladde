@@ -1770,6 +1770,16 @@ export function Canvas({
         <div className="flex items-center gap-1 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md p-1 shadow-xl">
           <button
             onClick={() => {
+              // Calculate center of viewport in world coordinates
+              const centerX = containerSize.width / 2;
+              const centerY = containerSize.height / 2;
+              const worldX = (centerX - pan.x) / zoom;
+              const worldY = (centerY - pan.y) / zoom;
+              // Adjust pan so same world position stays at center with zoom=1
+              setPan({
+                x: centerX - worldX,
+                y: centerY - worldY,
+              });
               setZoom(1);
               onManualViewportChange?.();
             }}
