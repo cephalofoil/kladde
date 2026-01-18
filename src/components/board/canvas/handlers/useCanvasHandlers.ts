@@ -3424,6 +3424,7 @@ export function useCanvasHandlers({
         newElement.fillColor = "transparent";
         newElement.label = "Frame";
         newElement.frameStyle = frameStyle ?? "minimal";
+        newElement.cornerRadius = 4;
       }
 
       if (tool === "pen") {
