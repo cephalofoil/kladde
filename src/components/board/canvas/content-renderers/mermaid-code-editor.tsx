@@ -10,6 +10,10 @@ import {
   Eraser,
   Eye,
   ExternalLink,
+  GitBranch,
+  MessagesSquare,
+  Boxes,
+  Activity,
   Maximize2,
   RotateCcw,
   Sparkles,
@@ -53,7 +57,7 @@ interface MermaidCodeEditorProps {
 const MERMAID_TEMPLATES = [
   {
     name: "Flowchart",
-    icon: "F",
+    icon: <GitBranch className="w-4 h-4" />,
     description: "Create flow diagrams with decisions and processes",
     code: `graph TD
     A[Start] --> B{Decision}
@@ -64,7 +68,7 @@ const MERMAID_TEMPLATES = [
   },
   {
     name: "Sequence",
-    icon: "S",
+    icon: <MessagesSquare className="w-4 h-4" />,
     description: "Show interactions between participants over time",
     code: `sequenceDiagram
     participant A as Alice
@@ -74,7 +78,7 @@ const MERMAID_TEMPLATES = [
   },
   {
     name: "Class",
-    icon: "C",
+    icon: <Boxes className="w-4 h-4" />,
     description: "Define classes and their relationships",
     code: `classDiagram
     class Animal {
@@ -89,7 +93,7 @@ const MERMAID_TEMPLATES = [
   },
   {
     name: "State",
-    icon: "T",
+    icon: <Activity className="w-4 h-4" />,
     description: "Model state transitions and behaviors",
     code: `stateDiagram-v2
     [*] --> Still
@@ -487,7 +491,7 @@ export function MermaidCodeEditor({
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="flex-shrink-0 w-8 h-8 rounded-md border border-border bg-background flex items-center justify-center">
-                                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                                    <span className="text-muted-foreground group-hover:text-foreground transition-colors">
                                       {template.icon}
                                     </span>
                                   </div>
