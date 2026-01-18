@@ -54,6 +54,7 @@ const MERMAID_TEMPLATES = [
   {
     name: "Flowchart",
     icon: "F",
+    description: "Create flow diagrams with decisions and processes",
     code: `graph TD
     A[Start] --> B{Decision}
     B -->|Yes| C[Action 1]
@@ -64,6 +65,7 @@ const MERMAID_TEMPLATES = [
   {
     name: "Sequence",
     icon: "S",
+    description: "Show interactions between participants over time",
     code: `sequenceDiagram
     participant A as Alice
     participant B as Bob
@@ -73,6 +75,7 @@ const MERMAID_TEMPLATES = [
   {
     name: "Class",
     icon: "C",
+    description: "Define classes and their relationships",
     code: `classDiagram
     class Animal {
         +String name
@@ -87,6 +90,7 @@ const MERMAID_TEMPLATES = [
   {
     name: "State",
     icon: "T",
+    description: "Model state transitions and behaviors",
     code: `stateDiagram-v2
     [*] --> Still
     Still --> Moving
@@ -471,22 +475,32 @@ export function MermaidCodeEditor({
                           Start typing or pick a template
                         </p>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                      <div className="flex flex-col gap-2 w-full max-w-sm">
                         {MERMAID_TEMPLATES.map((template) => (
-                          <button
-                            key={template.name}
-                            onClick={() =>
-                              handleTemplateSelect(template.name, true)
-                            }
-                            className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 transition-all group"
-                          >
-                            <span className="text-lg text-muted-foreground group-hover:text-foreground transition-colors">
-                              {template.icon}
-                            </span>
-                            <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                              {template.name}
-                            </span>
-                          </button>
+                          <Tooltip key={template.name}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() =>
+                                  handleTemplateSelect(template.name, true)
+                                }
+                                className="w-full text-left px-3 py-2.5 rounded-md border border-dashed border-border bg-background/80 hover:bg-muted/60 transition-colors group"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0 w-8 h-8 rounded-md border border-border bg-background flex items-center justify-center">
+                                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                                      {template.icon}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm font-medium text-foreground">
+                                    {template.name}
+                                  </div>
+                                </div>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              {template.description}
+                            </TooltipContent>
+                          </Tooltip>
                         ))}
                       </div>
                     </div>
