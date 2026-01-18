@@ -700,8 +700,7 @@ export function Toolbar({
     const noteButtonRef = useRef<HTMLDivElement>(null);
     const moreTool = MORE_TOOLS.find((item) => item.tool === currentTool);
     const lastMoreToolInfo =
-        lastMoreTool &&
-        MORE_TOOLS.find((item) => item.tool === lastMoreTool);
+        lastMoreTool && MORE_TOOLS.find((item) => item.tool === lastMoreTool);
     const noteTileInfo = TILE_TYPES.find((tile) => tile.type === "tile-note");
     const otherTileTypes = TILE_TYPES.filter(
         (tile) => tile.type !== "tile-note",
@@ -806,10 +805,6 @@ export function Toolbar({
                     onTileTypeSelect("tile-note");
                     onToolChange("tile");
                     return;
-                case "F":
-                    e.preventDefault();
-                    onToolChange("frame");
-                    break;
             }
 
             const matchedTile = TILE_TYPES.find((t) => t.hotkey === key);
