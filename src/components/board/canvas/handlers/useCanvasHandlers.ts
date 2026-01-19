@@ -239,6 +239,7 @@ export function useCanvasHandlers({
     startSnapTarget,
     setStartSnapTarget,
     setAlignmentGuides,
+    setDistanceGuides,
   } = snapping;
   const {
     hoverCursor,
@@ -1413,14 +1414,18 @@ export function useCanvasHandlers({
 
               // Update alignment guides state
               setAlignmentGuides(alignmentResult.guides);
+              setDistanceGuides(alignmentResult.distanceGuides);
             } else {
               setAlignmentGuides([]);
+              setDistanceGuides([]);
             }
           } else {
             setAlignmentGuides([]);
+            setDistanceGuides([]);
           }
         } else {
           setAlignmentGuides([]);
+          setDistanceGuides([]);
         }
 
         // Collect IDs of shapes/tiles being moved (not arrows/lines/pen)
@@ -1519,10 +1524,12 @@ export function useCanvasHandlers({
           );
           if (!hasShapeElements) {
             setAlignmentGuides([]);
+            setDistanceGuides([]);
             return { snapDeltaX: 0, snapDeltaY: 0 };
           }
           if (!resizedBounds || resizedIds.length === 0) {
             setAlignmentGuides([]);
+            setDistanceGuides([]);
             return { snapDeltaX: 0, snapDeltaY: 0 };
           }
 
@@ -1578,6 +1585,7 @@ export function useCanvasHandlers({
             threshold,
           );
           setAlignmentGuides(alignmentResult.guides);
+          setDistanceGuides(alignmentResult.distanceGuides);
           return alignmentResult;
         };
 
@@ -2240,6 +2248,7 @@ export function useCanvasHandlers({
               };
             } else {
               setAlignmentGuides([]);
+              setDistanceGuides([]);
               elementUpdates = {
                 x: normalizedX,
                 y: normalizedY,
@@ -2261,6 +2270,7 @@ export function useCanvasHandlers({
               y: newY + (p.y - originalBounds.y) * scaleY,
             }));
             setAlignmentGuides([]);
+            setDistanceGuides([]);
             elementUpdates = { points: newPoints };
           } else if (originalElement.type === "text") {
             const textBounds = {
@@ -3743,6 +3753,7 @@ export function useCanvasHandlers({
 
       // Clear alignment guides
       setAlignmentGuides([]);
+      setDistanceGuides([]);
 
       setIsDragging(false);
       setHasDragMoved(false);
@@ -3759,6 +3770,7 @@ export function useCanvasHandlers({
       setOriginalElements([]);
       setOriginalBounds(null);
       setAlignmentGuides([]);
+      setDistanceGuides([]);
       if (resizeUpdateRafRef.current !== null) {
         cancelAnimationFrame(resizeUpdateRafRef.current);
         resizeUpdateRafRef.current = null;
