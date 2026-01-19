@@ -481,21 +481,38 @@ export function Canvas({
       });
 
       // Track remote drawing elements (in-progress drawings from other users)
-      const drawingElements: Array<{
-        id: string;
-        color: string;
-        element: BoardElement;
-      }> = [];
-      states.forEach((state) => {
-        if (state.user && state.user.id !== myId && state.user.drawingElement) {
-          drawingElements.push({
-            id: state.user.id,
-            color: state.user.color,
-            element: state.user.drawingElement,
-          });
+      // Handle async decryption of encrypted drawing elements
+      const processDrawingElements = async () => {
+        const drawingElements: Array<{
+          id: string;
+          color: string;
+          element: BoardElement;
+        }> = [];
+
+        for (const [, state] of states) {
+          if (
+            state.user &&
+            state.user.id !== myId &&
+            state.user.drawingElement
+          ) {
+            // Decrypt if necessary (handles both encrypted and plaintext)
+            const decrypted = await collaboration.decryptDrawingElement(
+              state.user.drawingElement,
+            );
+            if (decrypted) {
+              drawingElements.push({
+                id: state.user.id,
+                color: state.user.color,
+                element: decrypted,
+              });
+            }
+          }
         }
-      });
-      setRemoteDrawingElements(drawingElements);
+
+        setRemoteDrawingElements(drawingElements);
+      };
+
+      void processDrawingElements();
     });
 
     return unsubscribe;
@@ -540,13 +557,15 @@ export function Canvas({
       if (drawingElementBroadcastRafRef.current === null) {
         drawingElementBroadcastRafRef.current = requestAnimationFrame(() => {
           drawingElementBroadcastRafRef.current = null;
-          collaboration.updateDrawingElement(pendingDrawingElementRef.current);
+          void collaboration.updateDrawingElement(
+            pendingDrawingElementRef.current,
+          );
         });
       }
       return;
     }
 
-    collaboration.updateDrawingElement(currentElement);
+    void collaboration.updateDrawingElement(currentElement);
   }, [
     collaboration,
     currentElement,
