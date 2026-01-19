@@ -684,6 +684,8 @@ export function Canvas({
     const visibleElements = useMemo(() => {
         const margin = 200 / zoom;
         return elements.filter((el) => {
+            // Hidden elements are never visible
+            if (el.hidden) return false;
             if (selectedIds.includes(el.id)) return true;
             const bounds = getBoundingBox(el);
             if (!bounds) return true;

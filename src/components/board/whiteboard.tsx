@@ -1741,23 +1741,90 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleMoveForward = useCallback(() => {
         if (selectedElements.length === 0) return;
+
+        const selectedEl = selectedElements[0];
+        if (selectedEl.locked) return;
+
+        // Get elements in same context (same folder or both root)
+        const contextElements = elements.filter(
+            (el) => el.folderId === selectedEl.folderId,
+        );
+
+        // Sort by zIndex (highest first) with stable secondary sort
+        const sortedContext = [...contextElements].sort((a, b) => {
+            const zIndexA = a.zIndex ?? 0;
+            const zIndexB = b.zIndex ?? 0;
+            if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+            return a.id.localeCompare(b.id);
+        });
+
+        const currentIndex = sortedContext.findIndex(
+            (el) => el.id === selectedEl.id,
+        );
+        if (currentIndex === -1 || currentIndex === 0) return; // Already at top
+
+        const swapElement = sortedContext[currentIndex - 1];
+        if (swapElement?.locked) return;
+
         saveToUndoStack();
 
-        selectedElements.forEach((el) => {
-            const currentZIndex = el.zIndex ?? 0;
-            handleUpdateElement(el.id, { zIndex: currentZIndex + 1 });
+        // Normalize zIndex values with new order
+        const newOrder = [...sortedContext];
+        newOrder.splice(currentIndex, 1);
+        newOrder.splice(currentIndex - 1, 0, selectedEl);
+
+        const baseZIndex = newOrder.length;
+        newOrder.forEach((el, idx) => {
+            const newZIndex = baseZIndex - idx;
+            if ((el.zIndex ?? 0) !== newZIndex) {
+                handleUpdateElement(el.id, { zIndex: newZIndex });
+            }
         });
-    }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+    }, [selectedElements, elements, saveToUndoStack, handleUpdateElement]);
 
     const handleMoveBackward = useCallback(() => {
         if (selectedElements.length === 0) return;
+
+        const selectedEl = selectedElements[0];
+        if (selectedEl.locked) return;
+
+        // Get elements in same context (same folder or both root)
+        const contextElements = elements.filter(
+            (el) => el.folderId === selectedEl.folderId,
+        );
+
+        // Sort by zIndex (highest first) with stable secondary sort
+        const sortedContext = [...contextElements].sort((a, b) => {
+            const zIndexA = a.zIndex ?? 0;
+            const zIndexB = b.zIndex ?? 0;
+            if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+            return a.id.localeCompare(b.id);
+        });
+
+        const currentIndex = sortedContext.findIndex(
+            (el) => el.id === selectedEl.id,
+        );
+        if (currentIndex === -1 || currentIndex === sortedContext.length - 1)
+            return; // Already at bottom
+
+        const swapElement = sortedContext[currentIndex + 1];
+        if (swapElement?.locked) return;
+
         saveToUndoStack();
 
-        selectedElements.forEach((el) => {
-            const currentZIndex = el.zIndex ?? 0;
-            handleUpdateElement(el.id, { zIndex: currentZIndex - 1 });
+        // Normalize zIndex values with new order
+        const newOrder = [...sortedContext];
+        newOrder.splice(currentIndex, 1);
+        newOrder.splice(currentIndex + 1, 0, selectedEl);
+
+        const baseZIndex = newOrder.length;
+        newOrder.forEach((el, idx) => {
+            const newZIndex = baseZIndex - idx;
+            if ((el.zIndex ?? 0) !== newZIndex) {
+                handleUpdateElement(el.id, { zIndex: newZIndex });
+            }
         });
-    }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+    }, [selectedElements, elements, saveToUndoStack, handleUpdateElement]);
 
     const handleAlignLeft = useCallback(() => {
         if (selectedElements.length < 2) return;
@@ -2332,16 +2399,22 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             const element = elements.find((el) => el.id === id);
             if (!element) return;
 
+            // Don't allow reordering locked elements
+            if (element.locked) return;
+
             // Get elements in the same context (same folder or both root)
             const contextElements = elements.filter(
                 (el) => el.folderId === element.folderId,
             );
 
             // Sort by zIndex (highest first, matching sidebar display)
+            // Use element id as secondary sort key for stability when zIndex is equal
             const sortedContext = [...contextElements].sort((a, b) => {
                 const zIndexA = a.zIndex ?? 0;
                 const zIndexB = b.zIndex ?? 0;
-                return zIndexB - zIndexA;
+                if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+                // Secondary sort by id for stability
+                return a.id.localeCompare(b.id);
             });
 
             const currentIndex = sortedContext.findIndex((el) => el.id === id);
@@ -2355,14 +2428,33 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             const swapElement = sortedContext[targetIndex];
             if (!swapElement) return;
 
+            // Don't swap with locked elements
+            if (swapElement.locked) return;
+
             saveToUndoStack();
 
-            // Swap zIndex values between the two elements
-            const currentZ = element.zIndex ?? 0;
-            const swapZ = swapElement.zIndex ?? 0;
+            // Normalize: assign sequential zIndex values to all elements in context
+            // This ensures every element has a unique zIndex and fixes any duplicates
+            const baseZIndex = sortedContext.length;
+            const updates: Array<{ id: string; zIndex: number }> = [];
 
-            handleUpdateElement(id, { zIndex: swapZ });
-            handleUpdateElement(swapElement.id, { zIndex: currentZ });
+            // Create new order with the moved element in its new position
+            const newOrder = [...sortedContext];
+            newOrder.splice(currentIndex, 1); // Remove from current position
+            newOrder.splice(targetIndex, 0, element); // Insert at target position
+
+            // Assign sequential zIndex values (highest first in array = highest zIndex)
+            newOrder.forEach((el, idx) => {
+                const newZIndex = baseZIndex - idx;
+                if ((el.zIndex ?? 0) !== newZIndex) {
+                    updates.push({ id: el.id, zIndex: newZIndex });
+                }
+            });
+
+            // Apply all updates
+            updates.forEach(({ id: elId, zIndex }) => {
+                handleUpdateElement(elId, { zIndex });
+            });
         },
         [elements, saveToUndoStack, handleUpdateElement],
     );

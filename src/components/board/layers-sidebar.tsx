@@ -279,10 +279,13 @@ export function LayersSidebar({
     onMoveToFolder,
 }: LayersSidebarProps) {
     // Sort elements by zIndex (highest first for display)
+    // Use element id as secondary sort key for stability when zIndex is equal
     const sortedElements = [...elements].sort((a, b) => {
         const zIndexA = a.zIndex ?? 0;
         const zIndexB = b.zIndex ?? 0;
-        return zIndexB - zIndexA;
+        if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+        // Secondary sort by id for stability
+        return a.id.localeCompare(b.id);
     });
 
     // Group elements by folder
@@ -549,10 +552,14 @@ export function LayersSidebar({
         return (
             <div
                 key={element.id}
-                draggable
-                onDragStart={(e) =>
-                    handleDragStart(e, element.id, "element", index)
-                }
+                draggable={!isLocked}
+                onDragStart={(e) => {
+                    if (isLocked) {
+                        e.preventDefault();
+                        return;
+                    }
+                    handleDragStart(e, element.id, "element", index);
+                }}
                 onDragOver={(e) =>
                     handleDragOver(e, element.id, "element", index)
                 }
@@ -583,10 +590,19 @@ export function LayersSidebar({
                         e.shiftKey,
                     );
                 }}
+                onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onFocusElement?.(element);
+                }}
             >
                 {/* Drag Handle */}
                 <div
-                    className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    className={cn(
+                        "flex-shrink-0 text-muted-foreground/50 hover:text-muted-foreground transition-colors",
+                        isLocked
+                            ? "cursor-not-allowed opacity-30"
+                            : "cursor-grab active:cursor-grabbing",
+                    )}
                     onMouseDown={(e) => e.stopPropagation()}
                 >
                     <GripVertical className="w-4 h-4" />
@@ -668,41 +684,45 @@ export function LayersSidebar({
 
                 {/* Layer Controls - Show on hover */}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* Move Up */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onReorderElement(element.id, "up");
-                        }}
-                        disabled={isFirst}
-                        className={cn(
-                            "p-1 rounded hover:bg-muted transition-colors",
-                            isFirst && "opacity-30 cursor-not-allowed",
-                        )}
-                        aria-label="Move layer up"
-                        title="Move up (higher z-index)"
-                    >
-                        <ChevronUp className="w-4 h-4" />
-                    </button>
+                    {/* Move Up - hidden for locked elements */}
+                    {!isLocked && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onReorderElement(element.id, "up");
+                            }}
+                            disabled={isFirst}
+                            className={cn(
+                                "p-1 rounded hover:bg-muted transition-colors",
+                                isFirst && "opacity-30 cursor-not-allowed",
+                            )}
+                            aria-label="Move layer up"
+                            title="Move up (higher z-index)"
+                        >
+                            <ChevronUp className="w-4 h-4" />
+                        </button>
+                    )}
 
-                    {/* Move Down */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onReorderElement(element.id, "down");
-                        }}
-                        disabled={isLast}
-                        className={cn(
-                            "p-1 rounded hover:bg-muted transition-colors",
-                            isLast && "opacity-30 cursor-not-allowed",
-                        )}
-                        aria-label="Move layer down"
-                        title="Move down (lower z-index)"
-                    >
-                        <ChevronDown className="w-4 h-4" />
-                    </button>
+                    {/* Move Down - hidden for locked elements */}
+                    {!isLocked && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onReorderElement(element.id, "down");
+                            }}
+                            disabled={isLast}
+                            className={cn(
+                                "p-1 rounded hover:bg-muted transition-colors",
+                                isLast && "opacity-30 cursor-not-allowed",
+                            )}
+                            aria-label="Move layer down"
+                            title="Move down (lower z-index)"
+                        >
+                            <ChevronDown className="w-4 h-4" />
+                        </button>
+                    )}
 
-                    {/* Duplicate */}
+                    {/* Duplicate - always available */}
                     {onDuplicateElement && (
                         <button
                             onClick={(e) => {
@@ -717,18 +737,20 @@ export function LayersSidebar({
                         </button>
                     )}
 
-                    {/* Delete */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteElement(element.id);
-                        }}
-                        className="p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
-                        aria-label="Delete layer"
-                        title="Delete layer"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
+                    {/* Delete - hidden for locked elements */}
+                    {!isLocked && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteElement(element.id);
+                            }}
+                            className="p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            aria-label="Delete layer"
+                            title="Delete layer"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             </div>
         );

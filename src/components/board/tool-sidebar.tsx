@@ -1854,7 +1854,7 @@ export function ToolSidebar({
                                             )}
                                             title="Move Forward"
                                         >
-                                            <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+                                            <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
                                         </button>
                                         <button
                                             type="button"
@@ -1868,7 +1868,7 @@ export function ToolSidebar({
                                             )}
                                             title="Move Backward"
                                         >
-                                            <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+                                            <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
                                         </button>
                                         <button
                                             type="button"
@@ -2255,7 +2255,7 @@ export function ToolSidebar({
                                         )}
                                         title="Move Forward"
                                     >
-                                        <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+                                        <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
                                     </button>
                                     <button
                                         onClick={onMoveBackward}
@@ -2265,7 +2265,7 @@ export function ToolSidebar({
                                         )}
                                         title="Move Backward"
                                     >
-                                        <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+                                        <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
                                     </button>
                                     <button
                                         onClick={onSendToBack}
