@@ -109,6 +109,7 @@ function createDefaultWorkstream(): Workstream {
     createdAt: now,
     updatedAt: now,
     boardIds: [],
+    storageType: "browser",
     metadata: {
       boardCount: 0,
       lastAccessed: now,
@@ -131,6 +132,7 @@ function createQuickBoardsWorkstream(): Workstream {
     createdAt: now,
     updatedAt: now,
     boardIds: [],
+    storageType: "browser",
     metadata: {
       boardCount: 0,
       lastAccessed: now,
@@ -157,6 +159,11 @@ export const useBoardStore = create<BoardStore>()(
         selectedTags: [],
         searchQuery: "",
         dashboardView: "grid",
+      },
+      settings: {
+        collabInvitesEnabled: true,
+        diskStorageEnabled: false,
+        autoSaveEnabled: true,
       },
       patchQueue: [],
       flushStatus: "idle",
@@ -446,6 +453,7 @@ export const useBoardStore = create<BoardStore>()(
             createdAt: now,
             updatedAt: now,
             boardIds: [],
+            storageType: "browser",
             metadata: {
               boardCount: 0,
               lastAccessed: now,
@@ -563,6 +571,30 @@ export const useBoardStore = create<BoardStore>()(
           });
 
           return { boards, workstreams };
+        });
+      },
+
+      setWorkspaceStorageType: (
+        workspaceId: string,
+        storageType: "browser" | "disk" | "cloud",
+        directoryName?: string,
+      ) => {
+        set((state) => {
+          const workstream = state.workstreams.get(workspaceId);
+          if (!workstream) return state;
+
+          const workstreams = new Map(state.workstreams);
+          workstreams.set(workspaceId, {
+            ...workstream,
+            storageType,
+            storageConfig:
+              storageType === "disk" && directoryName
+                ? { directoryName }
+                : undefined,
+            updatedAt: new Date(),
+          });
+
+          return { workstreams };
         });
       },
 
@@ -692,9 +724,39 @@ export const useBoardStore = create<BoardStore>()(
             searchQuery: "",
             dashboardView: "grid",
           },
+          settings: {
+            collabInvitesEnabled: true,
+            diskStorageEnabled: false,
+            autoSaveEnabled: true,
+          },
           patchQueue: [],
           flushStatus: "idle",
         });
+      },
+      setCollabInvitesEnabled: (enabled: boolean) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            collabInvitesEnabled: enabled,
+          },
+        }));
+      },
+      setDiskStorageEnabled: (enabled: boolean, directoryName?: string) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            diskStorageEnabled: enabled,
+            diskStorageDirectoryName: enabled ? directoryName : undefined,
+          },
+        }));
+      },
+      setAutoSaveEnabled: (enabled: boolean) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            autoSaveEnabled: enabled,
+          },
+        }));
       },
     }),
     {
@@ -708,6 +770,7 @@ export const useBoardStore = create<BoardStore>()(
         boardData: state.boardData,
         workstreams: state.workstreams,
         ui: state.ui,
+        settings: state.settings,
         // Don't persist patchQueue or flushStatus
       }),
       onRehydrateStorage: () => (state) => {
@@ -729,6 +792,22 @@ export const useBoardStore = create<BoardStore>()(
           );
         }
 
+        if (!state.settings) {
+          state.settings = {
+            collabInvitesEnabled: true,
+            diskStorageEnabled: false,
+            autoSaveEnabled: true,
+          };
+        }
+        // Ensure diskStorageEnabled exists (for existing stores)
+        if (state.settings.diskStorageEnabled === undefined) {
+          state.settings.diskStorageEnabled = false;
+        }
+        // Ensure autoSaveEnabled exists (for existing stores)
+        if (state.settings.autoSaveEnabled === undefined) {
+          state.settings.autoSaveEnabled = true;
+        }
+
         // Rebuild workstream board links and fix orphaned boards after hydration
         const boards = new Map(state.boards);
         const rebuiltWorkstreams = new Map<string, Workstream>(
@@ -737,6 +816,8 @@ export const useBoardStore = create<BoardStore>()(
             {
               ...ws,
               boardIds: [],
+              // Ensure storageType exists (migration for existing workstreams)
+              storageType: ws.storageType || "browser",
               metadata: {
                 ...ws.metadata,
                 boardCount: 0,
@@ -774,6 +855,88 @@ export const useBoardStore = create<BoardStore>()(
     },
   ),
 );
+
+const BOARD_STORE_SYNC_CHANNEL = "kladde-boards-sync";
+const BOARD_STORE_SYNC_MESSAGE = "board-store-updated";
+const canUseBroadcastChannel =
+  typeof window !== "undefined" && typeof BroadcastChannel !== "undefined";
+let hasBoardStoreSyncSetup = false;
+
+const setupBoardStoreSync = () => {
+  if (!canUseBroadcastChannel || hasBoardStoreSyncSetup) return;
+  hasBoardStoreSyncSetup = true;
+
+  const tabId = crypto.randomUUID();
+  const channel = new BroadcastChannel(BOARD_STORE_SYNC_CHANNEL);
+  let isRemoteHydrating = false;
+  let broadcastTimer: number | null = null;
+  const triggerRehydrate = () => {
+    if (isRemoteHydrating) return;
+    isRemoteHydrating = true;
+    Promise.resolve(useBoardStore.persist.rehydrate()).finally(() => {
+      isRemoteHydrating = false;
+    });
+  };
+
+  channel.addEventListener("message", (event) => {
+    const message = event.data as {
+      type?: string;
+      source?: string;
+    };
+
+    if (
+      !message ||
+      message.type !== BOARD_STORE_SYNC_MESSAGE ||
+      message.source === tabId
+    ) {
+      return;
+    }
+
+    triggerRehydrate();
+  });
+
+  const scheduleBroadcast = () => {
+    if (isRemoteHydrating || broadcastTimer !== null) return;
+    broadcastTimer = window.setTimeout(() => {
+      broadcastTimer = null;
+      try {
+        channel.postMessage({
+          type: BOARD_STORE_SYNC_MESSAGE,
+          source: tabId,
+          ts: Date.now(),
+        });
+      } catch {
+        // Ignore broadcast errors (e.g., channel closed)
+      }
+    }, 50);
+  };
+
+  const unsubscribe = useBoardStore.subscribe(scheduleBroadcast);
+
+  const handleFocus = () => triggerRehydrate();
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      triggerRehydrate();
+    }
+  };
+  const teardown = () => {
+    if (broadcastTimer !== null) {
+      window.clearTimeout(broadcastTimer);
+      broadcastTimer = null;
+    }
+    unsubscribe();
+    window.removeEventListener("focus", handleFocus);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("pagehide", teardown);
+    channel.close();
+  };
+
+  window.addEventListener("focus", handleFocus);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pagehide", teardown);
+};
+
+setupBoardStoreSync();
 
 // Export constants for use in other files
 export { QUICK_BOARDS_WORKSPACE_ID };

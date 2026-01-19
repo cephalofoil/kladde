@@ -25,11 +25,7 @@ import {
   getWorldResizeHandle,
   rotatePoint,
 } from "../geometry";
-import {
-  getSvgPathFromStroke,
-  getArrowHeadPoints,
-  getMarkerBasis,
-} from "../drawing";
+import { getSvgPathFromStroke } from "../drawing";
 import {
   getCubicBezierPoint,
   getCatmullRomControlPoints,
@@ -40,9 +36,15 @@ import { getBoundingBox } from "../shapes";
 import {
   generateElbowRouteAroundObstacles,
   generateCurvedRouteAroundObstacles,
+  getSnapPointFromPosition,
 } from "../utils/connectionSnapping";
-import { getMinSingleCharWidth, measureTextWidthPx } from "../text-utils";
+import {
+  getMinSingleCharWidth,
+  measureTextWidthPx,
+  measureUnboundedTextSize,
+} from "../text-utils";
 import { renderRoughElement } from "../rough-svg-renderer";
+import { normalizeArrowhead, getArrowheadPoints } from "@/lib/arrowheads";
 
 interface UseCanvasRenderersProps {
   elements: BoardElement[];
@@ -53,6 +55,7 @@ interface UseCanvasRenderersProps {
   remoteSelections: RemoteSelection[];
   remotelyEditingTextIds: Set<string>;
   editingTextElementId: string | null;
+  editingShapeTextId: string | null;
   eraserMarkedIds: Set<string>;
   snapTarget: {
     elementId: string;
@@ -103,6 +106,20 @@ interface UseCanvasRenderersProps {
   strokeStyle: "solid" | "dashed" | "dotted";
   arrowStart: NonNullable<BoardElement["arrowStart"]>;
   arrowEnd: NonNullable<BoardElement["arrowEnd"]>;
+  // Arrow handle hover state for preview feature
+  arrowHandleHover: {
+    elementId: string;
+    position: "n" | "e" | "s" | "w";
+    showPreview: boolean;
+  } | null;
+  setArrowHandleHover: Dispatch<
+    SetStateAction<{
+      elementId: string;
+      position: "n" | "e" | "s" | "w";
+      showPreview: boolean;
+    } | null>
+  >;
+  arrowHandleHoverTimerRef: RefObject<NodeJS.Timeout | null>;
 }
 
 interface RenderElementOptions {
@@ -165,6 +182,7 @@ export function useCanvasRenderers({
   remoteSelections,
   remotelyEditingTextIds,
   editingTextElementId,
+  editingShapeTextId,
   eraserMarkedIds,
   snapTarget,
   zoom,
@@ -192,6 +210,9 @@ export function useCanvasRenderers({
   strokeStyle,
   arrowStart,
   arrowEnd,
+  arrowHandleHover,
+  setArrowHandleHover,
+  arrowHandleHoverTimerRef,
 }: UseCanvasRenderersProps) {
   // Helper to adapt colors for cross-theme visibility
   // When users collaborate across different themes, black/white colors need to be swapped
@@ -665,6 +686,67 @@ export function useCanvasRenderers({
     ],
   );
 
+  // Helper to render text inside shapes (rectangle, diamond, ellipse)
+  const renderShapeText = (
+    element: BoardElement,
+    opacity: number,
+    isMarkedForDeletion: boolean,
+    isTextEditing: boolean,
+  ) => {
+    if (!element.text || isTextEditing) return null;
+
+    const x = element.x ?? 0;
+    const y = element.y ?? 0;
+    const width = element.width ?? 0;
+    const height = element.height ?? 0;
+    const fontSize = element.fontSize ?? element.strokeWidth * 4 + 12;
+    const lineHeight = element.lineHeight ?? 1.25;
+    const letterSpacing = element.letterSpacing ?? 0;
+    const verticalAlign = element.textVerticalAlign ?? "middle";
+
+    const alignItems =
+      verticalAlign === "top"
+        ? "flex-start"
+        : verticalAlign === "bottom"
+          ? "flex-end"
+          : "center";
+
+    return (
+      <foreignObject
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        pointerEvents="none"
+        opacity={isMarkedForDeletion ? opacity * 0.3 : opacity}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems,
+            justifyContent: "center",
+            width: "100%",
+            height: "100%",
+            padding: "8px",
+            boxSizing: "border-box",
+            color: element.strokeColor,
+            fontFamily: element.fontFamily || "var(--font-inter)",
+            fontSize: `${fontSize}px`,
+            fontWeight: 500,
+            lineHeight: `${lineHeight}`,
+            letterSpacing: `${letterSpacing}px`,
+            textAlign: "center",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            overflow: "hidden",
+          }}
+        >
+          {element.text}
+        </div>
+      </foreignObject>
+    );
+  };
+
   const renderElementInner = (
     element: BoardElement,
     {
@@ -701,6 +783,8 @@ export function useCanvasRenderers({
       boundsForRotation && rotationDeg
         ? `rotate(${rotationDeg} ${boundsForRotation.x + boundsForRotation.width / 2} ${boundsForRotation.y + boundsForRotation.height / 2})`
         : undefined;
+    const roughness = handDrawnMode ? 2 : 0;
+    const bowing = handDrawnMode ? 1 : 0;
 
     switch (effectiveElement.type) {
       case "pen": {
@@ -709,24 +793,38 @@ export function useCanvasRenderers({
         const elStrokeStyle = isHighlighter
           ? "solid"
           : effectiveElement.strokeStyle || "solid";
-        const elFillPattern = effectiveElement.fillPattern || "none";
+        const elFillPattern =
+          effectiveElement.fillPattern ??
+          (effectiveElement.fillColor &&
+          effectiveElement.fillColor !== "none" &&
+          effectiveElement.fillColor !== "transparent"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
+            : "none");
         const elFillColor = isHighlighter
           ? effectiveElement.fillColor || effectiveElement.strokeColor
           : effectiveElement.fillColor || "#d1d5db";
         const fillOpacity = isHighlighter ? elOpacity : 1;
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         const shouldFill =
           effectiveElement.isClosed &&
-          elFillPattern === "solid" &&
+          elFillPattern !== "none" &&
           elFillColor !== "transparent" &&
           elFillColor !== "none";
         const roughFill =
-          handDrawnMode && shouldFill && !isHighlighter
+          shouldFill &&
+          !isHighlighter &&
+          (usePatternFill || (handDrawnMode && elFillPattern !== "solid"))
             ? renderRoughElement(
                 { ...effectiveElement, fillColor: elFillColor },
                 {
                   opacity: fillOpacity,
                   isMarkedForDeletion,
                   transform: rotationTransform,
+                  roughness,
+                  bowing,
                   fillOnly: true,
                 },
               )
@@ -778,12 +876,13 @@ export function useCanvasRenderers({
                 </defs>
               )}
               {/* Fill layer - renders under stroke using original points */}
-              {handDrawnMode && roughFill ? (
+              {roughFill ? (
                 <g pointerEvents="auto" data-element-id={effectiveElement.id}>
                   {roughFill}
                 </g>
               ) : (
-                shouldFill && (
+                shouldFill &&
+                elFillPattern === "solid" && (
                   <path
                     data-element-id={effectiveElement.id}
                     d={fillPath}
@@ -829,12 +928,13 @@ export function useCanvasRenderers({
         return (
           <g key={effectiveElement.id} transform={rotationTransform}>
             {/* Fill layer for dashed/dotted strokes */}
-            {handDrawnMode && roughFill ? (
+            {roughFill ? (
               <g pointerEvents="auto" data-element-id={effectiveElement.id}>
                 {roughFill}
               </g>
             ) : (
-              shouldFill && (
+              shouldFill &&
+              elFillPattern === "solid" && (
                 <polygon
                   data-element-id={effectiveElement.id}
                   points={points}
@@ -929,7 +1029,6 @@ export function useCanvasRenderers({
           }
         }
 
-        const markerSize = Math.max(6, effectiveElement.strokeWidth * 3);
         const markerStart = effectiveElement.arrowStart || "none";
         const markerEnd = effectiveElement.arrowEnd || "arrow";
 
@@ -956,48 +1055,169 @@ export function useCanvasRenderers({
           tip: Point,
           from: Point,
         ) => {
-          if (marker === "none") return null;
+          const normalized = normalizeArrowhead(marker);
+          if (normalized === "none") return null;
 
-          const { bx, by, px, py, ux, uy } = getMarkerBasis(tip, from);
-          const size = markerSize;
           const stroke = effectiveElement.strokeColor;
           const strokeWidth = Math.max(1.5, effectiveElement.strokeWidth);
           const outlineStrokeWidth = Math.min(strokeWidth, 6);
+          const points = getArrowheadPoints(tip, from, normalized, strokeWidth);
+          if (!points) return null;
 
-          // Push arrowhead forward to sit at the very end of the line
-          // Different offsets for different marker types
-          let offsetMultiplier = 4; // Default for most shapes
-          if (marker === "diamond-outline" || marker === "circle-outline") {
-            offsetMultiplier = 5; // Diamond and circle outlines need more offset
-          } else if (marker === "bar") {
-            offsetMultiplier = 0; // Bar sits at the line endpoint
-          }
-          const offset = strokeWidth * offsetMultiplier;
-          const offsetTip = {
-            x: tip.x + ux * offset,
-            y: tip.y + uy * offset,
-          };
-
-          const line = (x2: number, y2: number) => (
-            <line
-              x1={offsetTip.x}
-              y1={offsetTip.y}
-              x2={x2}
-              y2={y2}
-              stroke={stroke}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              opacity={markerOpacity}
-            />
-          );
-
-          const bar = () => {
-            const half = size * 0.65;
-            const x1 = offsetTip.x + px * half;
-            const y1 = offsetTip.y + py * half;
-            const x2 = offsetTip.x - px * half;
-            const y2 = offsetTip.y - py * half;
+          if (
+            normalized === "circle" ||
+            normalized === "circle_outline" ||
+            normalized === "dot"
+          ) {
+            const [cx, cy, diameter] = points;
+            const r = diameter / 2;
             return (
+              <circle
+                pointerEvents="none"
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill={normalized === "circle_outline" ? "none" : stroke}
+                stroke={normalized === "circle_outline" ? stroke : "none"}
+                strokeWidth={
+                  normalized === "circle_outline"
+                    ? outlineStrokeWidth
+                    : undefined
+                }
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "triangle" || normalized === "triangle_outline") {
+            const [x1, y1, x2, y2, x3, y3] = points;
+            return (
+              <polygon
+                pointerEvents="none"
+                points={`${x1},${y1} ${x2},${y2} ${x3},${y3}`}
+                fill={normalized === "triangle" ? stroke : "none"}
+                stroke={normalized === "triangle_outline" ? stroke : "none"}
+                strokeWidth={
+                  normalized === "triangle_outline"
+                    ? outlineStrokeWidth
+                    : undefined
+                }
+                strokeLinejoin="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "diamond" || normalized === "diamond_outline") {
+            const [x1, y1, x2, y2, x3, y3, x4, y4] = points;
+            return (
+              <polygon
+                pointerEvents="none"
+                points={`${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}`}
+                fill={normalized === "diamond" ? stroke : "none"}
+                stroke={normalized === "diamond_outline" ? stroke : "none"}
+                strokeWidth={
+                  normalized === "diamond_outline"
+                    ? outlineStrokeWidth
+                    : undefined
+                }
+                strokeLinejoin="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "bar") {
+            const [, , x2, y2, x3, y3] = points;
+            return (
+              <line
+                pointerEvents="none"
+                x1={x2}
+                y1={y2}
+                x2={x3}
+                y2={y3}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (normalized === "crowfoot_one") {
+            const [, , x2, y2, x3, y3] = points;
+            return (
+              <line
+                pointerEvents="none"
+                x1={x2}
+                y1={y2}
+                x2={x3}
+                y2={y3}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                opacity={markerOpacity}
+              />
+            );
+          }
+
+          if (
+            normalized === "crowfoot_many" ||
+            normalized === "crowfoot_one_or_many"
+          ) {
+            const [x1, y1, x2, y2, x3, y3] = points;
+            return (
+              <g pointerEvents="none">
+                <line
+                  x1={x2}
+                  y1={y2}
+                  x2={x1}
+                  y2={y1}
+                  stroke={stroke}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  opacity={markerOpacity}
+                />
+                <line
+                  x1={x3}
+                  y1={y3}
+                  x2={x1}
+                  y2={y1}
+                  stroke={stroke}
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  opacity={markerOpacity}
+                />
+                {normalized === "crowfoot_one_or_many" &&
+                  (() => {
+                    const barPoints = getArrowheadPoints(
+                      tip,
+                      from,
+                      "crowfoot_one",
+                      strokeWidth,
+                    );
+                    if (!barPoints) return null;
+                    const [, , bx1, by1, bx2, by2] = barPoints;
+                    return (
+                      <line
+                        x1={bx1}
+                        y1={by1}
+                        x2={bx2}
+                        y2={by2}
+                        stroke={stroke}
+                        strokeWidth={strokeWidth}
+                        strokeLinecap="round"
+                        opacity={markerOpacity}
+                      />
+                    );
+                  })()}
+              </g>
+            );
+          }
+
+          const [x1, y1, x2, y2, x3, y3] = points;
+          return (
+            <g pointerEvents="none">
               <line
                 x1={x1}
                 y1={y1}
@@ -1008,117 +1228,18 @@ export function useCanvasRenderers({
                 strokeLinecap="round"
                 opacity={markerOpacity}
               />
-            );
-          };
-
-          const arrow = () => {
-            const [pA, pB] = getArrowHeadPoints(offsetTip, from, markerSize);
-            return (
-              <polygon
-                pointerEvents="none"
-                points={`${offsetTip.x},${offsetTip.y} ${pA.x},${pA.y} ${pB.x},${pB.y}`}
-                fill={stroke}
-                opacity={markerOpacity}
-              />
-            );
-          };
-
-          const triangle = () => {
-            const [pA, pB] = getArrowHeadPoints(offsetTip, from, markerSize);
-            return (
-              <polygon
-                pointerEvents="none"
-                points={`${offsetTip.x},${offsetTip.y} ${pA.x},${pA.y} ${pB.x},${pB.y}`}
-                fill={stroke}
-                opacity={markerOpacity}
-              />
-            );
-          };
-
-          const triangleOutline = () => {
-            const [pA, pB] = getArrowHeadPoints(offsetTip, from, markerSize);
-            return (
-              <polygon
-                pointerEvents="none"
-                points={`${offsetTip.x},${offsetTip.y} ${pA.x},${pA.y} ${pB.x},${pB.y}`}
-                fill="none"
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x3}
+                y2={y3}
                 stroke={stroke}
                 strokeWidth={strokeWidth}
-                strokeLinejoin="round"
+                strokeLinecap="round"
                 opacity={markerOpacity}
               />
-            );
-          };
-
-          const diamond = () => {
-            const spread = size * 0.5;
-            const back1 = size * 0.7;
-            const back2 = size * 1.4;
-            const midX = offsetTip.x + bx * back1;
-            const midY = offsetTip.y + by * back1;
-            const rearX = offsetTip.x + bx * back2;
-            const rearY = offsetTip.y + by * back2;
-            const left = {
-              x: midX + px * spread,
-              y: midY + py * spread,
-            };
-            const right = {
-              x: midX - px * spread,
-              y: midY - py * spread,
-            };
-            return (
-              <polygon
-                pointerEvents="none"
-                points={`${offsetTip.x},${offsetTip.y} ${left.x},${left.y} ${rearX},${rearY} ${right.x},${right.y}`}
-                fill={marker === "diamond" ? stroke : "none"}
-                stroke={marker === "diamond-outline" ? stroke : "none"}
-                strokeWidth={
-                  marker === "diamond-outline" ? outlineStrokeWidth : undefined
-                }
-                strokeLinejoin="round"
-                opacity={markerOpacity}
-              />
-            );
-          };
-
-          if (marker === "circle" || marker === "circle-outline") {
-            const back = size * 0.9;
-            const r = Math.max(3, size * 0.55);
-            const cx = offsetTip.x + bx * back;
-            const cy = offsetTip.y + by * back;
-            return (
-              <circle
-                pointerEvents="none"
-                cx={cx}
-                cy={cy}
-                r={r}
-                fill={marker === "circle" ? stroke : "none"}
-                stroke={marker === "circle-outline" ? stroke : "none"}
-                strokeWidth={
-                  marker === "circle-outline" ? outlineStrokeWidth : undefined
-                }
-                opacity={markerOpacity}
-              />
-            );
-          }
-
-          if (marker === "bar") return <g pointerEvents="none">{bar()}</g>;
-
-          if (marker === "arrow") return arrow();
-          if (marker === "triangle") return triangle();
-          if (marker === "triangle-outline") return triangleOutline();
-          if (marker === "diamond" || marker === "diamond-outline")
-            return diamond();
-
-          if (marker === "line") {
-            const endPoint = {
-              x: offsetTip.x + bx * size,
-              y: offsetTip.y + by * size,
-            };
-            return line(endPoint.x, endPoint.y);
-          }
-
-          return null;
+            </g>
+          );
         };
 
         // Use rough.js for hand-drawn rendering
@@ -1127,6 +1248,8 @@ export function useCanvasRenderers({
             opacity,
             isMarkedForDeletion,
             transform: rotationTransform,
+            roughness,
+            bowing,
           });
 
           if (roughElement) {
@@ -1168,7 +1291,11 @@ export function useCanvasRenderers({
         }
 
         return (
-          <g key={element.id} transform={rotationTransform}>
+          <g
+            key={element.id}
+            transform={rotationTransform}
+            data-element-id={element.id}
+          >
             {/* Invisible wider hitbox for easier clicking */}
             {!hasCorner ? (
               <line
@@ -1310,12 +1437,29 @@ export function useCanvasRenderers({
               ? "2,6"
               : "none";
         const elCornerRadius = element.cornerRadius ?? 4;
+        const elFillPattern =
+          element.fillPattern ??
+          (element.fillColor &&
+          element.fillColor !== "none" &&
+          element.fillColor !== "transparent"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
+            : "none");
         const elFillColor = element.fillColor || "none";
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         // Treat 'transparent' same as 'none' for hit detection - invisible fills shouldn't be clickable
         const hasVisibleFill =
-          elFillColor !== "none" && elFillColor !== "transparent";
+          elFillPattern !== "none" &&
+          elFillColor !== "none" &&
+          elFillColor !== "transparent";
         // Convert transparent to none for proper pointer-events behavior in SVG
-        const fillValue = elFillColor === "transparent" ? "none" : elFillColor;
+        const fillValue = usePatternFill
+          ? "none"
+          : elFillColor === "transparent"
+            ? "none"
+            : elFillColor;
         // Only visible parts should be clickable: if has fill AND stroke, allow both; if only stroke, only stroke; if only fill, only fill
         const pointerEventsValue =
           hasVisibleFill && element.strokeWidth > 0
@@ -1328,26 +1472,54 @@ export function useCanvasRenderers({
         // Create wider invisible hitbox for easier clicking on stroke-only shapes
         const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
         const hitboxOffset = (hitboxStrokeWidth - element.strokeWidth) / 2;
+        const roughFill =
+          !handDrawnMode && usePatternFill
+            ? renderRoughElement(effectiveElement, {
+                opacity,
+                isMarkedForDeletion,
+                transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+                roughness,
+                bowing,
+                fillOnly: true,
+              })
+            : null;
 
         // Use rough.js for hand-drawn rendering
         if (handDrawnMode) {
-          const roughElement = renderRoughElement(element, {
+          const useSolidFill = elFillPattern === "solid" && hasVisibleFill;
+          const roughElement = renderRoughElement(effectiveElement, {
             opacity,
             isMarkedForDeletion,
-            transform: `${rotationTransform || ""} translate(${element.x}, ${element.y})`,
+            transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+            roughness,
+            bowing,
+            strokeOnly: useSolidFill,
           });
 
           if (roughElement) {
             return (
-              <g key={element.id}>
-                {/* Invisible hitbox for filled shapes */}
-                {hasVisibleFill && (
+              <g key={effectiveElement.id}>
+                {useSolidFill && (
                   <rect
-                    data-element-id={element.id}
                     x={element.x}
                     y={element.y}
                     width={element.width}
                     height={element.height}
+                    fill={fillValue}
+                    opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
+                    rx={elCornerRadius}
+                    pointerEvents="none"
+                    transform={rotationTransform}
+                  />
+                )}
+                {/* Invisible hitbox for filled shapes */}
+                {hasVisibleFill && (
+                  <rect
+                    data-element-id={effectiveElement.id}
+                    x={effectiveElement.x}
+                    y={effectiveElement.y}
+                    width={effectiveElement.width}
+                    height={effectiveElement.height}
                     fill="transparent"
                     rx={elCornerRadius}
                     pointerEvents="fill"
@@ -1355,13 +1527,13 @@ export function useCanvasRenderers({
                   />
                 )}
                 {/* Invisible hitbox for stroke-only shapes */}
-                {!hasVisibleFill && element.strokeWidth > 0 && (
+                {!hasVisibleFill && effectiveElement.strokeWidth > 0 && (
                   <rect
-                    data-element-id={element.id}
-                    x={(element.x ?? 0) - hitboxOffset}
-                    y={(element.y ?? 0) - hitboxOffset}
-                    width={(element.width ?? 0) + hitboxOffset * 2}
-                    height={(element.height ?? 0) + hitboxOffset * 2}
+                    data-element-id={effectiveElement.id}
+                    x={(effectiveElement.x ?? 0) - hitboxOffset}
+                    y={(effectiveElement.y ?? 0) - hitboxOffset}
+                    width={(effectiveElement.width ?? 0) + hitboxOffset * 2}
+                    height={(effectiveElement.height ?? 0) + hitboxOffset * 2}
                     stroke="transparent"
                     strokeWidth={hitboxStrokeWidth}
                     fill="none"
@@ -1370,6 +1542,12 @@ export function useCanvasRenderers({
                   />
                 )}
                 {roughElement}
+                {renderShapeText(
+                  element,
+                  elOpacity,
+                  isMarkedForDeletion,
+                  isTextEditing,
+                )}
                 {isMarkedForDeletion && (
                   <rect
                     x={element.x}
@@ -1404,6 +1582,7 @@ export function useCanvasRenderers({
                 pointerEvents="stroke"
               />
             )}
+            {roughFill}
             {/* Visible rectangle */}
             <rect
               data-element-id={
@@ -1427,6 +1606,12 @@ export function useCanvasRenderers({
                   : pointerEventsValue
               }
             />
+            {renderShapeText(
+              element,
+              elOpacity,
+              isMarkedForDeletion,
+              isTextEditing,
+            )}
             {isMarkedForDeletion && (
               <rect
                 x={element.x}
@@ -1450,10 +1635,27 @@ export function useCanvasRenderers({
             : elStrokeStyle === "dotted"
               ? "2,6"
               : "none";
+        const elFillPattern =
+          element.fillPattern ??
+          (element.fillColor &&
+          element.fillColor !== "none" &&
+          element.fillColor !== "transparent"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
+            : "none");
         const elFillColor = element.fillColor || "none";
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         const hasVisibleFill =
-          elFillColor !== "none" && elFillColor !== "transparent";
-        const fillValue = elFillColor === "transparent" ? "none" : elFillColor;
+          elFillPattern !== "none" &&
+          elFillColor !== "none" &&
+          elFillColor !== "transparent";
+        const fillValue = usePatternFill
+          ? "none"
+          : elFillColor === "transparent"
+            ? "none"
+            : elFillColor;
         const pointerEventsValue =
           hasVisibleFill && element.strokeWidth > 0
             ? "visible"
@@ -1464,6 +1666,17 @@ export function useCanvasRenderers({
                 : "none";
         const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
         const elCornerRadius = element.cornerRadius ?? 0;
+        const roughFill =
+          !handDrawnMode && usePatternFill
+            ? renderRoughElement(effectiveElement, {
+                opacity,
+                isMarkedForDeletion,
+                transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+                roughness,
+                bowing,
+                fillOnly: true,
+              })
+            : null;
 
         // Diamond points: top, right, bottom, left
         const x = element.x ?? 0;
@@ -1534,19 +1747,23 @@ export function useCanvasRenderers({
 
         // Use rough.js for hand-drawn rendering
         if (handDrawnMode) {
-          const roughElement = renderRoughElement(element, {
+          const useSolidFill = elFillPattern === "solid" && hasVisibleFill;
+          const roughElement = renderRoughElement(effectiveElement, {
             opacity,
             isMarkedForDeletion,
-            transform: `${rotationTransform || ""} translate(${element.x}, ${element.y})`,
+            transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+            roughness,
+            bowing,
+            strokeOnly: useSolidFill,
           });
 
           if (roughElement) {
             return (
-              <g key={element.id}>
+              <g key={effectiveElement.id}>
                 {/* Invisible hitbox for filled shapes */}
                 {hasVisibleFill && (
                   <polygon
-                    data-element-id={element.id}
+                    data-element-id={effectiveElement.id}
                     points={diamondPoints}
                     fill="transparent"
                     pointerEvents="fill"
@@ -1554,9 +1771,9 @@ export function useCanvasRenderers({
                   />
                 )}
                 {/* Invisible hitbox for stroke-only shapes */}
-                {!hasVisibleFill && element.strokeWidth > 0 && (
+                {!hasVisibleFill && effectiveElement.strokeWidth > 0 && (
                   <polygon
-                    data-element-id={element.id}
+                    data-element-id={effectiveElement.id}
                     points={diamondPoints}
                     fill="none"
                     stroke="transparent"
@@ -1565,7 +1782,22 @@ export function useCanvasRenderers({
                     transform={rotationTransform}
                   />
                 )}
+                {useSolidFill && (
+                  <path
+                    d={diamondPath}
+                    fill={fillValue}
+                    opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
+                    pointerEvents="none"
+                    transform={rotationTransform}
+                  />
+                )}
                 {roughElement}
+                {renderShapeText(
+                  element,
+                  elOpacity,
+                  isMarkedForDeletion,
+                  isTextEditing,
+                )}
                 {isMarkedForDeletion && (
                   <path
                     d={diamondPath}
@@ -1592,6 +1824,7 @@ export function useCanvasRenderers({
                 pointerEvents="stroke"
               />
             )}
+            {roughFill}
             {/* Visible diamond */}
             <path
               data-element-id={
@@ -1611,6 +1844,12 @@ export function useCanvasRenderers({
                   : pointerEventsValue
               }
             />
+            {renderShapeText(
+              element,
+              elOpacity,
+              isMarkedForDeletion,
+              isTextEditing,
+            )}
             {isMarkedForDeletion && (
               <path
                 d={diamondPath}
@@ -1630,10 +1869,27 @@ export function useCanvasRenderers({
             : elStrokeStyle === "dotted"
               ? "2,6"
               : "none";
+        const elFillPattern =
+          element.fillPattern ??
+          (element.fillColor &&
+          element.fillColor !== "none" &&
+          element.fillColor !== "transparent"
+            ? handDrawnMode
+              ? "hachure"
+              : "solid"
+            : "none");
         const elFillColor = element.fillColor || "none";
+        const usePatternFill =
+          elFillPattern !== "none" && elFillPattern !== "solid";
         const hasVisibleFill =
-          elFillColor !== "none" && elFillColor !== "transparent";
-        const fillValue = elFillColor === "transparent" ? "none" : elFillColor;
+          elFillPattern !== "none" &&
+          elFillColor !== "none" &&
+          elFillColor !== "transparent";
+        const fillValue = usePatternFill
+          ? "none"
+          : elFillColor === "transparent"
+            ? "none"
+            : elFillColor;
         const pointerEventsValue =
           hasVisibleFill && element.strokeWidth > 0
             ? "visible"
@@ -1649,6 +1905,17 @@ export function useCanvasRenderers({
         const h = element.height ?? 0;
         const cx = x + w / 2;
         const cy = y + h / 2;
+        const roughFill =
+          !handDrawnMode && usePatternFill
+            ? renderRoughElement(effectiveElement, {
+                opacity,
+                isMarkedForDeletion,
+                transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+                roughness,
+                bowing,
+                fillOnly: true,
+              })
+            : null;
 
         // Create wider invisible hitbox for easier clicking on stroke-only shapes
         const hitboxStrokeWidth = Math.max(element.strokeWidth * 6, 16);
@@ -1656,36 +1923,40 @@ export function useCanvasRenderers({
 
         // Use rough.js for hand-drawn rendering
         if (handDrawnMode) {
-          const roughElement = renderRoughElement(element, {
+          const useSolidFill = elFillPattern === "solid" && hasVisibleFill;
+          const roughElement = renderRoughElement(effectiveElement, {
             opacity,
             isMarkedForDeletion,
-            transform: `${rotationTransform || ""} translate(${element.x}, ${element.y})`,
+            transform: `${rotationTransform || ""} translate(${effectiveElement.x}, ${effectiveElement.y})`,
+            roughness,
+            bowing,
+            strokeOnly: useSolidFill,
           });
 
           if (roughElement) {
             return (
-              <g key={element.id}>
+              <g key={effectiveElement.id}>
                 {/* Invisible hitbox for filled shapes */}
                 {hasVisibleFill && (
                   <ellipse
-                    data-element-id={element.id}
+                    data-element-id={effectiveElement.id}
                     cx={cx}
                     cy={cy}
-                    rx={(element.width || 0) / 2}
-                    ry={(element.height || 0) / 2}
+                    rx={(effectiveElement.width || 0) / 2}
+                    ry={(effectiveElement.height || 0) / 2}
                     fill="transparent"
                     pointerEvents="fill"
                     transform={rotationTransform}
                   />
                 )}
                 {/* Invisible hitbox for stroke-only shapes */}
-                {!hasVisibleFill && element.strokeWidth > 0 && (
+                {!hasVisibleFill && effectiveElement.strokeWidth > 0 && (
                   <ellipse
-                    data-element-id={element.id}
+                    data-element-id={effectiveElement.id}
                     cx={cx}
                     cy={cy}
-                    rx={(element.width || 0) / 2 + hitboxOffset}
-                    ry={(element.height || 0) / 2 + hitboxOffset}
+                    rx={(effectiveElement.width || 0) / 2 + hitboxOffset}
+                    ry={(effectiveElement.height || 0) / 2 + hitboxOffset}
                     fill="none"
                     stroke="transparent"
                     strokeWidth={hitboxStrokeWidth}
@@ -1693,13 +1964,31 @@ export function useCanvasRenderers({
                     transform={rotationTransform}
                   />
                 )}
+                {useSolidFill && (
+                  <ellipse
+                    cx={cx}
+                    cy={cy}
+                    rx={(effectiveElement.width || 0) / 2}
+                    ry={(effectiveElement.height || 0) / 2}
+                    fill={fillValue}
+                    opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
+                    pointerEvents="none"
+                    transform={rotationTransform}
+                  />
+                )}
                 {roughElement}
+                {renderShapeText(
+                  element,
+                  elOpacity,
+                  isMarkedForDeletion,
+                  isTextEditing,
+                )}
                 {isMarkedForDeletion && (
                   <ellipse
                     cx={cx}
                     cy={cy}
-                    rx={(element.width || 0) / 2}
-                    ry={(element.height || 0) / 2}
+                    rx={(effectiveElement.width || 0) / 2}
+                    ry={(effectiveElement.height || 0) / 2}
                     fill="rgba(0, 0, 0, 0.7)"
                     pointerEvents="none"
                     transform={rotationTransform}
@@ -1726,6 +2015,7 @@ export function useCanvasRenderers({
                 pointerEvents="stroke"
               />
             )}
+            {roughFill}
             {/* Visible ellipse */}
             <ellipse
               data-element-id={
@@ -1748,6 +2038,12 @@ export function useCanvasRenderers({
                   : pointerEventsValue
               }
             />
+            {renderShapeText(
+              element,
+              elOpacity,
+              isMarkedForDeletion,
+              isTextEditing,
+            )}
             {isMarkedForDeletion && (
               <ellipse
                 cx={cx}
@@ -1772,7 +2068,7 @@ export function useCanvasRenderers({
         const elOpacity = (element.opacity ?? 100) / 100;
         const fontSize = element.fontSize ?? element.strokeWidth * 4 + 12;
         const elLetterSpacing = element.letterSpacing ?? 0;
-        const elLineHeight = element.lineHeight ?? 1.4;
+        const elLineHeight = element.lineHeight ?? 1.25;
         const scaleX = element.scaleX ?? 1;
         const scaleY = element.scaleY ?? 1;
         const x = element.x ?? 0;
@@ -1795,6 +2091,7 @@ export function useCanvasRenderers({
 
         if (element.isTextBox && element.width && element.height) {
           // Render text box using HTML inside SVG for true WYSIWYG alignment.
+          const textBoxPadding = 4;
           return (
             <g
               key={element.id}
@@ -1807,6 +2104,7 @@ export function useCanvasRenderers({
                 y={y}
                 width={element.width}
                 height={element.height}
+                data-element-id={element.id}
                 fill="transparent"
                 stroke="transparent"
                 strokeWidth={1}
@@ -1817,16 +2115,19 @@ export function useCanvasRenderers({
                 y={y}
                 width={element.width}
                 height={element.height}
+                data-element-id={element.id}
                 pointerEvents="none"
                 opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
               >
                 <div
+                  data-element-id={element.id}
                   style={{
                     width: "100%",
                     height: "100%",
                     color: element.strokeColor,
                     fontFamily: element.fontFamily || "var(--font-inter)",
                     fontSize: `${fontSize}px`,
+                    fontWeight: 500,
                     lineHeight: `${elLineHeight}`,
                     // At minimum width, use 0 letter-spacing to force 1 char per line
                     letterSpacing: isAtMinWidth
@@ -1837,7 +2138,7 @@ export function useCanvasRenderers({
                     // At minimum width, use break-all to force each character to wrap
                     wordBreak: isAtMinWidth ? "break-all" : "break-word",
                     textAlign: effectiveTextAlign,
-                    padding: 0,
+                    padding: textBoxPadding,
                     margin: 0,
                     boxSizing: "border-box",
                     overflow: "hidden",
@@ -1860,44 +2161,80 @@ export function useCanvasRenderers({
           );
         }
 
-        // Render simple single-line text
+        // Render simple multi-line text (auto-width) using HTML for alignment parity.
+        // If the element has been resized (has explicit width), use wrapping like a text box
         const elTextAlign = element.textAlign || "left";
-        let textX = 0;
-        let textAnchor: "start" | "middle" | "end" = "start";
-
-        if (elTextAlign === "center") {
-          textX = (element.width ?? 0) / 2;
-          textAnchor = "middle";
-        } else if (elTextAlign === "right") {
-          textX = element.width ?? 0;
-          textAnchor = "end";
-        }
+        const fallbackSize = measureUnboundedTextSize({
+          text: element.text || "",
+          fontSize,
+          fontFamily: element.fontFamily || "var(--font-inter)",
+          letterSpacing: elLetterSpacing,
+          lineHeight: elLineHeight,
+        });
+        // Check if text has been manually resized (width is smaller than natural width)
+        const hasBeenResized =
+          element.width !== undefined && element.width < fallbackSize.width;
+        const textWidth = Math.max(
+          element.width ?? 0,
+          hasBeenResized
+            ? element.width!
+            : fallbackSize.width + Math.ceil(fontSize * 0.1),
+        );
+        const textHeight = Math.max(element.height ?? 0, fallbackSize.height);
 
         return (
           <g key={element.id} transform={rotationTransform}>
-            <text
+            <rect
+              x={x}
+              y={y}
+              width={textWidth}
+              height={textHeight}
               data-element-id={element.id}
+              fill="transparent"
+              stroke="transparent"
+              strokeWidth={1}
+              pointerEvents="fill"
+            />
+            <foreignObject
+              x={x}
+              y={y}
+              width={textWidth}
+              height={textHeight}
+              data-element-id={element.id}
+              pointerEvents="none"
               opacity={isMarkedForDeletion ? elOpacity * 0.3 : elOpacity}
-              fill={element.strokeColor}
-              fontSize={fontSize}
-              fontFamily={element.fontFamily || "var(--font-inter)"}
-              textAnchor={textAnchor}
-              letterSpacing={`${elLetterSpacing}px`}
-              x={textX}
-              y={baselineOffset}
-              transform={`translate(${x}, ${y}) scale(${scaleX}, ${scaleY})`}
-              pointerEvents="auto"
             >
-              {element.text}
-            </text>
+              <div
+                data-element-id={element.id}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  color: element.strokeColor,
+                  fontFamily: element.fontFamily || "var(--font-inter)",
+                  fontSize: `${fontSize}px`,
+                  fontWeight: 500,
+                  lineHeight: `${elLineHeight}`,
+                  letterSpacing: `${elLetterSpacing}px`,
+                  whiteSpace: hasBeenResized ? "pre-wrap" : "pre",
+                  overflowWrap: hasBeenResized ? "anywhere" : "normal",
+                  wordBreak: hasBeenResized ? "break-word" : "normal",
+                  textAlign: elTextAlign,
+                  padding: 0,
+                  margin: 0,
+                  boxSizing: "border-box",
+                  overflow: "visible",
+                }}
+              >
+                {element.text || ""}
+              </div>
+            </foreignObject>
             {isMarkedForDeletion && (
               <rect
                 x={x}
                 y={y}
-                width={element.width ?? 100}
-                height={element.height ?? 30}
+                width={textWidth}
+                height={textHeight}
                 fill="rgba(0, 0, 0, 0.7)"
-                transform={`scale(${scaleX}, ${scaleY})`}
                 pointerEvents="none"
               />
             )}
@@ -1913,7 +2250,7 @@ export function useCanvasRenderers({
             : elStrokeStyle === "dotted"
               ? "2,6"
               : "none";
-        const elCornerRadius = element.cornerRadius ?? 8;
+        const elCornerRadius = element.cornerRadius ?? 4;
         const frameStyle = element.frameStyle ?? "minimal";
         const frameCornerRadius =
           frameStyle === "notebook"
@@ -3620,10 +3957,58 @@ export function useCanvasRenderers({
           selectedElement.type !== "arrow" &&
           selectedElement.type !== "pen" &&
           selectedElement.type !== "laser" &&
+          selectedElement.type !== "frame" &&
+          selectedElement.type !== "text" &&
           (() => {
             const arrowHandleDistance = 24 / zoom;
             const arrowHandleSize = 22 / zoom;
             const arrowIconSize = 16 / zoom;
+            const defaultDuplicateOffset = 100; // Distance for duplicated shape
+            const connectedArrows = elements.filter(
+              (el) =>
+                el.type === "arrow" &&
+                (el.startConnection?.elementId === selectedElement.id ||
+                  el.endConnection?.elementId === selectedElement.id),
+            );
+            const getConnectedArrowLength = (
+              position: "n" | "e" | "s" | "w",
+            ): number | null => {
+              const matchingArrow = connectedArrows.find(
+                (el) =>
+                  el.startConnection?.elementId === selectedElement.id &&
+                  el.startConnection.position === position,
+              );
+              const matchingEndArrow = connectedArrows.find(
+                (el) =>
+                  el.endConnection?.elementId === selectedElement.id &&
+                  el.endConnection.position === position,
+              );
+              const candidate =
+                matchingArrow ??
+                matchingEndArrow ??
+                (connectedArrows.length > 0 ? connectedArrows[0] : null);
+              if (!candidate || candidate.points.length < 2) return null;
+              const start = candidate.points[0];
+              const end = candidate.points[candidate.points.length - 1];
+              const length = Math.hypot(end.x - start.x, end.y - start.y);
+              return Number.isFinite(length) && length > 0 ? length : null;
+            };
+
+            // Get opposite position for end connection
+            const getOppositePosition = (
+              pos: "n" | "e" | "s" | "w",
+            ): "n" | "e" | "s" | "w" => {
+              switch (pos) {
+                case "n":
+                  return "s";
+                case "s":
+                  return "n";
+                case "e":
+                  return "w";
+                case "w":
+                  return "e";
+              }
+            };
 
             // Edge midpoints with outward directions
             const edgeHandles: Array<{
@@ -3684,9 +4069,13 @@ export function useCanvasRenderers({
                 : localHandlePos;
 
               // Calculate the snap point on the element edge (where arrow will connect)
-              const snapPoint = rotationDeg
-                ? rotatePoint(edge.localPoint, center, rotationDeg)
-                : edge.localPoint;
+              // Use getSnapPointFromPosition to get the actual element edge point,
+              // not the visual bounds which include selection padding
+              const snapPoint =
+                getSnapPointFromPosition(selectedElement, edge.position) ??
+                (rotationDeg
+                  ? rotatePoint(edge.localPoint, center, rotationDeg)
+                  : edge.localPoint);
 
               // Calculate arrow icon rotation based on edge direction + element rotation
               const baseRotation =
@@ -3699,15 +4088,209 @@ export function useCanvasRenderers({
                       : 180;
               const iconRotation = baseRotation + rotationDeg;
 
-              const handleArrowCreate = (e: ReactMouseEvent) => {
+              // Check if this handle is being hovered with preview shown
+              const isShowingPreview =
+                arrowHandleHover?.elementId === selectedElement.id &&
+                arrowHandleHover?.position === edge.position &&
+                arrowHandleHover?.showPreview;
+
+              // Calculate preview positions
+              const sourceBounds = selectedBounds;
+              const connectedArrowLength =
+                getConnectedArrowLength(edge.position) ??
+                defaultDuplicateOffset;
+              const previewDuplicatePos = sourceBounds
+                ? {
+                    x:
+                      edge.position === "e"
+                        ? (selectedElement.x ?? 0) +
+                          (selectedElement.width ?? 0) +
+                          connectedArrowLength
+                        : edge.position === "w"
+                          ? (selectedElement.x ?? 0) -
+                            (selectedElement.width ?? 0) -
+                            connectedArrowLength
+                          : (selectedElement.x ?? 0),
+                    y:
+                      edge.position === "s"
+                        ? (selectedElement.y ?? 0) +
+                          (selectedElement.height ?? 0) +
+                          connectedArrowLength
+                        : edge.position === "n"
+                          ? (selectedElement.y ?? 0) -
+                            (selectedElement.height ?? 0) -
+                            connectedArrowLength
+                          : (selectedElement.y ?? 0),
+                  }
+                : null;
+
+              // Calculate target snap point for preview arrow
+              const oppositePos = getOppositePosition(edge.position);
+              // Calculate snap point for the preview duplicate element
+              // We need to account for stroke width like getSnapPointFromPosition does
+              const previewTargetSnapPoint = (() => {
+                if (!previewDuplicatePos) return null;
+
+                const elWidth = selectedElement.width ?? 0;
+                const elHeight = selectedElement.height ?? 0;
+                const strokeWidth = selectedElement.strokeWidth ?? 0;
+                const halfStroke = strokeWidth / 2;
+
+                // For shapes with stroke, the bounds extend by half stroke width
+                const needsStrokeOffset =
+                  selectedElement.type === "rectangle" ||
+                  selectedElement.type === "diamond" ||
+                  selectedElement.type === "ellipse";
+                const offset = needsStrokeOffset ? halfStroke : 0;
+
+                // Calculate bounds for the duplicate (matching getBoundingBox logic)
+                const dupBounds = {
+                  x: previewDuplicatePos.x - offset,
+                  y: previewDuplicatePos.y - offset,
+                  width: elWidth + (needsStrokeOffset ? strokeWidth : 0),
+                  height: elHeight + (needsStrokeOffset ? strokeWidth : 0),
+                };
+
+                // Calculate snap point based on position (matching getSnapPointFromPosition)
+                switch (oppositePos) {
+                  case "n":
+                    return {
+                      x: dupBounds.x + dupBounds.width / 2,
+                      y: dupBounds.y,
+                    };
+                  case "e":
+                    return {
+                      x: dupBounds.x + dupBounds.width,
+                      y: dupBounds.y + dupBounds.height / 2,
+                    };
+                  case "s":
+                    return {
+                      x: dupBounds.x + dupBounds.width / 2,
+                      y: dupBounds.y + dupBounds.height,
+                    };
+                  case "w":
+                    return {
+                      x: dupBounds.x,
+                      y: dupBounds.y + dupBounds.height / 2,
+                    };
+                  default:
+                    return null;
+                }
+              })();
+
+              // Hover handlers
+              const handleMouseEnter = () => {
+                // Clear any existing timer
+                if (arrowHandleHoverTimerRef.current) {
+                  clearTimeout(arrowHandleHoverTimerRef.current);
+                }
+
+                // Set initial hover state (without preview)
+                setArrowHandleHover({
+                  elementId: selectedElement.id,
+                  position: edge.position,
+                  showPreview: false,
+                });
+
+                // Start timer to show preview after 1.5s
+                arrowHandleHoverTimerRef.current = setTimeout(() => {
+                  setArrowHandleHover({
+                    elementId: selectedElement.id,
+                    position: edge.position,
+                    showPreview: true,
+                  });
+                }, 1500);
+              };
+
+              const handleMouseLeave = () => {
+                // Clear timer and reset hover state
+                if (arrowHandleHoverTimerRef.current) {
+                  clearTimeout(arrowHandleHoverTimerRef.current);
+                  arrowHandleHoverTimerRef.current = null;
+                }
+                setArrowHandleHover(null);
+              };
+
+              const handleMouseDown = (e: ReactMouseEvent) => {
                 e.stopPropagation();
                 e.preventDefault();
 
-                // Create a new arrow element connected to this edge
+                // Clear hover state and timer
+                if (arrowHandleHoverTimerRef.current) {
+                  clearTimeout(arrowHandleHoverTimerRef.current);
+                  arrowHandleHoverTimerRef.current = null;
+                }
+                setArrowHandleHover(null);
+
+                // If preview is showing, place the duplicated element and arrow
+                if (
+                  isShowingPreview &&
+                  previewDuplicatePos &&
+                  previewTargetSnapPoint
+                ) {
+                  // Create duplicated element - copy only style/structure, not content
+                  const newElementId = uuid();
+                  const duplicatedElement: BoardElement = {
+                    id: newElementId,
+                    type: selectedElement.type,
+                    points: [],
+                    x: previewDuplicatePos.x,
+                    y: previewDuplicatePos.y,
+                    width: selectedElement.width,
+                    height: selectedElement.height,
+                    // Style properties
+                    strokeColor: selectedElement.strokeColor,
+                    strokeWidth: selectedElement.strokeWidth,
+                    fillColor: selectedElement.fillColor,
+                    opacity: selectedElement.opacity,
+                    strokeStyle: selectedElement.strokeStyle,
+                    cornerRadius: selectedElement.cornerRadius,
+                    fillPattern: selectedElement.fillPattern,
+                    // For tiles: copy type but not content
+                    ...(selectedElement.type === "tile"
+                      ? {
+                          tileType: selectedElement.tileType,
+                          // Empty content for the new tile
+                          tileTitle: "",
+                          tileContent: {},
+                        }
+                      : {}),
+                  };
+
+                  // Create arrow connecting to duplicated element
+                  const newArrow: BoardElement = {
+                    id: uuid(),
+                    type: "arrow",
+                    points: [snapPoint, previewTargetSnapPoint],
+                    strokeColor,
+                    strokeWidth,
+                    opacity,
+                    strokeStyle,
+                    connectorStyle: "sharp",
+                    arrowStart: "none",
+                    arrowEnd,
+                    startConnection: {
+                      elementId: selectedElement.id,
+                      position: edge.position,
+                    },
+                    endConnection: {
+                      elementId: newElementId,
+                      position: oppositePos,
+                    },
+                  };
+
+                  onStartTransform?.();
+                  onAddElement(duplicatedElement);
+                  onAddElement(newArrow);
+                  setSelectedIds([newElementId]);
+                  return;
+                }
+
+                // No preview - create arrow and start dragging
                 const newArrow: BoardElement = {
                   id: uuid(),
                   type: "arrow",
-                  points: [snapPoint, snapPoint], // Start with both points at snap point
+                  points: [snapPoint, snapPoint],
                   strokeColor,
                   strokeWidth,
                   opacity,
@@ -3721,75 +4304,100 @@ export function useCanvasRenderers({
                   },
                 };
 
-                // Add the arrow to elements
                 onAddElement(newArrow);
-
-                // Select the new arrow
                 setSelectedIds([newArrow.id]);
-
-                // Store original element for dragging
                 setOriginalElements([newArrow]);
-
-                // Start dragging the end point (index 1)
                 setDraggingConnectorPoint({
                   index: 1,
                   kind: "normal",
                 });
-
-                // Trigger transform start for undo tracking
                 onStartTransform?.();
               };
 
               return (
-                <g
-                  key={edge.position}
-                  className="arrow-create-handle"
-                  style={{ cursor: "pointer" }}
-                  onMouseDown={handleArrowCreate}
-                >
-                  {/* Invisible larger hit area */}
-                  <circle
-                    cx={handlePos.x}
-                    cy={handlePos.y}
-                    r={arrowHandleSize}
-                    fill="transparent"
-                    pointerEvents="auto"
-                  />
-                  {/* Hover background circle (visible on hover) */}
-                  <circle
-                    className="arrow-handle-bg"
-                    cx={handlePos.x}
-                    cy={handlePos.y}
-                    r={arrowHandleSize / 2 + 2 / zoom}
-                    fill="var(--accent)"
-                    opacity={0}
-                    pointerEvents="none"
-                  />
-                  {/* Arrow icon pointing outward */}
+                <g key={edge.position}>
+                  {/* Preview elements when hovering */}
+                  {isShowingPreview &&
+                    previewDuplicatePos &&
+                    previewTargetSnapPoint && (
+                      <g opacity={0.5}>
+                        {/* Preview duplicated shape */}
+                        <rect
+                          x={previewDuplicatePos.x}
+                          y={previewDuplicatePos.y}
+                          width={selectedElement.width ?? 100}
+                          height={selectedElement.height ?? 100}
+                          fill="var(--muted)"
+                          stroke="var(--accent)"
+                          strokeWidth={2 / zoom}
+                          strokeDasharray={`${4 / zoom},${4 / zoom}`}
+                          rx={(selectedElement.cornerRadius ?? 0) / zoom}
+                        />
+                        {/* Preview arrow */}
+                        <line
+                          x1={snapPoint.x}
+                          y1={snapPoint.y}
+                          x2={previewTargetSnapPoint.x}
+                          y2={previewTargetSnapPoint.y}
+                          stroke="var(--accent)"
+                          strokeWidth={2 / zoom}
+                          strokeDasharray={`${4 / zoom},${4 / zoom}`}
+                          markerEnd="url(#arrow-preview)"
+                        />
+                      </g>
+                    )}
+                  {/* Arrow handle */}
                   <g
-                    className="arrow-handle-icon"
-                    transform={`translate(${handlePos.x}, ${handlePos.y}) rotate(${iconRotation})`}
-                    pointerEvents="none"
+                    className="arrow-create-handle"
+                    style={{ cursor: "pointer" }}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseDown={handleMouseDown}
                   >
-                    {/* Arrow line */}
-                    <line
-                      x1={-arrowIconSize / 3}
-                      y1={0}
-                      x2={arrowIconSize / 3}
-                      y2={0}
-                      stroke="var(--accent)"
-                      strokeWidth={1.5 / zoom}
-                      strokeLinecap="round"
+                    {/* Invisible larger hit area */}
+                    <circle
+                      cx={handlePos.x}
+                      cy={handlePos.y}
+                      r={arrowHandleSize}
+                      fill="transparent"
+                      pointerEvents="auto"
                     />
-                    {/* Arrow head */}
-                    <path
-                      d={`M ${arrowIconSize / 6} ${-arrowIconSize / 4} L ${arrowIconSize / 2.5} 0 L ${arrowIconSize / 6} ${arrowIconSize / 4}`}
-                      fill="none"
-                      stroke="var(--accent)"
-                      strokeWidth={1.5 / zoom}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    {/* Hover background circle (visible on hover) */}
+                    <circle
+                      className="arrow-handle-bg"
+                      cx={handlePos.x}
+                      cy={handlePos.y}
+                      r={arrowHandleSize / 2 + 2 / zoom}
+                      fill="var(--accent)"
+                      opacity={0}
+                      pointerEvents="none"
                     />
+                    {/* Arrow icon pointing outward */}
+                    <g
+                      className="arrow-handle-icon"
+                      transform={`translate(${handlePos.x}, ${handlePos.y}) rotate(${iconRotation})`}
+                      pointerEvents="none"
+                    >
+                      {/* Arrow line */}
+                      <line
+                        x1={-arrowIconSize / 3}
+                        y1={0}
+                        x2={arrowIconSize / 3}
+                        y2={0}
+                        stroke="var(--accent)"
+                        strokeWidth={1.5 / zoom}
+                        strokeLinecap="round"
+                      />
+                      {/* Arrow head */}
+                      <path
+                        d={`M ${arrowIconSize / 6} ${-arrowIconSize / 4} L ${arrowIconSize / 2.5} 0 L ${arrowIconSize / 6} ${arrowIconSize / 4}`}
+                        fill="none"
+                        stroke="var(--accent)"
+                        strokeWidth={1.5 / zoom}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </g>
                   </g>
                 </g>
               );
@@ -3951,7 +4559,8 @@ export function useCanvasRenderers({
       highlightedElementIds.includes(element.id) ||
       currentHighlightId === element.id;
     const isTextEditing =
-      !!editingTextElementId && element.id === editingTextElementId;
+      (!!editingTextElementId && element.id === editingTextElementId) ||
+      (!!editingShapeTextId && element.id === editingShapeTextId);
     const isRemotelyEditing = remotelyEditingTextIds.has(element.id);
     const isMarkedForDeletion = eraserMarkedIds.has(element.id);
     const isDragPreviewElement =

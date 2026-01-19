@@ -1,8 +1,12 @@
 "use client";
 
-import { FileText, FileUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DocumentContent } from "@/lib/board-types";
+import type {
+  DocumentContent,
+  DocumentSection,
+  TileType,
+} from "@/lib/board-types";
+import { getTileIcon } from "@/components/board/document-editor/tile-card";
 
 interface DocumentRendererProps {
   documentContent?: DocumentContent;
@@ -13,55 +17,70 @@ export function DocumentRenderer({
   documentContent,
   className,
 }: DocumentRendererProps) {
-  const title = documentContent?.title || "Untitled Document";
-  const description = documentContent?.description || "";
   const sectionCount = documentContent?.layout?.sections?.length || 0;
+  const sections = documentContent?.layout?.sections || [];
+  const tileTypes = sections
+    .filter((section: DocumentSection) => section.type === "tile-content")
+    .map((section) => section.cachedTileType)
+    .filter((type): type is TileType => Boolean(type));
+  const uniqueTileTypes = Array.from(new Set(tileTypes));
+  const fallbackTypes: TileType[] = ["tile-text", "tile-note", "tile-image"];
+  const iconTypes = (
+    uniqueTileTypes.length > 0 ? uniqueTileTypes : fallbackTypes
+  ).slice(0, 3);
+  const extraCount = Math.max(
+    0,
+    (uniqueTileTypes.length > 0 ? uniqueTileTypes.length : fallbackTypes.length) -
+      iconTypes.length,
+  );
 
   return (
-    <div
-      className={cn(
-        "h-full flex flex-col items-center justify-center p-4 text-center",
-        className,
-      )}
-    >
-      {/* Document Icon */}
-      <div className="relative mb-3">
-        <div className="w-16 h-20 bg-white dark:bg-neutral-800 rounded-lg shadow-md border-2 border-gray-200 dark:border-gray-600 flex flex-col overflow-hidden">
-          {/* Document header area */}
-          <div className="h-4 bg-orange-100 dark:bg-orange-900/30 border-b border-gray-200 dark:border-gray-600" />
-          {/* Content lines */}
-          <div className="flex-1 p-1.5 space-y-1">
-            <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full w-full" />
-            <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full w-3/4" />
-            <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full w-5/6" />
-            <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full w-2/3" />
+    <div className={cn("relative w-full h-full rounded-lg overflow-hidden", className)}>
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `
+            repeating-linear-gradient(
+              90deg,
+              rgba(0, 0, 0, 0.03) 0px,
+              transparent 1px,
+              transparent 2px,
+              rgba(0, 0, 0, 0.03) 3px
+            ),
+            linear-gradient(135deg, rgba(0,0,0,0.02) 0%, transparent 100%),
+            linear-gradient(to bottom, #c5a572 0%, #b89968 100%)
+          `,
+        }}
+      />
+      <div
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+        }}
+      />
+
+      <div className="absolute inset-0 p-6 pb-16 flex flex-col">
+        <div className="flex items-center justify-between -mt-2 text-sm font-bold text-[#3b2f22]/80">
+          <span className="pl-4">DOCUMENT TILE</span>
+        </div>
+
+        <div className="mt-10 space-y-8 flex-1">
+          <div className="border-b-[2.5px] border-[#4a4a4a] opacity-70" />
+          <div className="border-b-[2.5px] border-[#4a4a4a] opacity-70" />
+          <div className="border-b-[2.5px] border-[#4a4a4a] opacity-70" />
+        </div>
+
+        <div className="mt-auto flex items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[#3b2f22]">
+            {iconTypes.map((type) => (
+              <span key={type}>{getTileIcon(type, "h-6 w-6")}</span>
+            ))}
+            {extraCount > 0 && (
+              <span className="text-[10px] font-semibold">+{extraCount}</span>
+            )}
           </div>
+          <div className="h-0.5 flex-1 rounded-full bg-[#3b2f22]/20" />
         </div>
-        {/* A4 label */}
-        <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white text-[8px] font-bold px-1 py-0.5 rounded">
-          A4
-        </div>
-      </div>
-
-      {/* Title */}
-      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-2 mb-1">
-        {title}
-      </h3>
-
-      {/* Description */}
-      {description && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
-          {description}
-        </p>
-      )}
-
-      {/* Stats */}
-      <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
-        <span>
-          {sectionCount} section{sectionCount !== 1 ? "s" : ""}
-        </span>
-        <span>•</span>
-        <span>Click to edit</span>
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ import type {
 } from "lexical";
 
 import { SlashMenuPlugin } from "./slash-menu-plugin";
+import { FloatingToolbar } from "./floating-toolbar";
 import { FloatingToolbarPlugin } from "./floating-toolbar-plugin";
 import { cn } from "@/lib/utils";
 
@@ -246,6 +247,8 @@ export interface EditorProps {
     className?: string;
     showBorder?: boolean;
     showFloatingToolbar?: boolean;
+    toolbarVariant?: "floating" | "inline";
+    toolbarVisible?: boolean;
     onFocus?: () => void;
     onBlur?: () => void;
 }
@@ -268,6 +271,8 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
             className,
             showBorder = true,
             showFloatingToolbar = false,
+            toolbarVariant = "floating",
+            toolbarVisible = true,
             onFocus,
             onBlur,
         },
@@ -325,9 +330,13 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
             [],
         );
 
+        const showToolbar = showFloatingToolbar && !readOnly;
+        const renderInlineToolbar = showFloatingToolbar && toolbarVariant === "inline";
+
         return (
             <div className={cn("w-full h-full", className)}>
                 <LexicalComposer initialConfig={initialConfig}>
+                    <EditableStatePlugin editable={!readOnly} />
                     <div
                         className={cn(
                             "h-full flex flex-col overflow-hidden",
@@ -335,6 +344,20 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                                 "border border-gray-200 dark:border-gray-700 rounded-lg",
                         )}
                     >
+                        {renderInlineToolbar && (
+                            <div
+                                className={cn(
+                                    "h-10 border-b border-border bg-card/95 transition-opacity flex-shrink-0",
+                                    toolbarVisible
+                                        ? "opacity-100"
+                                        : "opacity-0 pointer-events-none",
+                                )}
+                            >
+                                <div className="h-full flex items-center px-2">
+                                    <FloatingToolbar variant="inline" />
+                                </div>
+                            </div>
+                        )}
                         <div className="relative flex-1 min-h-0">
                             <RichTextPlugin
                                 contentEditable={
@@ -363,7 +386,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                                     >
                                         <ContentEditable
                                             className={cn(
-                                                "h-full w-full p-4 outline-none resize-none overflow-auto",
+                                                "h-full w-full px-3 py-2 outline-none resize-none overflow-auto",
                                                 "prose prose-sm dark:prose-invert max-w-none",
                                                 "prose-headings:font-bold prose-p:leading-relaxed",
                                                 "prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
@@ -371,9 +394,12 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                                                 "prose-code:bg-muted/70 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded",
                                                 "prose-pre:bg-muted/50 prose-pre:border prose-pre:border-border",
                                                 "focus:ring-0 focus:outline-none",
-                                                showFloatingToolbar && "pt-12",
+                                                showFloatingToolbar &&
+                                                    toolbarVariant ===
+                                                        "floating" &&
+                                                    "pt-12",
                                                 readOnly &&
-                                                    "bg-gray-50 dark:bg-gray-900 cursor-default",
+                                                    "bg-transparent cursor-default",
                                             )}
                                             style={{
                                                 caretColor: readOnly
@@ -387,10 +413,11 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                                 placeholder={
                                     <div
                                         className={cn(
-                                            "absolute left-4 text-gray-400 dark:text-gray-500 pointer-events-none select-none",
-                                            showFloatingToolbar
+                                            "absolute left-3 text-gray-400 dark:text-gray-500 pointer-events-none select-none",
+                                            showFloatingToolbar &&
+                                            toolbarVariant === "floating"
                                                 ? "top-12"
-                                                : "top-4",
+                                                : "top-2",
                                         )}
                                     >
                                         {readOnly
@@ -402,9 +429,9 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                             />
 
                             {!readOnly && <SlashMenuPlugin />}
-                            {!readOnly && (
+                            {!readOnly && toolbarVariant === "floating" && (
                                 <FloatingToolbarPlugin
-                                    show={showFloatingToolbar}
+                                    show={showToolbar}
                                 />
                             )}
                         </div>
@@ -448,6 +475,16 @@ function EditorRefPlugin({
     React.useEffect(() => {
         editorRef.current = editor;
     }, [editor, editorRef]);
+
+    return null;
+}
+
+function EditableStatePlugin({ editable }: { editable: boolean }) {
+    const [editor] = useLexicalComposerContext();
+
+    React.useEffect(() => {
+        editor.setEditable(editable);
+    }, [editor, editable]);
 
     return null;
 }

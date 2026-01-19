@@ -29,6 +29,7 @@ interface A4DocumentPreviewProps {
   onRemoveSection: (sectionId: string) => void;
   onUpdateSection: (sectionId: string, updates: Partial<DocumentSection>) => void;
   onMoveSection: (fromIndex: number, toIndex: number) => void;
+  onIncludeFrameContent: (frameId: string, sectionId: string) => void;
 }
 
 // A4 dimensions at 96 DPI
@@ -54,6 +55,7 @@ export function A4DocumentPreview({
   onRemoveSection,
   onUpdateSection,
   onMoveSection,
+  onIncludeFrameContent,
 }: A4DocumentPreviewProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -286,6 +288,7 @@ export function A4DocumentPreview({
                             allElements={allElements}
                             onUpdate={(updates) => onUpdateSection(section.id, updates)}
                             onRemove={() => onRemoveSection(section.id)}
+                            onIncludeContent={() => onIncludeFrameContent(section.frameId, section.id)}
                           />
                         )}
                       </div>

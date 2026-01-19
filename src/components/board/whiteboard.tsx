@@ -12,13 +12,21 @@ import { LayersSidebar } from "./layers-sidebar";
 import { HistorySidebar } from "./history-sidebar";
 
 import { DocumentEditorPanel } from "./document-editor";
+import { MermaidEditorModal } from "./mermaid-editor-modal";
 import { BurgerMenu } from "./burger-menu";
 import { CanvasTitleBar } from "./canvas-title-bar";
+import { SaveStatusIndicator } from "./save-status-indicator";
 import { ExportImageModal } from "./export-image-modal";
+import { SaveModal } from "./save-modal";
 import { FindCanvas } from "./find-canvas";
 import { HotkeysDialog } from "./hotkeys-dialog";
 import { InviteDialog } from "./invite-dialog";
 import { CollaborationBar } from "./collaboration-bar";
+import {
+    getFontFaceLoadString,
+    measureUnboundedTextSize,
+    measureWrappedTextHeightPx,
+} from "./canvas/text-utils";
 import {
     Dialog,
     DialogContent,
@@ -47,7 +55,12 @@ import {
     importKeyFromString,
     isEncryptionSupported,
 } from "@/lib/encryption";
+import {
+    isFileOpenPickerSupported,
+    requestOpenFile,
+} from "@/lib/filesystem-storage";
 import { useBoardElements } from "@/hooks/use-board-elements";
+import { useDiskStorageSync } from "@/hooks/use-disk-storage-sync";
 import { useBoardStore } from "@/store/board-store";
 import { getBoundingBox, translateElement } from "./whiteboard/utils";
 import type { BoundingBox } from "./whiteboard/utils";
@@ -116,10 +129,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [textAlign, setTextAlign] = useState<"left" | "center" | "right">(
         "left",
     );
-    const [fontSize, setFontSize] = useState(24);
+    const [textVerticalAlign, setTextVerticalAlign] = useState<
+        "top" | "middle" | "bottom"
+    >("middle");
+    const [fontSize, setFontSize] = useState(20);
     const [letterSpacing, setLetterSpacing] = useState(0);
-    const [lineHeight, setLineHeight] = useState(1.5);
-    const [fillPattern, setFillPattern] = useState<"none" | "solid">("none");
+    const [lineHeight, setLineHeight] = useState(1.25);
+    const [fillPattern, setFillPattern] =
+        useState<NonNullable<BoardElement["fillPattern"]>>("none");
 
     // Store pre-highlighter values to restore when switching away
     const preHighlighterRef = useRef<{
@@ -171,6 +188,14 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             isOwner,
         },
     );
+    const board = useBoardStore((s) => s.boards.get(boardId));
+    const workstreams = useBoardStore((s) => s.workstreams);
+    const workspace = board ? workstreams.get(board.workstreamId) : null;
+    const workspaceFolderName = workspace?.storageConfig?.directoryName ?? null;
+    const boardName = board?.name;
+    const collabInvitesEnabled = useBoardStore(
+        (s) => s.settings?.collabInvitesEnabled ?? true,
+    );
     const [peerCount, setPeerCount] = useState(0);
 
     // History manager for version control (only for owner)
@@ -214,6 +239,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [selectedElements, setSelectedElements] = useState<BoardElement[]>(
         [],
     );
+    const [clipboardElements, setClipboardElements] = useState<BoardElement[]>(
+        [],
+    );
     const [layerSelectionIds, setLayerSelectionIds] = useState<string[] | null>(
         null,
     );
@@ -232,8 +260,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         }
         return false;
     });
-    const [showSaveDialog, setShowSaveDialog] = useState(false);
-    const [saveFileName, setSaveFileName] = useState("");
+    const [showSaveModal, setShowSaveModal] = useState(false);
     const [showExportDialog, setShowExportDialog] = useState(false);
     const [showFindCanvas, setShowFindCanvas] = useState(false);
     const [showHotkeysDialog, setShowHotkeysDialog] = useState(false);
@@ -242,6 +269,9 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const [isLayersPinned, setIsLayersPinned] = useState(true);
     const [layerFolders, setLayerFolders] = useState<LayerFolder[]>([]);
     const [editingDocumentId, setEditingDocumentId] = useState<string | null>(
+        null,
+    );
+    const [editingMermaidId, setEditingMermaidId] = useState<string | null>(
         null,
     );
     const [pendingName, setPendingName] = useState<string | null>(null);
@@ -269,6 +299,24 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const redoStackRef = useRef<BoardElement[][]>([]);
     const isUndoingRef = useRef(false);
     const elementsRef = useRef<BoardElement[]>(elements);
+
+    // Disk storage sync (when workspace has disk storage enabled)
+    const {
+        isSaving: isDiskSaving,
+        isDirty: isDiskDirty,
+        isDiskStorage,
+        saveNow: saveToDiskNow,
+    } = useDiskStorageSync({
+        boardId,
+        elements,
+        canvasBackground,
+        enabled: !isReadOnly,
+    });
+
+    // Save status from workspace disk sync only
+    const combinedIsSaving = isDiskSaving;
+    const combinedIsDirty = isDiskDirty;
+    const showDiskSaveIndicator = isDiskStorage;
 
     // Ref to store the setViewport function from Canvas
     const setViewportRef = useRef<
@@ -364,6 +412,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             setPendingName(name);
         }
     }, [isReadOnly]);
+
+    useEffect(() => {
+        if (!collabInvitesEnabled && showInviteDialog) {
+            setShowInviteDialog(false);
+        }
+    }, [collabInvitesEnabled, showInviteDialog]);
 
     // Initialize history manager for owner
     useEffect(() => {
@@ -853,44 +907,61 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleSave = useCallback(() => {
         if (isReadOnly) return;
-        // Set default filename with current date
-        setSaveFileName(`kladde-${new Date().toISOString().split("T")[0]}`);
-        setShowSaveDialog(true);
+        setShowSaveModal(true);
     }, [isReadOnly]);
 
-    const handleConfirmSave = useCallback(() => {
+    const handleOpen = useCallback(async () => {
         if (isReadOnly) return;
-        const kladdeFile: ShadeworksFile = {
-            type: "kladde",
-            version: 1,
-            elements: elements,
-            appState: {
-                canvasBackground: canvasBackground,
-            },
+
+        const loadFromContent = async (content: string) => {
+            try {
+                const data: ShadeworksFile = JSON.parse(content);
+
+                // Validate file format (support both old and new format)
+                if (data.type !== "kladde" && data.type !== "shadeworks") {
+                    alert("Invalid file format. Please select a .kladde file.");
+                    return;
+                }
+
+                // Save current state to undo before loading
+                saveToUndoStack();
+
+                // Load elements
+                if (collaboration) {
+                    collaboration.clearAll();
+                    data.elements.forEach((el) => collaboration.addElement(el));
+                } else {
+                    setElements(data.elements);
+                }
+
+                // Load app state
+                if (data.appState?.canvasBackground) {
+                    setCanvasBackground(data.appState.canvasBackground);
+                }
+            } catch (error) {
+                console.error("Error loading file:", error);
+                alert(
+                    "Failed to load file. Please ensure it is a valid .kladde file.",
+                );
+            }
         };
 
-        const jsonString = JSON.stringify(kladdeFile, null, 2);
-        const blob = new Blob([jsonString], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
+        if (isFileOpenPickerSupported()) {
+            try {
+                const fileHandle = await requestOpenFile();
+                if (!fileHandle) return;
+                const file = await fileHandle.getFile();
+                const content = await file.text();
+                await loadFromContent(content);
+            } catch (error) {
+                console.error("Error loading file:", error);
+                alert(
+                    "Failed to load file. Please ensure it is a valid .kladde file.",
+                );
+            }
+            return;
+        }
 
-        const link = document.createElement("a");
-        link.href = url;
-        // Ensure .kladde extension
-        const fileName = saveFileName.endsWith(".kladde")
-            ? saveFileName
-            : `${saveFileName}.kladde`;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        setShowSaveDialog(false);
-        setSaveFileName("");
-    }, [elements, canvasBackground, saveFileName, isReadOnly]);
-
-    const handleOpen = useCallback(() => {
-        if (isReadOnly) return;
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".kladde,.shadeworks,application/json";
@@ -901,48 +972,21 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
             const reader = new FileReader();
             reader.onload = (event) => {
-                try {
-                    const content = event.target?.result as string;
-                    const data: ShadeworksFile = JSON.parse(content);
-
-                    // Validate file format (support both old and new format)
-                    if (data.type !== "kladde" && data.type !== "shadeworks") {
-                        alert(
-                            "Invalid file format. Please select a .kladde file.",
-                        );
-                        return;
-                    }
-
-                    // Save current state to undo before loading
-                    saveToUndoStack();
-
-                    // Load elements
-                    if (collaboration) {
-                        collaboration.clearAll();
-                        data.elements.forEach((el) =>
-                            collaboration.addElement(el),
-                        );
-                    } else {
-                        setElements(data.elements);
-                    }
-
-                    // Load app state
-                    if (data.appState?.canvasBackground) {
-                        setCanvasBackground(data.appState.canvasBackground);
-                    }
-                } catch (error) {
-                    console.error("Error loading file:", error);
-                    alert(
-                        "Failed to load file. Please ensure it is a valid .kladde file.",
-                    );
-                }
+                const content = event.target?.result as string;
+                void loadFromContent(content);
             };
 
             reader.readAsText(file);
         };
 
         input.click();
-    }, [collaboration, saveToUndoStack, isReadOnly]);
+    }, [
+        isReadOnly,
+        saveToUndoStack,
+        collaboration,
+        setElements,
+        setCanvasBackground,
+    ]);
 
     const handleExportImage = useCallback(() => {
         setShowExportDialog(true);
@@ -1246,6 +1290,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleFillColorChange = useCallback(
         (color: string) => {
+            const shouldShowFill =
+                color !== "none" && color !== "transparent" && color.length > 0;
+            const defaultFillPattern = handDrawnMode ? "hachure" : "solid";
+            const nextFillPattern =
+                shouldShowFill && fillPattern === "none"
+                    ? defaultFillPattern
+                    : fillPattern;
             if (selectedElements.length > 0) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
@@ -1259,13 +1310,33 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                             el.isClosed &&
                             el.fillPattern !== "none")
                     ) {
-                        handleUpdateElement(el.id, { fillColor: color });
+                        handleUpdateElement(el.id, {
+                            fillColor: color,
+                            ...(shouldShowFill && el.type !== "frame"
+                                ? {
+                                      fillPattern:
+                                          el.fillPattern === undefined ||
+                                          el.fillPattern === "none"
+                                              ? defaultFillPattern
+                                              : el.fillPattern,
+                                  }
+                                : {}),
+                        });
                     }
                 });
             }
             setFillColor(color);
+            if (nextFillPattern !== fillPattern) {
+                setFillPattern(nextFillPattern);
+            }
         },
-        [selectedElements, saveToUndoStack, handleUpdateElement],
+        [
+            selectedElements,
+            saveToUndoStack,
+            handleUpdateElement,
+            fillPattern,
+            handDrawnMode,
+        ],
     );
 
     const handleOpacityChange = useCallback(
@@ -1313,19 +1384,136 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         [selectedElements, saveToUndoStack, handleUpdateElement],
     );
 
+    const getUpdatedTextDimensions = (
+        element: BoardElement,
+        overrides: {
+            fontFamily?: string;
+            fontSize?: number;
+            letterSpacing?: number;
+            lineHeight?: number;
+            textAlign?: "left" | "center" | "right";
+        },
+    ) => {
+        const text = element.text ?? "";
+        const resolvedFontFamily =
+            overrides.fontFamily ?? element.fontFamily ?? fontFamily;
+        const fontSize =
+            overrides.fontSize ??
+            element.fontSize ??
+            element.strokeWidth * 4 + 12;
+        const resolvedLetterSpacing =
+            overrides.letterSpacing ?? element.letterSpacing ?? letterSpacing;
+        const resolvedLineHeight =
+            overrides.lineHeight ?? element.lineHeight ?? lineHeight;
+        const resolvedTextAlign =
+            overrides.textAlign ?? element.textAlign ?? textAlign;
+        const isTextBox = element.isTextBox === true;
+        const textBoxPadding = isTextBox ? 8 : 0;
+        const minHeight = fontSize * resolvedLineHeight + textBoxPadding;
+
+        const unboundedSize = measureUnboundedTextSize({
+            text,
+            fontSize,
+            fontFamily: resolvedFontFamily,
+            letterSpacing: resolvedLetterSpacing,
+            lineHeight: resolvedLineHeight,
+        });
+
+        if (isTextBox) {
+            const width = Math.max(
+                element.width ?? 200,
+                unboundedSize.width + Math.ceil(fontSize * 0.1),
+            );
+            const height = Math.max(
+                minHeight,
+                measureWrappedTextHeightPx({
+                    text,
+                    width: width - textBoxPadding,
+                    fontSize,
+                    lineHeight: resolvedLineHeight,
+                    fontFamily: resolvedFontFamily,
+                    letterSpacing: resolvedLetterSpacing,
+                    textAlign: resolvedTextAlign,
+                }) + textBoxPadding,
+            );
+            return { width, height };
+        }
+
+        const width = Math.max(
+            unboundedSize.width + Math.ceil(fontSize * 0.1),
+            2,
+        );
+        const height = Math.max(unboundedSize.height, minHeight);
+        return { width, height };
+    };
+
     const handleFontFamilyChange = useCallback(
         (font: string) => {
             if (selectedElements.length > 0) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
                     if (el.type === "text") {
-                        handleUpdateElement(el.id, { fontFamily: font });
+                        const dimensions = getUpdatedTextDimensions(el, {
+                            fontFamily: font,
+                        });
+                        // For textBox, only expand width; for auto-width text, use exact measured width
+                        const isTextBox = el.isTextBox === true;
+                        const nextWidth = isTextBox
+                            ? Math.max(el.width ?? 0, dimensions.width)
+                            : dimensions.width;
+                        const nextHeight = isTextBox
+                            ? Math.max(el.height ?? 0, dimensions.height)
+                            : dimensions.height;
+                        handleUpdateElement(el.id, {
+                            fontFamily: font,
+                            width: nextWidth,
+                            height: nextHeight,
+                        });
                     }
                 });
+                if (typeof document !== "undefined" && document.fonts?.load) {
+                    const loaders = selectedElements
+                        .filter((el) => el.type === "text")
+                        .map((el) => {
+                            const fontSize =
+                                el.fontSize ?? el.strokeWidth * 4 + 12;
+                            const sampleText = el.text ?? "W";
+                            const fontLoadString = getFontFaceLoadString(
+                                fontSize,
+                                font,
+                            );
+                            return document.fonts.load(
+                                fontLoadString,
+                                sampleText,
+                            );
+                        });
+                    Promise.all(loaders)
+                        .then(() => {
+                            selectedElements.forEach((el) => {
+                                if (el.type !== "text") return;
+                                const dimensions = getUpdatedTextDimensions(
+                                    el,
+                                    {
+                                        fontFamily: font,
+                                    },
+                                );
+                                handleUpdateElement(el.id, {
+                                    width: dimensions.width,
+                                    height: dimensions.height,
+                                });
+                            });
+                        })
+                        .catch(() => {});
+                }
             }
             setFontFamily(font);
         },
-        [selectedElements, saveToUndoStack, handleUpdateElement],
+        [
+            selectedElements,
+            saveToUndoStack,
+            handleUpdateElement,
+            getUpdatedTextDimensions,
+        ],
     );
 
     const handleTextAlignChange = useCallback(
@@ -1343,19 +1531,52 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         [selectedElements, saveToUndoStack, handleUpdateElement],
     );
 
+    const handleTextVerticalAlignChange = useCallback(
+        (align: "top" | "middle" | "bottom") => {
+            if (selectedElements.length > 0) {
+                saveToUndoStack();
+                selectedElements.forEach((el) => {
+                    if (
+                        el.type === "rectangle" ||
+                        el.type === "diamond" ||
+                        el.type === "ellipse"
+                    ) {
+                        handleUpdateElement(el.id, {
+                            textVerticalAlign: align,
+                        });
+                    }
+                });
+            }
+            setTextVerticalAlign(align);
+        },
+        [selectedElements, saveToUndoStack, handleUpdateElement],
+    );
+
     const handleFontSizeChange = useCallback(
         (size: number) => {
             if (selectedElements.length > 0) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
                     if (el.type === "text") {
-                        handleUpdateElement(el.id, { fontSize: size });
+                        const dimensions = getUpdatedTextDimensions(el, {
+                            fontSize: size,
+                        });
+                        handleUpdateElement(el.id, {
+                            fontSize: size,
+                            width: dimensions.width,
+                            height: dimensions.height,
+                        });
                     }
                 });
             }
             setFontSize(size);
         },
-        [selectedElements, saveToUndoStack, handleUpdateElement],
+        [
+            selectedElements,
+            saveToUndoStack,
+            handleUpdateElement,
+            getUpdatedTextDimensions,
+        ],
     );
 
     const handleLetterSpacingChange = useCallback(
@@ -1364,13 +1585,25 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
                     if (el.type === "text") {
-                        handleUpdateElement(el.id, { letterSpacing: spacing });
+                        const dimensions = getUpdatedTextDimensions(el, {
+                            letterSpacing: spacing,
+                        });
+                        handleUpdateElement(el.id, {
+                            letterSpacing: spacing,
+                            width: dimensions.width,
+                            height: dimensions.height,
+                        });
                     }
                 });
             }
             setLetterSpacing(spacing);
         },
-        [selectedElements, saveToUndoStack, handleUpdateElement],
+        [
+            selectedElements,
+            saveToUndoStack,
+            handleUpdateElement,
+            getUpdatedTextDimensions,
+        ],
     );
 
     const handleLineHeightChange = useCallback(
@@ -1379,20 +1612,40 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
                     if (el.type === "text") {
-                        handleUpdateElement(el.id, { lineHeight: height });
+                        const dimensions = getUpdatedTextDimensions(el, {
+                            lineHeight: height,
+                        });
+                        handleUpdateElement(el.id, {
+                            lineHeight: height,
+                            width: dimensions.width,
+                            height: dimensions.height,
+                        });
                     }
                 });
             }
             setLineHeight(height);
         },
-        [selectedElements, saveToUndoStack, handleUpdateElement],
+        [
+            selectedElements,
+            saveToUndoStack,
+            handleUpdateElement,
+            getUpdatedTextDimensions,
+        ],
     );
 
     const handleFillPatternChange = useCallback(
-        (pattern: "none" | "solid") => {
+        (pattern: NonNullable<BoardElement["fillPattern"]>) => {
             if (selectedElements.length > 0) {
                 saveToUndoStack();
                 selectedElements.forEach((el) => {
+                    if (
+                        el.type === "rectangle" ||
+                        el.type === "diamond" ||
+                        el.type === "ellipse"
+                    ) {
+                        handleUpdateElement(el.id, { fillPattern: pattern });
+                        return;
+                    }
                     if (el.type === "pen" && el.penMode !== "highlighter") {
                         // Check if the stroke is closed (in case it wasn't detected before)
                         const isClosed =
@@ -1488,23 +1741,90 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleMoveForward = useCallback(() => {
         if (selectedElements.length === 0) return;
+
+        const selectedEl = selectedElements[0];
+        if (selectedEl.locked) return;
+
+        // Get elements in same context (same folder or both root)
+        const contextElements = elements.filter(
+            (el) => el.folderId === selectedEl.folderId,
+        );
+
+        // Sort by zIndex (highest first) with stable secondary sort
+        const sortedContext = [...contextElements].sort((a, b) => {
+            const zIndexA = a.zIndex ?? 0;
+            const zIndexB = b.zIndex ?? 0;
+            if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+            return a.id.localeCompare(b.id);
+        });
+
+        const currentIndex = sortedContext.findIndex(
+            (el) => el.id === selectedEl.id,
+        );
+        if (currentIndex === -1 || currentIndex === 0) return; // Already at top
+
+        const swapElement = sortedContext[currentIndex - 1];
+        if (swapElement?.locked) return;
+
         saveToUndoStack();
 
-        selectedElements.forEach((el) => {
-            const currentZIndex = el.zIndex ?? 0;
-            handleUpdateElement(el.id, { zIndex: currentZIndex + 1 });
+        // Normalize zIndex values with new order
+        const newOrder = [...sortedContext];
+        newOrder.splice(currentIndex, 1);
+        newOrder.splice(currentIndex - 1, 0, selectedEl);
+
+        const baseZIndex = newOrder.length;
+        newOrder.forEach((el, idx) => {
+            const newZIndex = baseZIndex - idx;
+            if ((el.zIndex ?? 0) !== newZIndex) {
+                handleUpdateElement(el.id, { zIndex: newZIndex });
+            }
         });
-    }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+    }, [selectedElements, elements, saveToUndoStack, handleUpdateElement]);
 
     const handleMoveBackward = useCallback(() => {
         if (selectedElements.length === 0) return;
+
+        const selectedEl = selectedElements[0];
+        if (selectedEl.locked) return;
+
+        // Get elements in same context (same folder or both root)
+        const contextElements = elements.filter(
+            (el) => el.folderId === selectedEl.folderId,
+        );
+
+        // Sort by zIndex (highest first) with stable secondary sort
+        const sortedContext = [...contextElements].sort((a, b) => {
+            const zIndexA = a.zIndex ?? 0;
+            const zIndexB = b.zIndex ?? 0;
+            if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+            return a.id.localeCompare(b.id);
+        });
+
+        const currentIndex = sortedContext.findIndex(
+            (el) => el.id === selectedEl.id,
+        );
+        if (currentIndex === -1 || currentIndex === sortedContext.length - 1)
+            return; // Already at bottom
+
+        const swapElement = sortedContext[currentIndex + 1];
+        if (swapElement?.locked) return;
+
         saveToUndoStack();
 
-        selectedElements.forEach((el) => {
-            const currentZIndex = el.zIndex ?? 0;
-            handleUpdateElement(el.id, { zIndex: currentZIndex - 1 });
+        // Normalize zIndex values with new order
+        const newOrder = [...sortedContext];
+        newOrder.splice(currentIndex, 1);
+        newOrder.splice(currentIndex + 1, 0, selectedEl);
+
+        const baseZIndex = newOrder.length;
+        newOrder.forEach((el, idx) => {
+            const newZIndex = baseZIndex - idx;
+            if ((el.zIndex ?? 0) !== newZIndex) {
+                handleUpdateElement(el.id, { zIndex: newZIndex });
+            }
         });
-    }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+    }, [selectedElements, elements, saveToUndoStack, handleUpdateElement]);
 
     const handleAlignLeft = useCallback(() => {
         if (selectedElements.length < 2) return;
@@ -1618,6 +1938,92 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
         );
     }, [selectedElements, saveToUndoStack, handleUpdateElement]);
 
+    // Copy elements to internal clipboard (Ctrl+C)
+    const handleCopyToClipboard = useCallback(() => {
+        if (selectedElements.length === 0) return;
+        // Store a deep copy of selected elements
+        setClipboardElements(
+            selectedElements
+                .filter((el) => el.type !== "laser")
+                .map((el) => ({ ...el })),
+        );
+    }, [selectedElements, handDrawnMode]);
+
+    // Paste elements from internal clipboard (Ctrl+V)
+    const handlePaste = useCallback(() => {
+        if (clipboardElements.length === 0) return;
+        saveToUndoStack();
+
+        const selectionGroupId = clipboardElements[0]?.groupId;
+        const isSelectionSingleGroup =
+            !!selectionGroupId &&
+            clipboardElements.every((el) => el.groupId === selectionGroupId);
+        const newGroupId = isSelectionSingleGroup ? uuid() : undefined;
+
+        // Calculate combined bounding box of clipboard elements
+        let minX = Infinity,
+            maxX = -Infinity;
+        clipboardElements.forEach((el) => {
+            const box = getBoundingBox(el);
+            if (box) {
+                minX = Math.min(minX, box.x);
+                maxX = Math.max(maxX, box.x + box.width);
+            }
+        });
+        // Fallback if no valid bounding boxes found
+        const selectionWidth = isFinite(maxX - minX) ? maxX - minX : 100;
+        const horizontalOffset = selectionWidth + 20; // Place beside with 20px gap
+
+        const copies = clipboardElements.map((el) => {
+            const next: BoardElement = {
+                ...el,
+                id: uuid(),
+                groupId: newGroupId,
+            };
+
+            if (
+                el.type === "pen" ||
+                el.type === "line" ||
+                el.type === "arrow"
+            ) {
+                next.points = el.points.map((p) => ({
+                    x: p.x + horizontalOffset,
+                    y: p.y,
+                }));
+            } else {
+                next.x = (el.x ?? 0) + horizontalOffset;
+                next.y = el.y ?? 0;
+            }
+
+            return next;
+        });
+
+        if (copies.length === 0) return;
+
+        // Update clipboard to the new positions so next paste goes beside these
+        setClipboardElements(copies.map((el) => ({ ...el })));
+
+        if (collaboration) {
+            copies.forEach((el) => collaboration.addElement(el));
+        } else {
+            setElements([...elements, ...copies]);
+        }
+        setSelectedElements(copies);
+        setLayerSelectionIds(copies.map((el) => el.id));
+        if (copies.length > 0) {
+            setLastSelectedLayerId(copies[0].id);
+        }
+    }, [
+        clipboardElements,
+        saveToUndoStack,
+        collaboration,
+        elements,
+        setSelectedElements,
+        setLayerSelectionIds,
+        setLastSelectedLayerId,
+    ]);
+
+    // Duplicate selected elements (Ctrl+D)
     const handleCopySelected = useCallback(() => {
         if (selectedElements.length === 0) return;
         saveToUndoStack();
@@ -1627,7 +2033,20 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             !!selectionGroupId &&
             selectedElements.every((el) => el.groupId === selectionGroupId);
         const newGroupId = isSelectionSingleGroup ? uuid() : undefined;
-        const offset = 12;
+
+        // Calculate combined bounding box of all selected elements
+        let minX = Infinity,
+            maxX = -Infinity;
+        selectedElements.forEach((el) => {
+            const box = getBoundingBox(el);
+            if (box) {
+                minX = Math.min(minX, box.x);
+                maxX = Math.max(maxX, box.x + box.width);
+            }
+        });
+        // Fallback if no valid bounding boxes found
+        const selectionWidth = isFinite(maxX - minX) ? maxX - minX : 100;
+        const horizontalOffset = selectionWidth + 20; // Place beside with 20px gap
 
         const copies = selectedElements
             .filter((el) => el.type !== "laser")
@@ -1644,12 +2063,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     el.type === "arrow"
                 ) {
                     next.points = el.points.map((p) => ({
-                        x: p.x + offset,
-                        y: p.y + offset,
+                        x: p.x + horizontalOffset,
+                        y: p.y,
                     }));
                 } else {
-                    next.x = (el.x ?? 0) + offset;
-                    next.y = (el.y ?? 0) + offset;
+                    next.x = (el.x ?? 0) + horizontalOffset;
+                    next.y = el.y ?? 0;
                 }
 
                 return next;
@@ -1702,10 +2121,30 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 e.preventDefault();
                 handleRedo();
             }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+                if (selectedElements.length === 0) return;
+                e.preventDefault();
+                handleCopyToClipboard();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+                e.preventDefault();
+                handlePaste();
+            }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
                 if (selectedElements.length === 0) return;
                 e.preventDefault();
                 handleCopySelected();
+            }
+            // Ctrl/Cmd+S: Manual save to disk
+            if (
+                (e.ctrlKey || e.metaKey) &&
+                !e.shiftKey &&
+                e.key.toLowerCase() === "s"
+            ) {
+                e.preventDefault();
+                if (isDiskStorage) {
+                    void saveToDiskNow();
+                }
             }
         };
 
@@ -1714,9 +2153,13 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     }, [
         handleUndo,
         handleRedo,
+        handleCopyToClipboard,
+        handlePaste,
         handleCopySelected,
         isReadOnly,
         selectedElements,
+        isDiskStorage,
+        saveToDiskNow,
     ]);
 
     const handleDeleteSelected = useCallback(() => {
@@ -1953,24 +2396,67 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
     const handleReorderElement = useCallback(
         (id: string, direction: "up" | "down") => {
-            // Sort elements by zIndex (highest first, matching sidebar display)
-            const sortedElements = [...elements].sort((a, b) => {
+            const element = elements.find((el) => el.id === id);
+            if (!element) return;
+
+            // Don't allow reordering locked elements
+            if (element.locked) return;
+
+            // Get elements in the same context (same folder or both root)
+            const contextElements = elements.filter(
+                (el) => el.folderId === element.folderId,
+            );
+
+            // Sort by zIndex (highest first, matching sidebar display)
+            // Use element id as secondary sort key for stability when zIndex is equal
+            const sortedContext = [...contextElements].sort((a, b) => {
                 const zIndexA = a.zIndex ?? 0;
                 const zIndexB = b.zIndex ?? 0;
-                return zIndexB - zIndexA;
+                if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+                // Secondary sort by id for stability
+                return a.id.localeCompare(b.id);
             });
 
-            const currentIndex = sortedElements.findIndex((el) => el.id === id);
+            const currentIndex = sortedContext.findIndex((el) => el.id === id);
             if (currentIndex === -1) return;
 
             const targetIndex =
                 direction === "up" ? currentIndex - 1 : currentIndex + 1;
-            if (targetIndex < 0 || targetIndex >= sortedElements.length) return;
+            if (targetIndex < 0 || targetIndex >= sortedContext.length) return;
 
-            // Delegate to handleMoveToIndex
-            handleMoveToIndex(id, targetIndex);
+            // Get the element we're swapping with
+            const swapElement = sortedContext[targetIndex];
+            if (!swapElement) return;
+
+            // Don't swap with locked elements
+            if (swapElement.locked) return;
+
+            saveToUndoStack();
+
+            // Normalize: assign sequential zIndex values to all elements in context
+            // This ensures every element has a unique zIndex and fixes any duplicates
+            const baseZIndex = sortedContext.length;
+            const updates: Array<{ id: string; zIndex: number }> = [];
+
+            // Create new order with the moved element in its new position
+            const newOrder = [...sortedContext];
+            newOrder.splice(currentIndex, 1); // Remove from current position
+            newOrder.splice(targetIndex, 0, element); // Insert at target position
+
+            // Assign sequential zIndex values (highest first in array = highest zIndex)
+            newOrder.forEach((el, idx) => {
+                const newZIndex = baseZIndex - idx;
+                if ((el.zIndex ?? 0) !== newZIndex) {
+                    updates.push({ id: el.id, zIndex: newZIndex });
+                }
+            });
+
+            // Apply all updates
+            updates.forEach(({ id: elId, zIndex }) => {
+                handleUpdateElement(elId, { zIndex });
+            });
         },
-        [elements, handleMoveToIndex],
+        [elements, saveToUndoStack, handleUpdateElement],
     );
 
     const handleToggleVisibility = useCallback(
@@ -2023,26 +2509,30 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
 
             saveToUndoStack();
 
-            const offset = 12;
+            // Calculate horizontal offset based on element width
+            const box = getBoundingBox(element);
+            const elementWidth = box?.width ?? 100;
+            const horizontalOffset = elementWidth + 20; // Place beside with 20px gap
+
             const newElement: BoardElement = {
                 ...element,
                 id: uuid(),
                 groupId: undefined,
             };
 
-            // Offset the duplicate
+            // Offset the duplicate horizontally (beside the original)
             if (
                 element.type === "pen" ||
                 element.type === "line" ||
                 element.type === "arrow"
             ) {
                 newElement.points = element.points.map((p) => ({
-                    x: p.x + offset,
-                    y: p.y + offset,
+                    x: p.x + horizontalOffset,
+                    y: p.y,
                 }));
             } else {
-                newElement.x = (element.x ?? 0) + offset;
-                newElement.y = (element.y ?? 0) + offset;
+                newElement.x = (element.x ?? 0) + horizontalOffset;
+                newElement.y = element.y ?? 0;
             }
 
             // Give it a higher zIndex
@@ -2199,6 +2689,12 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
             }
             if (firstElement.fillPattern !== undefined) {
                 setFillPattern(firstElement.fillPattern);
+            } else if (
+                firstElement.fillColor &&
+                firstElement.fillColor !== "none" &&
+                firstElement.fillColor !== "transparent"
+            ) {
+                setFillPattern(handDrawnMode ? "hachure" : "solid");
             }
         }
     }, [selectedElements]);
@@ -2261,6 +2757,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
     const followedUser = followedUserId
         ? collaboratorUsers.find((u) => u.id === followedUserId)
         : null;
+    const canInvite = isOwner && collabInvitesEnabled && !isReadOnly;
 
     return (
         <div className="relative w-screen h-screen overflow-hidden flex">
@@ -2275,7 +2772,11 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onExportImage={handleExportImage}
                         onFindOnCanvas={handleFindOnCanvas}
                         onHelp={() => setShowHotkeysDialog(true)}
-                        onInvite={() => setShowInviteDialog(true)}
+                        onInvite={
+                            canInvite
+                                ? () => setShowInviteDialog(true)
+                                : undefined
+                        }
                         canvasBackground={canvasBackground}
                         onCanvasBackgroundChange={setCanvasBackground}
                         handDrawnMode={handDrawnMode}
@@ -2303,57 +2804,71 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 </div>
 
                 {/* Collaboration + Hotkeys - Top Right */}
-                {!isReadOnly && (
+                {(showDiskSaveIndicator || !isReadOnly) && (
                     <div className="absolute top-4 right-4 z-50 flex items-stretch gap-2">
-                        <CollaborationBar
-                            peerCount={peerCount}
-                            myName={myName || "Connecting..."}
-                            collaboratorUsers={collaboratorUsers}
-                            onFollowUser={handleFollowUser}
-                            followedUserId={followedUserId}
-                            spectatedUserIds={spectatedUserIds}
-                            isBeingSpectated={
-                                myUserId
-                                    ? spectatedUserIds.has(myUserId)
-                                    : false
-                            }
-                            onInvite={() => setShowInviteDialog(true)}
+                        <SaveStatusIndicator
+                            show={showDiskSaveIndicator}
+                            isSaving={combinedIsSaving}
+                            isDirty={combinedIsDirty}
+                            storageFolderName={workspaceFolderName}
                         />
-                        {/* Version History Button (owner only) */}
-                        {isOwner && (
-                            <button
-                                onClick={() =>
-                                    setShowHistorySidebar((prev) =>
-                                        isHistoryPinned ? true : !prev,
-                                    )
-                                }
-                                className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-                                aria-label="Version history"
-                                title="Version history"
-                            >
-                                <History className="w-4 h-4" />
-                            </button>
+                        {!isReadOnly && (
+                            <>
+                                <CollaborationBar
+                                    peerCount={peerCount}
+                                    myName={myName || "Connecting..."}
+                                    collaboratorUsers={collaboratorUsers}
+                                    onFollowUser={handleFollowUser}
+                                    followedUserId={followedUserId}
+                                    spectatedUserIds={spectatedUserIds}
+                                    isBeingSpectated={
+                                        myUserId
+                                            ? spectatedUserIds.has(myUserId)
+                                            : false
+                                    }
+                                    onInvite={
+                                        canInvite
+                                            ? () => setShowInviteDialog(true)
+                                            : undefined
+                                    }
+                                />
+                                {/* Version History Button (owner only) */}
+                                {isOwner && (
+                                    <button
+                                        onClick={() =>
+                                            setShowHistorySidebar((prev) =>
+                                                isHistoryPinned ? true : !prev,
+                                            )
+                                        }
+                                        className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                                        aria-label="Version history"
+                                        title="Version history"
+                                    >
+                                        <History className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setShowHotkeysDialog(true)}
+                                    className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                                    aria-label="Keyboard shortcuts"
+                                >
+                                    <span className="text-base font-semibold leading-none">
+                                        ?
+                                    </span>
+                                </button>
+                                <button
+                                    onClick={() =>
+                                        setShowLayersSidebar((prev) =>
+                                            isLayersPinned ? true : !prev,
+                                        )
+                                    }
+                                    className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                                    aria-label="Toggle layers sidebar"
+                                >
+                                    <PanelRight className="w-4 h-4" />
+                                </button>
+                            </>
                         )}
-                        <button
-                            onClick={() => setShowHotkeysDialog(true)}
-                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-                            aria-label="Keyboard shortcuts"
-                        >
-                            <span className="text-base font-semibold leading-none">
-                                ?
-                            </span>
-                        </button>
-                        <button
-                            onClick={() =>
-                                setShowLayersSidebar((prev) =>
-                                    isLayersPinned ? true : !prev,
-                                )
-                            }
-                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-                            aria-label="Toggle layers sidebar"
-                        >
-                            <PanelRight className="w-4 h-4" />
-                        </button>
                     </div>
                 )}
 
@@ -2363,7 +2878,7 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                 />
 
                 <InviteDialog
-                    open={showInviteDialog}
+                    open={showInviteDialog && collabInvitesEnabled}
                     onOpenChange={setShowInviteDialog}
                     roomId={roomId}
                     currentName={myName || undefined}
@@ -2478,6 +2993,10 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                         onFontFamilyChange={handleFontFamilyChange}
                         textAlign={textAlign}
                         onTextAlignChange={handleTextAlignChange}
+                        textVerticalAlign={textVerticalAlign}
+                        onTextVerticalAlignChange={
+                            handleTextVerticalAlignChange
+                        }
                         fontSize={fontSize}
                         onFontSizeChange={handleFontSizeChange}
                         letterSpacing={letterSpacing}
@@ -2588,63 +3107,20 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                     showRemoteCursors={!isReadOnly}
                     showUndoRedo={!isReadOnly}
                     onOpenDocumentEditor={setEditingDocumentId}
+                    onOpenMermaidEditor={setEditingMermaidId}
                 />
 
-                {/* Save File Dialog */}
-                {showSaveDialog && (
-                    <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                        <div className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-xl shadow-2xl p-6 w-96 max-w-[90vw]">
-                            <h2 className="text-lg font-semibold mb-4">
-                                Save Kladde File
-                            </h2>
-                            <div className="mb-4">
-                                <label
-                                    htmlFor="filename"
-                                    className="block text-sm font-medium mb-2 text-muted-foreground"
-                                >
-                                    File name
-                                </label>
-                                <input
-                                    id="filename"
-                                    type="text"
-                                    className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                                    value={saveFileName}
-                                    onChange={(e) =>
-                                        setSaveFileName(e.target.value)
-                                    }
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            handleConfirmSave();
-                                        } else if (e.key === "Escape") {
-                                            setShowSaveDialog(false);
-                                        }
-                                    }}
-                                    autoFocus
-                                    placeholder="Enter file name"
-                                />
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {saveFileName &&
-                                        !saveFileName.endsWith(".kladde")}
-                                </p>
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                                <button
-                                    onClick={() => setShowSaveDialog(false)}
-                                    className="px-4 py-2 rounded-md bg-background hover:bg-muted transition-colors border border-border"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleConfirmSave}
-                                    disabled={!saveFileName.trim()}
-                                    className="px-4 py-2 rounded-md bg-accent hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {/* Save Modal */}
+                <SaveModal
+                    isOpen={showSaveModal}
+                    onClose={() => {
+                        setShowSaveModal(false);
+                    }}
+                    elements={elements}
+                    canvasBackground={canvasBackground}
+                    boardId={boardId}
+                    boardName={boardName}
+                />
 
                 {/* Export Image Dialog */}
                 <ExportImageModal
@@ -2713,6 +3189,24 @@ export function Whiteboard({ boardId }: WhiteboardProps) {
                             onClose={() => setEditingDocumentId(null)}
                             onUpdateDocument={(updates) =>
                                 handleUpdateElement(editingDocumentId, updates)
+                            }
+                        />
+                    );
+                })()}
+
+            {/* Mermaid Editor Modal */}
+            {editingMermaidId &&
+                (() => {
+                    const mermaidElement = elements.find(
+                        (el) => el.id === editingMermaidId,
+                    );
+                    if (!mermaidElement) return null;
+                    return (
+                        <MermaidEditorModal
+                            mermaidElement={mermaidElement}
+                            onClose={() => setEditingMermaidId(null)}
+                            onUpdateMermaid={(updates) =>
+                                handleUpdateElement(editingMermaidId, updates)
                             }
                         />
                     );

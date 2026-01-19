@@ -8,8 +8,29 @@ export function measureTextWidthPx(text: string, font: string): number {
     return ctx.measureText(text).width;
 }
 
+function resolveFontFamily(fontFamily: string): string {
+    if (typeof document === "undefined") return fontFamily;
+    if (!fontFamily.includes("var(")) return fontFamily;
+    return fontFamily.replace(/var\((--[^)]+)\)/g, (_match, name) => {
+        const value = getComputedStyle(document.documentElement)
+            .getPropertyValue(name)
+            .trim();
+        return value || `var(${name})`;
+    });
+}
+
 export function getTextFontString(fontSize: number, fontFamily: string) {
-    return `500 ${fontSize}px ${fontFamily}`;
+    const resolvedFamily = resolveFontFamily(fontFamily);
+    return `500 ${fontSize}px ${resolvedFamily}`;
+}
+
+export function getFontFaceLoadString(
+    fontSize: number,
+    fontFamily: string,
+    fontWeight = 500,
+) {
+    const resolvedFamily = resolveFontFamily(fontFamily).replace(/"/g, "");
+    return `${fontWeight} ${fontSize}px ${resolvedFamily}`.trim();
 }
 
 // Get the minimum width needed to display a single character without clipping
@@ -37,6 +58,82 @@ export function getMinSingleCharWidth(
     }
     // Add letter-spacing and buffer for glyph overhangs
     return Math.max(2, maxCharWidth + Math.abs(letterSpacing) + 12);
+}
+
+let unboundedMeasureDiv: HTMLDivElement | null = null;
+export function measureUnboundedTextSize({
+    text,
+    fontSize,
+    fontFamily,
+    letterSpacing,
+    lineHeight,
+}: {
+    text: string;
+    fontSize: number;
+    fontFamily: string;
+    letterSpacing: number;
+    lineHeight: number;
+}) {
+    if (typeof document === "undefined") {
+        // Fallback for SSR
+        const lineCount = Math.max(1, text.split("\n").length);
+        const avgCharWidth = fontSize * 0.6;
+        const maxLineLength = Math.max(
+            ...text.split("\n").map((l) => l.length),
+            1,
+        );
+        return {
+            width: maxLineLength * avgCharWidth + 12,
+            height: lineCount * fontSize * lineHeight,
+        };
+    }
+
+    // Use DOM measurement for accurate web font width
+    unboundedMeasureDiv ??= (() => {
+        const el = document.createElement("div");
+        el.setAttribute("data-role", "unbounded-text-measure");
+        Object.assign(el.style, {
+            position: "absolute",
+            left: "-99999px",
+            top: "0px",
+            visibility: "hidden",
+            pointerEvents: "none",
+            whiteSpace: "pre",
+            padding: "0px",
+            margin: "0px",
+            border: "0px",
+            boxSizing: "content-box",
+        } as CSSStyleDeclaration);
+        document.body.appendChild(el);
+        return el;
+    })();
+
+    Object.assign(unboundedMeasureDiv.style, {
+        fontSize: `${fontSize}px`,
+        fontWeight: "500",
+        fontFamily,
+        letterSpacing: `${letterSpacing}px`,
+        lineHeight: `${lineHeight}`,
+    });
+
+    // Measure text - use space if empty to get proper height
+    const textToMeasure = text.length ? text : " ";
+    unboundedMeasureDiv.textContent = textToMeasure;
+
+    const width = Math.ceil(unboundedMeasureDiv.scrollWidth) + 2;
+    const height = Math.ceil(unboundedMeasureDiv.scrollHeight);
+
+    const lineCount = Math.max(1, text.split("\n").length);
+    const minHeightPx = fontSize * lineHeight;
+
+    return {
+        width: Math.max(width, 2),
+        height: Math.max(
+            height,
+            minHeightPx,
+            fontSize * lineHeight * lineCount,
+        ),
+    };
 }
 
 let textMeasureDiv: HTMLDivElement | null = null;
@@ -87,6 +184,7 @@ export function measureWrappedTextHeightPx({
     Object.assign(textMeasureDiv.style, {
         width: `${Math.max(0, width)}px`,
         fontSize: `${fontSize}px`,
+        fontWeight: "500",
         lineHeight: `${lineHeight}`,
         fontFamily,
         letterSpacing: `${letterSpacing}px`,
@@ -104,7 +202,11 @@ export function measureWrappedTextHeightPx({
 }
 
 // Wrap text to fit within a given width
-export function wrapText(text: string, maxWidth: number, fontSize: number): string[] {
+export function wrapText(
+    text: string,
+    maxWidth: number,
+    fontSize: number,
+): string[] {
     if (!text) return [""];
 
     const words = text.split(" ");

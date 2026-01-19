@@ -105,11 +105,13 @@ export function MermaidRenderer({
       ref={containerRef}
       className={cn(
         "w-full h-full overflow-hidden relative flex items-center justify-center",
+        "[&>div>svg]:max-w-full [&>div>svg]:max-h-full [&>div>svg]:w-auto [&>div>svg]:h-auto",
         className
       )}
       style={{ width, height, pointerEvents: "none" }}
     >
       <div
+        className="w-full h-full flex items-center justify-center"
         style={{
           transform: scale !== 1 ? `scale(${scale})` : undefined,
           transformOrigin: "center center",

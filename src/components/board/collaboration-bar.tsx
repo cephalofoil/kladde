@@ -30,6 +30,10 @@ export function CollaborationBar({
     isBeingSpectated,
     onInvite,
 }: CollaborationBarProps) {
+    if (!onInvite && peerCount === 0) {
+        return null;
+    }
+
     return (
         <div className="flex items-center gap-2 h-10 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md px-2.5 shadow-2xl overflow-hidden transition-all duration-300">
             {/* Your Name - Only show when peers are connected */}
@@ -54,23 +58,23 @@ export function CollaborationBar({
                         />
                     </div>
 
-                    <div className="w-px h-5 bg-border" />
+                    {onInvite && <div className="w-px h-5 bg-border" />}
                 </>
             )}
 
             {/* Share Button */}
-            <button
-                onClick={onInvite}
-                disabled={!onInvite}
-                className={cn(
-                    "flex items-center gap-1.5 h-10 px-2.5 rounded-sm transition-all duration-200",
-                    "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
-                    "disabled:opacity-50 disabled:pointer-events-none",
-                )}
-            >
-                <Share2 className="w-4 h-4" />
-                <span className="text-xs font-medium">Invite</span>
-            </button>
+            {onInvite && (
+                <button
+                    onClick={onInvite}
+                    className={cn(
+                        "flex items-center gap-1.5 h-10 px-2.5 rounded-sm transition-all duration-200",
+                        "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
+                    )}
+                >
+                    <Share2 className="w-4 h-4" />
+                    <span className="text-xs font-medium">Invite</span>
+                </button>
+            )}
         </div>
     );
 }

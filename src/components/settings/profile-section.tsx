@@ -5,12 +5,20 @@ import { User } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useBoardStore } from "@/store/board-store";
 
 const DISPLAY_NAME_KEY = "kladde-name";
 
 export function ProfileSection() {
   const [displayName, setDisplayName] = useState("");
   const [mounted, setMounted] = useState(false);
+  const collabInvitesEnabled = useBoardStore(
+    (s) => s.settings?.collabInvitesEnabled ?? true,
+  );
+  const setCollabInvitesEnabled = useBoardStore(
+    (s) => s.setCollabInvitesEnabled,
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -73,6 +81,22 @@ export function ProfileSection() {
           <p className="text-xs text-muted-foreground">
             Used for collaborative sessions. Stored only in this browser session.
           </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              Allow collaboration invites
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Hide invite buttons and disable generating collaboration links.
+            </p>
+          </div>
+          <Switch
+            checked={collabInvitesEnabled}
+            onCheckedChange={setCollabInvitesEnabled}
+            aria-label="Allow collaboration invites"
+          />
         </div>
       </CardContent>
     </Card>

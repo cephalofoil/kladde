@@ -160,13 +160,14 @@ export const tileHasContent = (tile: BoardElement): boolean => {
 
 interface TileCardProps {
   tile: BoardElement;
-  isAdded: boolean;
+  addedCount: number;
   onAdd: () => void;
 }
 
-export function TileCard({ tile, isAdded, onAdd }: TileCardProps) {
+export function TileCard({ tile, addedCount, onAdd }: TileCardProps) {
   const hasContent = tileHasContent(tile);
-  const isDisabled = isAdded || !hasContent;
+  const isAdded = addedCount > 0;
+  const isDisabled = !hasContent;
 
   return (
     <div
@@ -200,29 +201,41 @@ export function TileCard({ tile, isAdded, onAdd }: TileCardProps) {
       </p>
 
       {/* Add Button */}
-      <button
-        onClick={onAdd}
-        disabled={isDisabled}
-        className={cn(
-          "w-full flex items-center justify-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-          isAdded
-            ? "bg-green-500/10 text-green-600 cursor-default"
-            : !hasContent
-            ? "bg-muted text-muted-foreground cursor-not-allowed"
-            : "bg-primary/10 hover:bg-primary/20 text-primary"
-        )}
-      >
-        {isAdded ? (
-          "Added"
-        ) : !hasContent ? (
-          "Empty"
-        ) : (
-          <>
+      {!hasContent ? (
+        <button
+          onClick={onAdd}
+          disabled={isDisabled}
+          className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors bg-muted text-muted-foreground cursor-not-allowed"
+        >
+          Empty
+        </button>
+      ) : isAdded ? (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-500/10 text-green-600">
+            Added{addedCount > 1 ? ` x${addedCount}` : ""}
+          </div>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex items-center justify-center w-7 h-7 rounded text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+            aria-label="Add again"
+          >
             <Plus className="w-3 h-3" />
-            Add
-          </>
-        )}
-      </button>
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onAdd}
+          disabled={isDisabled}
+          className={cn(
+            "w-full flex items-center justify-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
+            "bg-primary/10 hover:bg-primary/20 text-primary"
+          )}
+        >
+          <Plus className="w-3 h-3" />
+          Add
+        </button>
+      )}
     </div>
   );
 }

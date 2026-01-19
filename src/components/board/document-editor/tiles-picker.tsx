@@ -14,22 +14,14 @@ export function TilesPicker({
   onAddTile,
   documentSections,
 }: TilesPickerProps) {
-  // Check if a tile is already in the document
-  const isTileInDocument = (tileId: string) => {
-    return documentSections.some(
+  const getTileCount = (tileId: string) => {
+    return documentSections.filter(
       (section) => section.type === "tile-content" && section.tileId === tileId
-    );
+    ).length;
   };
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-3 border-b border-border">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Available Tiles
-        </h3>
-      </div>
-
       {/* Tiles List */}
       <div className="flex-1 overflow-y-auto p-2">
         {tiles.length === 0 ? (
@@ -47,7 +39,7 @@ export function TilesPicker({
               <TileCard
                 key={tile.id}
                 tile={tile}
-                isAdded={isTileInDocument(tile.id)}
+                addedCount={getTileCount(tile.id)}
                 onAdd={() => onAddTile(tile)}
               />
             ))}

@@ -2,7 +2,7 @@
 
 import { useBoardStore } from "@/store/board-store";
 import { Folder, Plus, Edit2, Trash2, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 
 export function WorkstreamSidebar() {
     const [isCreating, setIsCreating] = useState(false);
@@ -48,13 +48,22 @@ export function WorkstreamSidebar() {
         setEditName(name);
     };
 
-    const handleSaveEdit = (id: string) => {
-        if (editName.trim()) {
-            updateWorkstream(id, { name: editName.trim() });
-        }
-        setEditingId(null);
-        setEditName("");
-    };
+    const handleSaveEdit = useCallback(
+        async (id: string) => {
+            const newName = editName.trim();
+            if (newName) {
+                const workstream = workstreamsMap.get(id);
+                const oldName = workstream?.name;
+
+                // Update in store
+                updateWorkstream(id, { name: newName });
+
+            }
+            setEditingId(null);
+            setEditName("");
+        },
+        [editName, workstreamsMap, updateWorkstream],
+    );
 
     const handleDelete = (id: string, name: string) => {
         if (id === "personal") return; // Can't delete personal

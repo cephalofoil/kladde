@@ -284,26 +284,70 @@ export function getElementSnapPoints(element: BoardElement): SnapPoint[] {
         const cy = bounds.y + bounds.height / 2;
         const halfWidth = bounds.width / 2;
         const halfHeight = bounds.height / 2;
+        const cornerRadius = element.cornerRadius ?? 0;
+
+        // Calculate the edge length and effective radius (same as in rough-shape-cache.ts)
+        const edgeLength = Math.hypot(halfWidth, halfHeight);
+        const maxRadius = edgeLength / 3;
+        const r = Math.min(cornerRadius, maxRadius);
+
+        // Diamond vertices
+        const top = { x: cx, y: cy - halfHeight };
+        const right = { x: cx + halfWidth, y: cy };
+        const bottom = { x: cx, y: cy + halfHeight };
+        const left = { x: cx - halfWidth, y: cy };
+
+        // For rounded diamonds, adjust vertex snap points to the curve midpoint
+        const getVertexSnapPoint = (
+            vertex: Point,
+            prev: Point,
+            next: Point,
+        ): Point => {
+            if (r <= 0) return vertex;
+
+            // Helper to get point along edge from vertex
+            const getPointAlongEdge = (
+                from: Point,
+                to: Point,
+                dist: number,
+            ): Point => {
+                const len = Math.hypot(to.x - from.x, to.y - from.y);
+                const t = len === 0 ? 0 : dist / len;
+                return {
+                    x: from.x + (to.x - from.x) * t,
+                    y: from.y + (to.y - from.y) * t,
+                };
+            };
+
+            // Points where the curve starts/ends (distance r from vertex)
+            const p0 = getPointAlongEdge(vertex, prev, r);
+            const p2 = getPointAlongEdge(vertex, next, r);
+            // Midpoint of quadratic Bézier: (P0 + 2*P1 + P2) / 4
+            return {
+                x: (p0.x + 2 * vertex.x + p2.x) / 4,
+                y: (p0.y + 2 * vertex.y + p2.y) / 4,
+            };
+        };
 
         localPoints = [
-            // Diamond vertices (these ARE the corners of the diamond shape)
+            // Diamond vertices (adjusted for corner radius if present)
             {
-                point: { x: cx, y: cy - halfHeight }, // top vertex
+                point: getVertexSnapPoint(top, left, right),
                 type: "corner",
                 position: "n",
             },
             {
-                point: { x: cx + halfWidth, y: cy }, // right vertex
+                point: getVertexSnapPoint(right, top, bottom),
                 type: "corner",
                 position: "e",
             },
             {
-                point: { x: cx, y: cy + halfHeight }, // bottom vertex
+                point: getVertexSnapPoint(bottom, right, left),
                 type: "corner",
                 position: "s",
             },
             {
-                point: { x: cx - halfWidth, y: cy }, // left vertex
+                point: getVertexSnapPoint(left, bottom, top),
                 type: "corner",
                 position: "w",
             },
@@ -2110,34 +2154,148 @@ export function getSnapPointFromPosition(
     } else if (element.type === "diamond") {
         const halfWidth = bounds.width / 2;
         const halfHeight = bounds.height / 2;
+        const cornerRadius = element.cornerRadius ?? 0;
 
-        switch (position) {
-            case "n":
-                localPoint = { x: cx, y: cy - halfHeight };
-                break;
-            case "e":
-                localPoint = { x: cx + halfWidth, y: cy };
-                break;
-            case "s":
-                localPoint = { x: cx, y: cy + halfHeight };
-                break;
-            case "w":
-                localPoint = { x: cx - halfWidth, y: cy };
-                break;
-            case "ne":
-                localPoint = { x: cx + halfWidth / 2, y: cy - halfHeight / 2 };
-                break;
-            case "se":
-                localPoint = { x: cx + halfWidth / 2, y: cy + halfHeight / 2 };
-                break;
-            case "sw":
-                localPoint = { x: cx - halfWidth / 2, y: cy + halfHeight / 2 };
-                break;
-            case "nw":
-                localPoint = { x: cx - halfWidth / 2, y: cy - halfHeight / 2 };
-                break;
-            default:
-                return null;
+        // Calculate the edge length and effective radius (same as in rough-shape-cache.ts)
+        const edgeLength = Math.hypot(halfWidth, halfHeight);
+        const maxRadius = edgeLength / 3;
+        const r = Math.min(cornerRadius, maxRadius);
+
+        // For rounded diamonds, the snap points at vertices need to be adjusted
+        // to the middle of the rounded curve (quadratic Bézier midpoint)
+        // The midpoint of a quadratic Bézier Q(P0, P1, P2) at t=0.5 is:
+        // (P0 + 2*P1 + P2) / 4 = P1/2 + (P0 + P2)/4
+        // For our case, P1 is the original sharp vertex
+
+        if (r > 0) {
+            // Helper to get point along edge from vertex
+            const getPointAlongEdge = (
+                from: Point,
+                to: Point,
+                dist: number,
+            ): Point => {
+                const len = Math.hypot(to.x - from.x, to.y - from.y);
+                const t = len === 0 ? 0 : dist / len;
+                return {
+                    x: from.x + (to.x - from.x) * t,
+                    y: from.y + (to.y - from.y) * t,
+                };
+            };
+
+            // Diamond vertices in local coordinates (relative to bounds origin)
+            const top = { x: bounds.x + halfWidth, y: bounds.y };
+            const right = {
+                x: bounds.x + bounds.width,
+                y: bounds.y + halfHeight,
+            };
+            const bottom = {
+                x: bounds.x + halfWidth,
+                y: bounds.y + bounds.height,
+            };
+            const left = { x: bounds.x, y: bounds.y + halfHeight };
+
+            // For each vertex, calculate the midpoint of the rounded curve
+            const getMidpointOfRoundedCorner = (
+                vertex: Point,
+                prev: Point,
+                next: Point,
+            ): Point => {
+                // Points where the curve starts/ends (distance r from vertex)
+                const p0 = getPointAlongEdge(vertex, prev, r);
+                const p2 = getPointAlongEdge(vertex, next, r);
+                // Midpoint of quadratic Bézier: (P0 + 2*P1 + P2) / 4
+                return {
+                    x: (p0.x + 2 * vertex.x + p2.x) / 4,
+                    y: (p0.y + 2 * vertex.y + p2.y) / 4,
+                };
+            };
+
+            switch (position) {
+                case "n":
+                    localPoint = getMidpointOfRoundedCorner(top, left, right);
+                    break;
+                case "e":
+                    localPoint = getMidpointOfRoundedCorner(right, top, bottom);
+                    break;
+                case "s":
+                    localPoint = getMidpointOfRoundedCorner(
+                        bottom,
+                        right,
+                        left,
+                    );
+                    break;
+                case "w":
+                    localPoint = getMidpointOfRoundedCorner(left, bottom, top);
+                    break;
+                case "ne":
+                    localPoint = {
+                        x: cx + halfWidth / 2,
+                        y: cy - halfHeight / 2,
+                    };
+                    break;
+                case "se":
+                    localPoint = {
+                        x: cx + halfWidth / 2,
+                        y: cy + halfHeight / 2,
+                    };
+                    break;
+                case "sw":
+                    localPoint = {
+                        x: cx - halfWidth / 2,
+                        y: cy + halfHeight / 2,
+                    };
+                    break;
+                case "nw":
+                    localPoint = {
+                        x: cx - halfWidth / 2,
+                        y: cy - halfHeight / 2,
+                    };
+                    break;
+                default:
+                    return null;
+            }
+        } else {
+            // No corner radius - use original sharp vertices
+            switch (position) {
+                case "n":
+                    localPoint = { x: cx, y: cy - halfHeight };
+                    break;
+                case "e":
+                    localPoint = { x: cx + halfWidth, y: cy };
+                    break;
+                case "s":
+                    localPoint = { x: cx, y: cy + halfHeight };
+                    break;
+                case "w":
+                    localPoint = { x: cx - halfWidth, y: cy };
+                    break;
+                case "ne":
+                    localPoint = {
+                        x: cx + halfWidth / 2,
+                        y: cy - halfHeight / 2,
+                    };
+                    break;
+                case "se":
+                    localPoint = {
+                        x: cx + halfWidth / 2,
+                        y: cy + halfHeight / 2,
+                    };
+                    break;
+                case "sw":
+                    localPoint = {
+                        x: cx - halfWidth / 2,
+                        y: cy + halfHeight / 2,
+                    };
+                    break;
+                case "nw":
+                    localPoint = {
+                        x: cx - halfWidth / 2,
+                        y: cy - halfHeight / 2,
+                    };
+                    break;
+                default:
+                    return null;
+            }
         }
     } else {
         // Default: rectangle-like shapes

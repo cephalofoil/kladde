@@ -36,7 +36,6 @@ export function HotkeysDialog({ open, onOpenChange }: HotkeysDialogProps) {
                         description: "Rectangle / Diamond / Ellipse",
                     },
                     { keys: ["4"], description: "Text tool" },
-                    { keys: ["F"], description: "Frame tool" },
                 ],
             },
             {

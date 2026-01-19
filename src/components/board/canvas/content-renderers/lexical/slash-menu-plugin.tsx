@@ -258,7 +258,7 @@ function SlashMenu({ onSelect, results, selectedIndex }: SlashMenuProps) {
   return (
     <div
       ref={menuRef}
-      className="absolute z-10 w-64 max-h-64 overflow-auto bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-lg"
+      className="absolute z-[9999] w-64 max-h-64 overflow-auto bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-lg"
     >
       {results.map((item, index) => (
         <button

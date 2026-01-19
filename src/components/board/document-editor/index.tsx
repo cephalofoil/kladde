@@ -7,6 +7,7 @@ import type {
   BoardElement,
   DocumentContent,
   DocumentSection,
+  FrameImageSection,
 } from "@/lib/board-types";
 import { TilesPicker } from "./tiles-picker";
 import { FramesPicker } from "./frames-picker";
@@ -38,6 +39,9 @@ export function DocumentEditorPanel({
 }: DocumentEditorPanelProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
+  const [activePickerTab, setActivePickerTab] = useState<"tiles" | "frames">(
+    "tiles"
+  );
 
   // Swipe-in animation on mount
   useEffect(() => {
@@ -209,6 +213,56 @@ export function DocumentEditorPanel({
     [documentContent, updateDocumentContent]
   );
 
+  const handleIncludeFrameContent = useCallback(
+    (frameId: string, frameSectionId: string) => {
+      // Get tiles within frame that have content
+      const frameTiles = allElements.filter(
+        (el) =>
+          el.type === "tile" &&
+          el.frameId === frameId &&
+          !el.hidden &&
+          tileHasContent(el)
+      );
+
+      if (frameTiles.length === 0) return;
+
+      // Sort by position (top-to-bottom, left-to-right)
+      frameTiles.sort((a, b) => {
+        const yDiff = (a.y ?? 0) - (b.y ?? 0);
+        if (Math.abs(yDiff) > 50) return yDiff;
+        return (a.x ?? 0) - (b.x ?? 0);
+      });
+
+      const sections = documentContent.layout.sections;
+      const frameIndex = sections.findIndex((s) => s.id === frameSectionId);
+      if (frameIndex === -1) return;
+
+      // Create TileContentSections for each tile
+      const tileSections = frameTiles.map((tile) =>
+        createTileContentSection(
+          tile.id,
+          tile.tileType,
+          tile.tileTitle,
+          tile.tileContent
+        )
+      );
+
+      // Insert tiles after frame and mark frame as contentIncluded
+      const newSections = [...sections];
+      newSections.splice(frameIndex + 1, 0, ...tileSections);
+      const frameSection = newSections[frameIndex] as FrameImageSection;
+      newSections[frameIndex] = {
+        ...frameSection,
+        contentIncluded: true,
+      };
+
+      updateDocumentContent({
+        layout: { ...documentContent.layout, sections: newSections },
+      });
+    },
+    [allElements, documentContent, updateDocumentContent]
+  );
+
   const handleExportPdf = useCallback(async () => {
     setIsExporting(true);
     try {
@@ -279,19 +333,49 @@ export function DocumentEditorPanel({
           {/* Left Panel: Tiles Picker (1/3 width) */}
           <div className="w-1/3 border-r border-border flex-shrink-0 overflow-hidden">
             <div className="h-full flex flex-col">
-              <div className="flex-1 overflow-hidden">
-                <TilesPicker
-                  tiles={availableTiles}
-                  onAddTile={handleAddTileToDocument}
-                  documentSections={documentContent.layout.sections}
-                />
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Available
+                </span>
+                <div className="grid w-full max-w-[220px] grid-cols-2 overflow-hidden rounded-md border border-border bg-background text-[13px] font-semibold">
+                  <button
+                    onClick={() => setActivePickerTab("tiles")}
+                    className={cn(
+                      "px-4 py-1.5 transition-colors border-r border-border",
+                      activePickerTab === "tiles"
+                        ? "bg-muted/70 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                    )}
+                  >
+                    Tiles
+                  </button>
+                  <button
+                    onClick={() => setActivePickerTab("frames")}
+                    className={cn(
+                      "px-4 py-1.5 transition-colors",
+                      activePickerTab === "frames"
+                        ? "bg-muted/70 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                    )}
+                  >
+                    Frames
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 overflow-hidden border-t border-border">
-                <FramesPicker
-                  frames={availableFrames}
-                  onAddFrame={handleAddFrameToDocument}
-                  documentSections={documentContent.layout.sections}
-                />
+              <div className="flex-1 overflow-hidden">
+                {activePickerTab === "tiles" ? (
+                  <TilesPicker
+                    tiles={availableTiles}
+                    onAddTile={handleAddTileToDocument}
+                    documentSections={documentContent.layout.sections}
+                  />
+                ) : (
+                  <FramesPicker
+                    frames={availableFrames}
+                    onAddFrame={handleAddFrameToDocument}
+                    documentSections={documentContent.layout.sections}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -307,6 +391,7 @@ export function DocumentEditorPanel({
               onRemoveSection={handleRemoveSection}
               onUpdateSection={handleUpdateSection}
               onMoveSection={handleMoveSection}
+              onIncludeFrameContent={handleIncludeFrameContent}
             />
           </div>
         </div>
