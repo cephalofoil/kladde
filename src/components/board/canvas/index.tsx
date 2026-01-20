@@ -2099,7 +2099,7 @@ export function Canvas({
                             aria-label="End-to-end encryption details"
                         >
                             <ShieldCheck
-                                className="h-6 w-6 fill-accent stroke-accent-foreground transition-colors group-hover:fill-accent/90"
+                                className="h-6 w-6 transition-colors group-hover:[&>path:first-child]:fill-accent/90 [&>path:first-child]:fill-accent [&>path:first-child]:stroke-transparent [&>path:last-child]:stroke-background"
                                 strokeWidth={2}
                             />
                         </Link>

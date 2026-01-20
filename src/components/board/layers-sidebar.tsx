@@ -213,6 +213,10 @@ const getElementIcon = (element: BoardElement) => {
 };
 
 const getElementLabel = (element: BoardElement) => {
+    if (!element?.type) {
+        return "Layer";
+    }
+
     // For text elements, show the text content
     if (element.type === "text" && element.text) {
         const cleanText = element.text.replace(/\n/g, " ").trim();
