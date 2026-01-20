@@ -16,7 +16,6 @@ import {
   X,
   ExternalLink,
   Home,
-  Eye,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
@@ -426,24 +425,6 @@ export function BurgerMenu({
                 <path d="M2 2l7.586 7.586" />
                 <circle cx="11" cy="11" r="2" />
               </svg>
-            </button>
-            <div className="w-px h-5 bg-border/60 mx-0.5" />
-            <button
-              onClick={() => {
-                onToggleViewMode?.();
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-7 h-7 rounded-sm flex items-center justify-center",
-                "hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                viewMode
-                  ? "bg-muted/70 border border-foreground/10 shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              aria-label="View mode"
-              title={viewMode ? "Exit view mode" : "Enter view mode"}
-            >
-              <Eye className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
