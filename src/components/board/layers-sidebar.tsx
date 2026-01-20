@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import { BoardElement, LayerFolder } from "@/lib/board-types";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { BoardComment, BoardElement, LayerFolder } from "@/lib/board-types";
 import {
     X,
     Eye,
@@ -18,7 +18,10 @@ import {
     Pencil,
     Pin,
     PinOff,
+    Layers,
     MousePointer2,
+    MessageSquare,
+    SlidersHorizontal,
     Pen,
     Highlighter,
     Minus,
@@ -37,6 +40,19 @@ import {
     Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+    DropdownMenuCheckboxItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
     Dialog,
     DialogContent,
@@ -135,10 +151,19 @@ interface LayersSidebarProps {
     elements: BoardElement[];
     selectedIds: Set<string>;
     folders: LayerFolder[];
+    comments: BoardComment[];
+    selectedCommentIds?: Set<string>;
+    activeTab?: "layers" | "comments" | "find";
+    onTabChange?: (tab: "layers" | "comments" | "find") => void;
+    hasUnseenComments?: boolean;
+    showResolvedComments?: boolean;
+    onToggleShowResolvedComments?: () => void;
     isPinned: boolean;
     onTogglePin: () => void;
     onClose: () => void;
     onFocusElement?: (element: BoardElement) => void;
+    onFocusComment?: (comment: BoardComment) => void;
+    onSelectComment?: (commentId: string) => void;
     onHighlightElements?: (
         elementIds: string[],
         currentId?: string | null,
@@ -259,14 +284,28 @@ const getElementLabel = (element: BoardElement) => {
     return element.type.charAt(0).toUpperCase() + element.type.slice(1);
 };
 
+const getCommentLabel = (comment: BoardComment) => {
+    const message = comment.messages?.[0]?.text?.trim();
+    return message || "New comment";
+};
+
 export function LayersSidebar({
     elements,
     selectedIds,
     folders,
+    comments,
+    selectedCommentIds,
+    activeTab: activeTabProp,
+    onTabChange,
+    hasUnseenComments,
+    showResolvedComments,
+    onToggleShowResolvedComments,
     isPinned,
     onTogglePin,
     onClose,
     onFocusElement,
+    onFocusComment,
+    onSelectComment,
     onHighlightElements,
     onSelectElement,
     onDeleteElement,
@@ -303,6 +342,7 @@ export function LayersSidebar({
     const elementIndexById = new Map(
         sortedElements.map((element, index) => [element.id, index]),
     );
+    const commentSelection = selectedCommentIds ?? new Set<string>();
 
     // Drag and drop state
     const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -350,10 +390,18 @@ export function LayersSidebar({
         },
         [selectedIds, onDeleteSelected, editingFolderId],
     );
-    const [activeTab, setActiveTab] = useState<"layers" | "find">("layers");
+    const [internalTab, setInternalTab] = useState<
+        "layers" | "comments" | "find"
+    >("layers");
+    const activeTab = activeTabProp ?? internalTab;
+    const setActiveTab = onTabChange ?? setInternalTab;
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<BoardElement[]>([]);
     const [currentResultIndex, setCurrentResultIndex] = useState(0);
+    const [commentSearchQuery, setCommentSearchQuery] = useState("");
+    const [commentSort, setCommentSort] = useState<
+        "newest" | "oldest" | "status"
+    >("newest");
 
     const handleDragStart = useCallback(
         (
@@ -952,6 +1000,58 @@ export function LayersSidebar({
         }
     };
 
+    const getCommentLastActivity = useCallback((comment: BoardComment) => {
+        const messageTimes = (comment.messages || []).map(
+            (message) => message.createdAt,
+        );
+        return Math.max(comment.createdAt, ...messageTimes);
+    }, []);
+
+    const filteredComments = useMemo(() => {
+        const query = commentSearchQuery.trim().toLowerCase();
+        const showResolved = showResolvedComments ?? false;
+        let next = comments.filter((comment) =>
+            showResolved ? true : !comment.resolved,
+        );
+
+        if (query) {
+            next = next.filter((comment) => {
+                if (comment.createdBy.name.toLowerCase().includes(query)) {
+                    return true;
+                }
+                return (comment.messages || []).some((message) =>
+                    message.text.toLowerCase().includes(query),
+                );
+            });
+        }
+
+        const sorted = [...next];
+        if (commentSort === "status") {
+            sorted.sort((a, b) => {
+                const statusA = a.resolved ? 1 : 0;
+                const statusB = b.resolved ? 1 : 0;
+                if (statusA !== statusB) return statusA - statusB;
+                return getCommentLastActivity(b) - getCommentLastActivity(a);
+            });
+        } else if (commentSort === "oldest") {
+            sorted.sort(
+                (a, b) => getCommentLastActivity(a) - getCommentLastActivity(b),
+            );
+        } else {
+            sorted.sort(
+                (a, b) => getCommentLastActivity(b) - getCommentLastActivity(a),
+            );
+        }
+
+        return sorted;
+    }, [
+        comments,
+        commentSearchQuery,
+        commentSort,
+        getCommentLastActivity,
+        showResolvedComments,
+    ]);
+
     const clearFindState = useCallback(() => {
         setSearchQuery("");
         setSearchResults([]);
@@ -1059,27 +1159,46 @@ export function LayersSidebar({
                         type="button"
                         onClick={() => setActiveTab("layers")}
                         className={cn(
-                            "px-3 py-1 text-sm font-semibold rounded-md transition-colors",
+                            "p-2 rounded-md transition-colors",
                             activeTab === "layers"
-                                ? "bg-background shadow-sm"
+                                ? "bg-background shadow-sm text-foreground"
                                 : "text-muted-foreground hover:text-foreground hover:bg-background/70",
                         )}
-                        aria-current="page"
+                        aria-label="Layers"
+                        title="Layers"
                     >
-                        Layers
+                        <Layers className="w-4 h-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("comments")}
+                        className={cn(
+                            "p-2 rounded-md transition-colors relative",
+                            activeTab === "comments"
+                                ? "bg-background shadow-sm text-foreground"
+                                : "text-muted-foreground hover:text-foreground hover:bg-background/70",
+                        )}
+                        aria-label="Comments"
+                        title="Comments"
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        {hasUnseenComments && (
+                            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500" />
+                        )}
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab("find")}
                         className={cn(
-                            "px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                            "p-2 rounded-md transition-colors",
                             activeTab === "find"
-                                ? "bg-background shadow-sm"
+                                ? "bg-background shadow-sm text-foreground"
                                 : "text-muted-foreground hover:text-foreground hover:bg-background/70",
                         )}
                         aria-label="Find on canvas"
+                        title="Find"
                     >
-                        Find
+                        <Search className="w-4 h-4" />
                     </button>
                 </div>
                 <div className="flex items-center gap-1">
@@ -1095,7 +1214,7 @@ export function LayersSidebar({
                             <Pin className="w-5 h-5" />
                         )}
                     </button>
-                    {onCreateFolder && (
+                    {activeTab === "layers" && onCreateFolder && (
                         <button
                             onClick={onCreateFolder}
                             className="p-1.5 rounded hover:bg-muted transition-colors"
@@ -1192,6 +1311,173 @@ export function LayersSidebar({
                         </div>
                     )}
                 </div>
+            ) : activeTab === "comments" ? (
+                <div ref={listRef} className="flex-1 overflow-y-auto p-2">
+                    <div className="flex items-center gap-2 px-1 pb-2">
+                        <div className="flex items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-1.5 flex-1">
+                            <Search className="w-4 h-4 text-muted-foreground" />
+                            <input
+                                type="text"
+                                value={commentSearchQuery}
+                                onChange={(e) =>
+                                    setCommentSearchQuery(e.target.value)
+                                }
+                                className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
+                                placeholder="Search comments..."
+                            />
+                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="p-2 rounded-md border border-border bg-background/70 hover:bg-muted/60 transition-colors"
+                                    aria-label="Sort and filter comments"
+                                >
+                                    <SlidersHorizontal className="w-4 h-4" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                                <DropdownMenuRadioGroup
+                                    value={commentSort}
+                                    onValueChange={(value) =>
+                                        setCommentSort(
+                                            value as
+                                                | "newest"
+                                                | "oldest"
+                                                | "status",
+                                        )
+                                    }
+                                >
+                                    <DropdownMenuRadioItem value="newest">
+                                        Newest activity
+                                    </DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="oldest">
+                                        Oldest activity
+                                    </DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="status">
+                                        Status
+                                    </DropdownMenuRadioItem>
+                                </DropdownMenuRadioGroup>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        Status
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuCheckboxItem
+                                            checked={showResolvedComments}
+                                            onCheckedChange={() =>
+                                                onToggleShowResolvedComments?.()
+                                            }
+                                        >
+                                            Show resolved
+                                        </DropdownMenuCheckboxItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                    {filteredComments.length === 0 ? (
+                        <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                            No comments yet
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            {filteredComments.map((comment) => {
+                                const isSelected = commentSelection.has(
+                                    comment.id,
+                                );
+                                const reactionsCount = (comment.messages || [])
+                                    .flatMap(
+                                        (message) => message.reactions || [],
+                                    )
+                                    .reduce(
+                                        (total, reaction) =>
+                                            total + reaction.userIds.length,
+                                        0,
+                                    );
+                                const activity =
+                                    getCommentLastActivity(comment);
+                                return (
+                                    <button
+                                        key={comment.id}
+                                        type="button"
+                                        onClick={() => {
+                                            onSelectComment?.(comment.id);
+                                            onFocusComment?.(comment);
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors",
+                                            isSelected
+                                                ? "bg-muted text-foreground"
+                                                : "hover:bg-muted/70 text-muted-foreground hover:text-foreground",
+                                        )}
+                                    >
+                                        <MessageSquare className="w-4 h-4" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="truncate text-sm font-medium text-foreground">
+                                                {getCommentLabel(comment)}
+                                            </div>
+                                            <div className="text-[12px] text-muted-foreground">
+                                                {comment.createdBy?.name ||
+                                                    "Guest"}{" "}
+                                                ·{" "}
+                                                {
+                                                    (comment.messages || [])
+                                                        .length
+                                                }{" "}
+                                                replies ·{" "}
+                                                {new Date(
+                                                    activity,
+                                                ).toLocaleString()}
+                                                {reactionsCount > 0
+                                                    ? ` · ${reactionsCount} reactions`
+                                                    : ""}
+                                            </div>
+                                            {(comment.messages || []).length >
+                                                0 && (
+                                                <div className="mt-2 space-y-2 text-sm text-foreground">
+                                                    {(
+                                                        comment.messages || []
+                                                    ).map((message) => (
+                                                        <div
+                                                            key={message.id}
+                                                            className="rounded-md border border-border/50 bg-background/60 p-2"
+                                                        >
+                                                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                                <span className="font-semibold text-foreground text-xs">
+                                                                    {
+                                                                        message
+                                                                            .author
+                                                                            .name
+                                                                    }
+                                                                </span>
+                                                                <span>
+                                                                    {new Date(
+                                                                        message.createdAt,
+                                                                    ).toLocaleString()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="mt-1 text-sm text-foreground">
+                                                                {message.text}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {comment.resolved && (
+                                                <div className="text-[11px] text-emerald-600">
+                                                    Resolved
+                                                </div>
+                                            )}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
             ) : (
                 <div ref={listRef} className="flex-1 overflow-y-auto p-2">
                     {sortedElements.length === 0 && folders.length === 0 ? (
@@ -1231,7 +1517,7 @@ export function LayersSidebar({
                     {folders.length > 0 &&
                         ` · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}`}
                 </span>
-                {selectedIds.size > 0 && (
+                {activeTab === "layers" && selectedIds.size > 0 && (
                     <div className="flex items-center gap-2">
                         <span className="text-primary">
                             {selectedIds.size} selected

@@ -2,7 +2,7 @@
 
 import * as Y from "yjs";
 import YPartyKitProvider from "y-partykit/provider";
-import type { BoardElement, Cursor } from "./board-types";
+import type { BoardComment, BoardElement, Cursor } from "./board-types";
 import type { CollabPermission } from "./history-types";
 import { generateFunnyName } from "./funny-names";
 import {
@@ -51,6 +51,22 @@ const PARTYKIT_HOST = process.env.NEXT_PUBLIC_PARTYKIT_HOST!;
 
 // Type for elements stored in Y.Array (can be encrypted or plain)
 type StoredElement = BoardElement | EncryptedElement;
+type StoredComment = BoardComment | EncryptedComment;
+
+interface EncryptedComment {
+    id: string;
+    encrypted: true;
+    ciphertext: string;
+    iv: string;
+}
+
+const isEncryptedComment = (value: StoredComment): value is EncryptedComment =>
+    typeof value === "object" &&
+    value !== null &&
+    "encrypted" in value &&
+    value.encrypted === true &&
+    "ciphertext" in value &&
+    "iv" in value;
 
 export interface CollaborationOptions {
     readOnly?: boolean;
@@ -62,6 +78,7 @@ export class CollaborationManager {
     private doc: Y.Doc;
     private provider: YPartyKitProvider | null = null;
     private elements: Y.Array<StoredElement>;
+    private comments: Y.Array<StoredComment>;
     private metadata: Y.Map<string>;
     private awareness: Map<number, Cursor> | null = null;
     private userId: string;
@@ -70,6 +87,7 @@ export class CollaborationManager {
     private connectionStatus: ConnectionStatus = "connecting";
     private encryptionKey: CryptoKey | null = null;
     private decryptedElementsCache: Map<string, BoardElement> = new Map();
+    private decryptedCommentsCache: Map<string, BoardComment> = new Map();
     private isReadOnly: boolean;
     private isOwner: boolean;
     private permission: CollabPermission;
@@ -94,6 +112,7 @@ export class CollaborationManager {
     ) {
         this.doc = new Y.Doc();
         this.elements = this.doc.getArray<StoredElement>("elements");
+        this.comments = this.doc.getArray<StoredComment>("comments");
         this.metadata = this.doc.getMap<string>("metadata");
         this.userId = Math.random().toString(36).substring(2, 9);
         // Use provided name or generate a funny random name
@@ -268,6 +287,26 @@ export class CollaborationManager {
                 await this.setElements(elements);
             }
         }
+
+        const storedComments = this.comments.toArray();
+        const hasUnencryptedComments = storedComments.some(
+            (comment) => !isEncryptedComment(comment),
+        );
+
+        if (hasUnencryptedComments && this.canEdit()) {
+            const comments: BoardComment[] = [];
+            for (const stored of storedComments) {
+                if (isEncryptedComment(stored)) {
+                    const decrypted = await this.decryptComment(stored);
+                    if (decrypted) comments.push(decrypted);
+                } else {
+                    comments.push(stored as BoardComment);
+                }
+            }
+            if (comments.length > 0) {
+                await this.setComments(comments);
+            }
+        }
     }
 
     /**
@@ -352,6 +391,34 @@ export class CollaborationManager {
         return decrypted.filter((el): el is BoardElement => el !== null);
     }
 
+    getComments(): BoardComment[] {
+        const stored = this.comments.toArray();
+        const result: BoardComment[] = [];
+
+        for (const comment of stored) {
+            if (isEncryptedComment(comment)) {
+                const cached = this.decryptedCommentsCache.get(comment.id);
+                if (cached) {
+                    result.push(cached);
+                }
+            } else {
+                result.push(comment as BoardComment);
+            }
+        }
+
+        return result;
+    }
+
+    async getCommentsAsync(): Promise<BoardComment[]> {
+        const stored = this.comments.toArray();
+        const decrypted = await Promise.all(
+            stored.map((comment) => this.decryptComment(comment)),
+        );
+        return decrypted.filter(
+            (comment): comment is BoardComment => comment !== null,
+        );
+    }
+
     /**
      * Replace all elements at once (encrypts if encryption is enabled)
      */
@@ -396,6 +463,242 @@ export class CollaborationManager {
         }, LOCAL_ORIGIN);
     }
 
+    private async decryptComment(
+        stored: StoredComment,
+    ): Promise<BoardComment | null> {
+        if (!isEncryptedComment(stored)) {
+            return stored as BoardComment;
+        }
+
+        if (!this.encryptionKey) {
+            console.warn(
+                "[Collaboration] Cannot decrypt comment: no encryption key",
+            );
+            return null;
+        }
+
+        const cached = this.decryptedCommentsCache.get(stored.id);
+        if (cached) {
+            return cached;
+        }
+
+        try {
+            const decrypted = await decrypt<BoardComment>(
+                this.encryptionKey,
+                stored.ciphertext,
+                stored.iv,
+            );
+            this.decryptedCommentsCache.set(stored.id, decrypted);
+            return decrypted;
+        } catch {
+            return null;
+        }
+    }
+
+    async setComments(nextComments: BoardComment[]): Promise<void> {
+        if (this.isReadOnly || !this.canEdit()) return;
+
+        this.decryptedCommentsCache.clear();
+
+        let storedComments: StoredComment[] = [];
+        const key = this.encryptionKey;
+        if (key) {
+            try {
+                storedComments = await Promise.all(
+                    nextComments.map(async (comment) => {
+                        const { ciphertext, iv } = await encrypt(key, comment);
+                        this.decryptedCommentsCache.set(comment.id, comment);
+                        return {
+                            id: comment.id,
+                            encrypted: true,
+                            ciphertext,
+                            iv,
+                        } satisfies EncryptedComment;
+                    }),
+                );
+            } catch (error) {
+                console.error(
+                    "[Collaboration] Failed to encrypt comments:",
+                    error,
+                );
+                storedComments = nextComments;
+            }
+        } else {
+            storedComments = nextComments;
+        }
+
+        this.doc.transact(() => {
+            this.comments.delete(0, this.comments.length);
+            if (storedComments.length > 0) {
+                this.comments.insert(0, storedComments);
+            }
+        }, LOCAL_ORIGIN);
+    }
+
+    async addComment(comment: BoardComment): Promise<void> {
+        if (this.isReadOnly || !this.canEdit()) return;
+        if (this.encryptionKey) {
+            try {
+                const { ciphertext, iv } = await encrypt(
+                    this.encryptionKey,
+                    comment,
+                );
+                const encrypted: EncryptedComment = {
+                    id: comment.id,
+                    encrypted: true,
+                    ciphertext,
+                    iv,
+                };
+                this.doc.transact(() => {
+                    this.comments.push([encrypted]);
+                }, LOCAL_ORIGIN);
+                this.decryptedCommentsCache.set(comment.id, comment);
+            } catch (error) {
+                console.error(
+                    "[Collaboration] Failed to encrypt comment:",
+                    error,
+                );
+                this.doc.transact(() => {
+                    this.comments.push([comment]);
+                }, LOCAL_ORIGIN);
+            }
+        } else {
+            this.doc.transact(() => {
+                this.comments.push([comment]);
+            }, LOCAL_ORIGIN);
+        }
+    }
+
+    async updateComment(
+        id: string,
+        updates: Partial<BoardComment>,
+    ): Promise<void> {
+        if (this.isReadOnly || !this.canEdit()) return;
+        const storedArray = this.comments.toArray();
+        const matchingIndexes: number[] = [];
+        storedArray.forEach((comment, idx) => {
+            if (comment.id === id) matchingIndexes.push(idx);
+        });
+        const index =
+            matchingIndexes.length > 0
+                ? matchingIndexes[matchingIndexes.length - 1]
+                : -1;
+
+        if (index === -1) return;
+
+        const stored = storedArray[index];
+        let currentComment: BoardComment;
+
+        try {
+            if (isEncryptedComment(stored)) {
+                const cached = this.decryptedCommentsCache.get(id);
+                if (cached) {
+                    currentComment = cached;
+                } else if (this.encryptionKey) {
+                    const decrypted = await decrypt<BoardComment>(
+                        this.encryptionKey,
+                        stored.ciphertext,
+                        stored.iv,
+                    );
+                    currentComment = decrypted;
+                } else {
+                    console.error(
+                        "[Collaboration] Cannot update encrypted comment without key",
+                    );
+                    return;
+                }
+            } else {
+                currentComment = stored as BoardComment;
+            }
+
+            const updated = { ...currentComment, ...updates };
+
+            if (this.encryptionKey) {
+                const { ciphertext, iv } = await encrypt(
+                    this.encryptionKey,
+                    updated,
+                );
+                const encrypted: EncryptedComment = {
+                    id: updated.id,
+                    encrypted: true,
+                    ciphertext,
+                    iv,
+                };
+                this.doc.transact(() => {
+                    this.comments.delete(index, 1);
+                    this.comments.insert(index, [encrypted]);
+                }, LOCAL_ORIGIN);
+                this.decryptedCommentsCache.set(id, updated);
+            } else {
+                this.doc.transact(() => {
+                    this.comments.delete(index, 1);
+                    this.comments.insert(index, [updated]);
+                }, LOCAL_ORIGIN);
+            }
+        } catch (error) {
+            console.error("[Collaboration] Failed to update comment:", error);
+        }
+    }
+
+    deleteComment(id: string): void {
+        if (this.isReadOnly || !this.canEdit()) return;
+        const storedArray = this.comments.toArray();
+        const matchingIndexes: number[] = [];
+        storedArray.forEach((comment, idx) => {
+            if (comment.id === id) matchingIndexes.push(idx);
+        });
+        if (matchingIndexes.length === 0) return;
+
+        this.doc.transact(() => {
+            for (let i = matchingIndexes.length - 1; i >= 0; i -= 1) {
+                this.comments.delete(matchingIndexes[i], 1);
+            }
+        }, LOCAL_ORIGIN);
+        this.decryptedCommentsCache.delete(id);
+    }
+
+    onCommentsChange(
+        callback: (
+            comments: BoardComment[],
+            info?: { isRemote: boolean },
+        ) => void,
+    ): () => void {
+        const handler = async (event: Y.YArrayEvent<StoredComment>) => {
+            const isRemote = event.transaction.origin !== LOCAL_ORIGIN;
+            if (this.encryptionKey) {
+                const currentStored = this.comments.toArray();
+                const currentIds = new Set(
+                    currentStored.map((comment) => comment.id),
+                );
+
+                for (const cachedId of this.decryptedCommentsCache.keys()) {
+                    if (!currentIds.has(cachedId)) {
+                        this.decryptedCommentsCache.delete(cachedId);
+                    }
+                }
+
+                for (const stored of currentStored) {
+                    if (isEncryptedComment(stored)) {
+                        const cached = this.decryptedCommentsCache.get(
+                            stored.id,
+                        );
+                        if (cached && event.transaction.origin !== null) {
+                            this.decryptedCommentsCache.delete(stored.id);
+                        }
+                    }
+                }
+
+                const decrypted = await this.getCommentsAsync();
+                callback(decrypted, { isRemote });
+            } else {
+                callback(this.comments.toArray() as BoardComment[], {
+                    isRemote,
+                });
+            }
+        };
+        this.comments.observe(handler);
+        return () => this.comments.unobserve(handler);
+    }
     /**
      * Add a new element (encrypts if encryption is enabled)
      */

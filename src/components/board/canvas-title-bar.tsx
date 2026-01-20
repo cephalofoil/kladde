@@ -94,12 +94,14 @@ export function CanvasTitleBar({
 
             const boardData = useBoardStore.getState().boardData.get(boardId);
             const elements = boardData?.elements || [];
+            const comments = boardData?.comments || [];
 
             // Create file content
             const kladdeFile: ShadeworksFile = {
                 type: "kladde",
                 version: 1,
                 elements,
+                comments,
                 appState: {
                     canvasBackground:
                         (board.settings.backgroundColor as

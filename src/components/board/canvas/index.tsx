@@ -7,6 +7,7 @@ import type {
     TileType,
     NoteStyle,
     FrameStyle,
+    BoardComment,
 } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
 import { CollaboratorCursors } from "../collaborator-cursor";
@@ -36,7 +37,15 @@ import {
     Redo2,
     Minus,
     Plus,
+    MessageCircle,
     ShieldCheck,
+    ChevronLeft,
+    ChevronRight,
+    Check,
+    Trash2,
+    X,
+    SmilePlus,
+    ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -70,6 +79,7 @@ interface CanvasProps {
     handDrawnMode?: boolean;
     collaboration: CollaborationManager | null;
     elements: BoardElement[];
+    comments?: BoardComment[];
     viewerTheme?: "dark" | "light";
     onAddElement: (element: BoardElement) => void;
     onUpdateElement: (id: string, updates: Partial<BoardElement>) => void;
@@ -104,6 +114,29 @@ interface CanvasProps {
     showUndoRedo?: boolean;
     onOpenDocumentEditor?: (elementId: string) => void;
     onOpenMermaidEditor?: (elementId: string) => void;
+    onPaste?: () => void;
+    onAddComment?: (payload: {
+        x: number;
+        y: number;
+        elementId?: string | null;
+    }) => string | null;
+    onAddCommentMessage?: (commentId: string, text: string) => void;
+    onToggleCommentReaction?: (
+        commentId: string,
+        messageId: string,
+        emoji: string,
+    ) => void;
+    onDeleteComment?: (commentId: string) => void;
+    onToggleCommentResolved?: (commentId: string) => void;
+    onSelectAllComments?: () => void;
+    onSelectAllElements?: () => void;
+    onSelectComment?: (commentId: string) => void;
+    onFocusComment?: (comment: BoardComment) => void;
+    onFocusCommentAt?: (point: { x: number; y: number }) => void;
+    onCommentSeen?: (commentId: string) => void;
+    showResolvedComments?: boolean;
+    selectedCommentIds?: string[];
+    currentUserId?: string | null;
 }
 
 export function Canvas({
@@ -130,6 +163,7 @@ export function Canvas({
     handDrawnMode = false,
     collaboration,
     elements,
+    comments = [],
     viewerTheme,
     onAddElement,
     onUpdateElement,
@@ -160,6 +194,21 @@ export function Canvas({
     showUndoRedo = true,
     onOpenDocumentEditor,
     onOpenMermaidEditor,
+    onPaste,
+    onAddComment,
+    onAddCommentMessage,
+    onToggleCommentReaction,
+    onDeleteComment,
+    onToggleCommentResolved,
+    onSelectAllComments,
+    onSelectAllElements,
+    onSelectComment,
+    onFocusComment,
+    onFocusCommentAt,
+    onCommentSeen,
+    showResolvedComments = false,
+    selectedCommentIds = [],
+    currentUserId,
 }: CanvasProps) {
     const TEXT_CLIP_BUFFER_PX = 2;
     const LASER_HOLD_DURATION_MS = 3000;
@@ -172,6 +221,22 @@ export function Canvas({
         width: 0,
         height: 0,
     });
+    const [contextMenu, setContextMenu] = useState<{
+        screenX: number;
+        screenY: number;
+        worldX: number;
+        worldY: number;
+        elementId: string | null;
+    } | null>(null);
+    const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+    const activeCommentIdRef = useRef<string | null>(null);
+    const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
+        {},
+    );
+
+    useEffect(() => {
+        activeCommentIdRef.current = activeCommentId;
+    }, [activeCommentId]);
 
     // Refs for edit states to avoid dependency array issues
     const editingTextElementIdRef = useRef<string | null>(null);
@@ -1174,15 +1239,189 @@ export function Canvas({
 
     const isTextBoxEditing = textInput?.isTextBox ?? true;
 
+    const resolveCommentAnchor = useCallback(
+        (comment: BoardComment) => {
+            if (comment.elementId) {
+                const element = elements.find(
+                    (item) => item.id === comment.elementId,
+                );
+                const box = element ? getBoundingBox(element) : null;
+                if (box) {
+                    const offsetX =
+                        comment.offset?.x ?? Math.max(0, box.width / 2);
+                    const offsetY =
+                        comment.offset?.y ?? Math.max(0, box.height / 2);
+                    return { x: box.x + offsetX, y: box.y + offsetY };
+                }
+            }
+            return { x: comment.x, y: comment.y };
+        },
+        [elements],
+    );
+
+    const openContextMenu = useCallback(
+        (event: React.MouseEvent) => {
+            if (!containerRef.current) return;
+            const { target, isInteractive } = getEventTargetInfo(event);
+            if (isInteractive) return;
+            event.preventDefault();
+            const rect = containerRef.current.getBoundingClientRect();
+            const screenX = event.clientX - rect.left;
+            const screenY = event.clientY - rect.top;
+            const worldX = (screenX - pan.x) / zoom;
+            const worldY = (screenY - pan.y) / zoom;
+            const elementId =
+                target
+                    ?.closest?.("[data-element-id]")
+                    ?.getAttribute("data-element-id") ?? null;
+            setContextMenu({
+                screenX,
+                screenY,
+                worldX,
+                worldY,
+                elementId,
+            });
+        },
+        [pan.x, pan.y, zoom],
+    );
+
+    const handleCopy = useCallback(
+        async (format: "png" | "svg" | "text") => {
+            if (!containerRef.current || !svgRef.current) return;
+
+            const rect = containerRef.current.getBoundingClientRect();
+            const width = Math.max(1, Math.floor(rect.width));
+            const height = Math.max(1, Math.floor(rect.height));
+            const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
+            clone.setAttribute("width", `${width}`);
+            clone.setAttribute("height", `${height}`);
+            clone.setAttribute("viewBox", `0 0 ${width} ${height}`);
+            clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            const svgString = new XMLSerializer().serializeToString(clone);
+
+            if (format === "text") {
+                try {
+                    const targetElements = contextMenu?.elementId
+                        ? elements.filter(
+                              (el) => el.id === contextMenu.elementId,
+                          )
+                        : selectedElementIds && selectedElementIds.length > 0
+                          ? elements.filter((el) =>
+                                selectedElementIds.includes(el.id),
+                            )
+                          : elements;
+                    await navigator.clipboard.writeText(
+                        JSON.stringify(targetElements, null, 2),
+                    );
+                } catch (error) {
+                    console.warn("Failed to copy text to clipboard:", error);
+                }
+                return;
+            }
+
+            if (format === "svg") {
+                try {
+                    const blob = new Blob([svgString], {
+                        type: "image/svg+xml",
+                    });
+                    await navigator.clipboard.write([
+                        new ClipboardItem({ "image/svg+xml": blob }),
+                    ]);
+                } catch (error) {
+                    console.warn("Failed to copy SVG to clipboard:", error);
+                }
+                return;
+            }
+
+            const blob = new Blob([svgString], { type: "image/svg+xml" });
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = async () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return;
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(async (pngBlob) => {
+                    if (!pngBlob) return;
+                    try {
+                        await navigator.clipboard.write([
+                            new ClipboardItem({ "image/png": pngBlob }),
+                        ]);
+                    } catch (error) {
+                        console.warn("Failed to copy PNG to clipboard:", error);
+                    }
+                });
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        },
+        [contextMenu?.elementId, elements, selectedElementIds],
+    );
+
+    const handleCommentNav = useCallback(
+        (direction: "prev" | "next") => {
+            if (comments.length === 0) return;
+            const currentId = activeCommentIdRef.current;
+            const currentIndex = comments.findIndex(
+                (comment) => comment.id === currentId,
+            );
+            const baseIndex = currentIndex === -1 ? 0 : currentIndex;
+            const nextIndex =
+                direction === "prev"
+                    ? (baseIndex - 1 + comments.length) % comments.length
+                    : (baseIndex + 1) % comments.length;
+            const nextComment = comments[nextIndex];
+            if (!nextComment) return;
+            setActiveCommentId(nextComment.id);
+            const anchor = resolveCommentAnchor(nextComment);
+            const menuOffsetX = 40;
+            const menuWidth = 288;
+            const menuHeight = 220;
+            onFocusCommentAt?.({
+                x: anchor.x + (menuOffsetX + menuWidth / 2) / zoom,
+                y: anchor.y + menuHeight / 2 / zoom,
+            });
+        },
+        [comments, onFocusCommentAt, resolveCommentAnchor, zoom],
+    );
+
+    const handleEmojiPicker = useCallback(
+        (commentId: string, messageId: string) => {
+            const emoji = window.prompt("Emoji reaction:");
+            if (!emoji) return;
+            onToggleCommentReaction?.(commentId, messageId, emoji.trim());
+        },
+        [onToggleCommentReaction],
+    );
+
+    const visibleComments = showResolvedComments
+        ? comments
+        : comments.filter((comment) => !comment.resolved);
+
+    const formatTimestamp = (timestamp: number) =>
+        new Date(timestamp).toLocaleString();
+
     return (
         <div
             ref={containerRef}
             className="relative w-full h-full overflow-hidden bg-background select-none"
             style={{ cursor: cursorStyle }}
             onMouseDownCapture={(e) => {
+                const eventTarget = e.target as Element | null;
+                if (
+                    contextMenu &&
+                    eventTarget?.closest?.('[data-context-menu="true"]')
+                ) {
+                    return;
+                }
+                if (contextMenu) {
+                    setContextMenu(null);
+                }
                 if (!editingTileId) return;
-                const { target } = getEventTargetInfo(e);
-                const insideActiveTile = target?.closest?.(
+                const { target: tileTarget } = getEventTargetInfo(e);
+                const insideActiveTile = tileTarget?.closest?.(
                     `[data-tile-id="${editingTileId}"]`,
                 );
                 if (!insideActiveTile) setEditingTileId(null);
@@ -1191,6 +1430,7 @@ export function Canvas({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
+            onContextMenu={openContextMenu}
         >
             {/* Canvas Background */}
             {canvasBackground !== "none" && (
@@ -1290,18 +1530,23 @@ export function Canvas({
                     {renderSnapTargetHighlight()}
 
                     {/* Render box selection rectangle */}
-                    {isBoxSelecting && selectionBox && (
-                        <rect
-                            x={selectionBox.x}
-                            y={selectionBox.y}
-                            width={selectionBox.width}
-                            height={selectionBox.height}
-                            fill="rgba(98, 114, 164, 0.2)"
-                            stroke="var(--accent)"
-                            strokeWidth={1}
-                            strokeDasharray="4,4"
-                        />
-                    )}
+                    {isBoxSelecting &&
+                        selectionBox &&
+                        Number.isFinite(selectionBox.x) &&
+                        Number.isFinite(selectionBox.y) &&
+                        Number.isFinite(selectionBox.width) &&
+                        Number.isFinite(selectionBox.height) && (
+                            <rect
+                                x={selectionBox.x}
+                                y={selectionBox.y}
+                                width={selectionBox.width}
+                                height={selectionBox.height}
+                                fill="rgba(98, 114, 164, 0.2)"
+                                stroke="var(--accent)"
+                                strokeWidth={1}
+                                strokeDasharray="4,4"
+                            />
+                        )}
 
                     {/* Render text box preview while dragging */}
                     {tool === "text" && isDrawing && startPoint && (
@@ -1412,6 +1657,285 @@ export function Canvas({
                         ))}
                 </div>
             </div>
+
+            {/* Comments Layer */}
+            {comments.length > 0 && (
+                <div className="absolute inset-0 z-30 pointer-events-none">
+                    {visibleComments.map((comment) => {
+                        const anchor = resolveCommentAnchor(comment);
+                        const screenX = anchor.x * zoom + pan.x;
+                        const screenY = anchor.y * zoom + pan.y;
+                        if (
+                            !Number.isFinite(screenX) ||
+                            !Number.isFinite(screenY)
+                        ) {
+                            return null;
+                        }
+                        const isOpen = activeCommentId === comment.id;
+                        const isSelected = selectedCommentIds.includes(
+                            comment.id,
+                        );
+                        const draft = commentDrafts[comment.id] || "";
+                        const messages = comment.messages || [];
+                        return (
+                            <div
+                                key={comment.id}
+                                className="absolute pointer-events-auto"
+                                style={{
+                                    left: screenX,
+                                    top: screenY,
+                                }}
+                            >
+                                <div
+                                    className={cn(
+                                        "group relative",
+                                        isSelected &&
+                                            "ring-2 ring-accent/60 rounded-full",
+                                    )}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setActiveCommentId(
+                                                isOpen ? null : comment.id,
+                                            );
+                                            onSelectComment?.(comment.id);
+                                            onCommentSeen?.(comment.id);
+                                        }}
+                                        onMouseEnter={() => {
+                                            setActiveCommentId(comment.id);
+                                            onCommentSeen?.(comment.id);
+                                        }}
+                                        className="h-9 w-9 text-muted-foreground hover:text-foreground flex items-center justify-center"
+                                    >
+                                        <MessageCircle className="h-5 w-5" />
+                                    </button>
+                                    <div
+                                        className={cn(
+                                            "absolute left-10 top-0 w-72 rounded-lg border border-border/60 dark:border-transparent bg-card/95 backdrop-blur-md shadow-xl p-3 opacity-0 pointer-events-none transition-opacity",
+                                            "group-hover:opacity-100 group-hover:pointer-events-auto",
+                                            isOpen &&
+                                                "opacity-100 pointer-events-auto",
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        handleCommentNav("prev")
+                                                    }
+                                                    className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center"
+                                                    aria-label="Previous comment"
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        handleCommentNav("next")
+                                                    }
+                                                    className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center"
+                                                    aria-label="Next comment"
+                                                >
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        onToggleCommentResolved?.(
+                                                            comment.id,
+                                                        )
+                                                    }
+                                                    className={cn(
+                                                        "h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center",
+                                                        comment.resolved &&
+                                                            "text-emerald-500",
+                                                    )}
+                                                    aria-label={
+                                                        comment.resolved
+                                                            ? "Mark unresolved"
+                                                            : "Mark resolved"
+                                                    }
+                                                >
+                                                    <Check className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        onDeleteComment?.(
+                                                            comment.id,
+                                                        )
+                                                    }
+                                                    className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center text-destructive"
+                                                    aria-label="Delete comment"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setActiveCommentId(null)
+                                                    }
+                                                    className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center"
+                                                    aria-label="Close"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3 pt-2">
+                                            <div className="text-[11px] text-muted-foreground">
+                                                Created{" "}
+                                                {formatTimestamp(
+                                                    comment.createdAt,
+                                                )}
+                                            </div>
+                                            {messages.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">
+                                                    No comments yet.
+                                                </p>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {messages.map((message) => (
+                                                        <div
+                                                            key={message.id}
+                                                            className="text-sm space-y-1"
+                                                        >
+                                                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                                <span className="font-semibold text-foreground text-xs">
+                                                                    {
+                                                                        message
+                                                                            .author
+                                                                            .name
+                                                                    }
+                                                                </span>
+                                                                <span>
+                                                                    {formatTimestamp(
+                                                                        message.createdAt,
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-foreground">
+                                                                {message.text}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-1 pt-1">
+                                                                {(
+                                                                    message.reactions ||
+                                                                    []
+                                                                ).map(
+                                                                    (
+                                                                        reaction,
+                                                                    ) => {
+                                                                        const count =
+                                                                            reaction
+                                                                                .userIds
+                                                                                .length;
+                                                                        const hasReacted =
+                                                                            !!currentUserId &&
+                                                                            reaction.userIds.includes(
+                                                                                currentUserId,
+                                                                            );
+                                                                        return (
+                                                                            <button
+                                                                                key={
+                                                                                    reaction.emoji
+                                                                                }
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    onToggleCommentReaction?.(
+                                                                                        comment.id,
+                                                                                        message.id,
+                                                                                        reaction.emoji,
+                                                                                    )
+                                                                                }
+                                                                                className={cn(
+                                                                                    "text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/40 hover:bg-muted transition-colors",
+                                                                                    hasReacted &&
+                                                                                        "bg-accent/20 border-accent/50",
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    reaction.emoji
+                                                                                }
+                                                                                <span className="ml-1 text-[10px] text-muted-foreground">
+                                                                                    {
+                                                                                        count
+                                                                                    }
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    },
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        handleEmojiPicker(
+                                                                            comment.id,
+                                                                            message.id,
+                                                                        )
+                                                                    }
+                                                                    className="text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/20 hover:bg-muted transition-colors"
+                                                                    aria-label="Add emoji reaction"
+                                                                >
+                                                                    <SmilePlus className="h-3 w-3" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <form
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    if (!draft.trim()) return;
+                                                    onAddCommentMessage?.(
+                                                        comment.id,
+                                                        draft,
+                                                    );
+                                                    setCommentDrafts(
+                                                        (prev) => ({
+                                                            ...prev,
+                                                            [comment.id]: "",
+                                                        }),
+                                                    );
+                                                }}
+                                                className="flex items-center gap-2"
+                                            >
+                                                <input
+                                                    type="text"
+                                                    value={draft}
+                                                    onChange={(event) =>
+                                                        setCommentDrafts(
+                                                            (prev) => ({
+                                                                ...prev,
+                                                                [comment.id]:
+                                                                    event.target
+                                                                        .value,
+                                                            }),
+                                                        )
+                                                    }
+                                                    placeholder="Add a comment"
+                                                    className="flex-1 h-9 rounded-md border border-border/60 dark:border-transparent bg-background/80 px-2 text-sm text-foreground placeholder:text-muted-foreground"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    className="h-9 w-9 rounded-md bg-accent text-accent-foreground text-xs font-medium hover:bg-accent/90 flex items-center justify-center"
+                                                    aria-label="Send"
+                                                >
+                                                    <ArrowUpRight className="h-4 w-4" />
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* Frame labels + handles */}
             <div className="absolute inset-0 pointer-events-none z-35 isolate">
@@ -1764,18 +2288,23 @@ export function Canvas({
                     )}
 
                     {/* Render box selection rectangle */}
-                    {isBoxSelecting && selectionBox && (
-                        <rect
-                            x={selectionBox.x}
-                            y={selectionBox.y}
-                            width={selectionBox.width}
-                            height={selectionBox.height}
-                            fill="rgba(98, 114, 164, 0.2)"
-                            stroke="var(--accent)"
-                            strokeWidth={1}
-                            strokeDasharray="4,4"
-                        />
-                    )}
+                    {isBoxSelecting &&
+                        selectionBox &&
+                        Number.isFinite(selectionBox.x) &&
+                        Number.isFinite(selectionBox.y) &&
+                        Number.isFinite(selectionBox.width) &&
+                        Number.isFinite(selectionBox.height) && (
+                            <rect
+                                x={selectionBox.x}
+                                y={selectionBox.y}
+                                width={selectionBox.width}
+                                height={selectionBox.height}
+                                fill="rgba(98, 114, 164, 0.2)"
+                                stroke="var(--accent)"
+                                strokeWidth={1}
+                                strokeDasharray="4,4"
+                            />
+                        )}
 
                     {/* Eraser trail animation */}
                     <path ref={eraserTrailPathRef} />
@@ -2086,6 +2615,87 @@ export function Canvas({
                     </div>
                 )}
             </div>
+            {contextMenu && (
+                <div
+                    className="absolute z-[90] pointer-events-auto"
+                    style={{
+                        left: contextMenu.screenX,
+                        top: contextMenu.screenY,
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    data-context-menu="true"
+                >
+                    <div className="min-w-[220px] rounded-lg border border-border/60 dark:border-transparent bg-card/95 backdrop-blur-md shadow-xl py-1">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const id = onAddComment?.({
+                                    x: contextMenu.worldX,
+                                    y: contextMenu.worldY,
+                                    elementId: contextMenu.elementId,
+                                });
+                                setActiveCommentId(id || null);
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                        >
+                            Add comment
+                        </button>
+                        <div className="my-1 h-px bg-border/60" />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onPaste?.();
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                        >
+                            Paste
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void handleCopy("png");
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                        >
+                            Copy as PNG
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void handleCopy("svg");
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                        >
+                            Copy as SVG
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void handleCopy("text");
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                        >
+                            Copy as text
+                        </button>
+                        <div className="my-1 h-px bg-border/60" />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onSelectAllElements?.();
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                        >
+                            Select all
+                        </button>
+                    </div>
+                </div>
+            )}
             <div
                 className="absolute bottom-4 right-4 z-[80] flex items-center"
                 onMouseDown={(e) => e.stopPropagation()}

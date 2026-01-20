@@ -48,6 +48,7 @@ import type {
     LayerFolder,
     NoteStyle,
     FrameStyle,
+    BoardComment,
 } from "@/lib/board-types";
 import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import {
@@ -61,6 +62,7 @@ import {
     requestOpenFile,
 } from "@/lib/filesystem-storage";
 import { useBoardElements } from "@/hooks/use-board-elements";
+import { useBoardComments } from "@/hooks/use-board-comments";
 import { useDiskStorageSync } from "@/hooks/use-disk-storage-sync";
 import { useBoardStore } from "@/store/board-store";
 import { getBoundingBox, translateElement } from "./whiteboard/utils";
@@ -202,6 +204,9 @@ export function Whiteboard({
             isOwner,
         },
     );
+    const { comments, setComments } = useBoardComments(boardId, collaboration, {
+        isOwner,
+    });
     const board = useBoardStore((s) => s.boards.get(boardId));
     const workstreams = useBoardStore((s) => s.workstreams);
     const workspace = board ? workstreams.get(board.workstreamId) : null;
@@ -254,6 +259,7 @@ export function Whiteboard({
     const [selectedElements, setSelectedElements] = useState<BoardElement[]>(
         [],
     );
+    const [selectedCommentIds, setSelectedCommentIds] = useState<string[]>([]);
     const [clipboardElements, setClipboardElements] = useState<BoardElement[]>(
         [],
     );
@@ -263,6 +269,11 @@ export function Whiteboard({
     const [lastSelectedLayerId, setLastSelectedLayerId] = useState<
         string | null
     >(null);
+    const [layersTab, setLayersTab] = useState<"layers" | "comments" | "find">(
+        "layers",
+    );
+    const [showResolvedComments, setShowResolvedComments] = useState(false);
+    const [commentSeenAt, setCommentSeenAt] = useState(0);
     const [isEditArrowMode, setIsEditArrowMode] = useState(false);
     const [canvasBackground, setCanvasBackground] = useState<
         "none" | "dots" | "lines" | "grid"
@@ -327,6 +338,7 @@ export function Whiteboard({
     } = useDiskStorageSync({
         boardId,
         elements,
+        comments,
         canvasBackground,
         enabled: !isReadOnly,
     });
@@ -360,6 +372,17 @@ export function Whiteboard({
             );
         }
     }, [handDrawnMode]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const stored = localStorage.getItem(`kladde-comments-seen-${boardId}`);
+        if (stored) {
+            const parsed = Number(stored);
+            if (!Number.isNaN(parsed)) {
+                setCommentSeenAt(parsed);
+            }
+        }
+    }, [boardId]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -963,7 +986,19 @@ export function Whiteboard({
         } else {
             setElements([]);
         }
-    }, [clearHistoryPreview, collaboration, saveToUndoStack, isReadOnly]);
+        if (collaboration) {
+            void collaboration.setComments([]);
+        } else {
+            setComments([]);
+        }
+        setSelectedCommentIds([]);
+    }, [
+        clearHistoryPreview,
+        collaboration,
+        saveToUndoStack,
+        isReadOnly,
+        setComments,
+    ]);
 
     const handleSave = useCallback(() => {
         if (isReadOnly) return;
@@ -992,6 +1027,14 @@ export function Whiteboard({
                     data.elements.forEach((el) => collaboration.addElement(el));
                 } else {
                     setElements(data.elements);
+                }
+
+                // Load comments
+                const nextComments = data.comments || [];
+                if (collaboration) {
+                    await collaboration.setComments(nextComments);
+                } else {
+                    setComments(nextComments);
                 }
 
                 // Load app state
@@ -1045,6 +1088,7 @@ export function Whiteboard({
         saveToUndoStack,
         collaboration,
         setElements,
+        setComments,
         setCanvasBackground,
     ]);
 
@@ -1096,6 +1140,265 @@ export function Whiteboard({
 
         // Select the element
         setSelectedElements([element]);
+    }, []);
+
+    const resolveCommentPosition = useCallback(
+        (comment: BoardComment) => {
+            if (comment.elementId) {
+                const element = elements.find(
+                    (el) => el.id === comment.elementId,
+                );
+                const box = element ? getBoundingBox(element) : null;
+                if (box) {
+                    const offsetX =
+                        comment.offset?.x ?? Math.max(0, box.width / 2);
+                    const offsetY =
+                        comment.offset?.y ?? Math.max(0, box.height / 2);
+                    return { x: box.x + offsetX, y: box.y + offsetY };
+                }
+            }
+            return { x: comment.x, y: comment.y };
+        },
+        [elements],
+    );
+
+    const handleAddComment = useCallback(
+        (payload: { x: number; y: number; elementId?: string | null }) => {
+            const authorId = myUserId || "guest";
+            const authorName = myName || "Guest";
+            const elementId = payload.elementId ?? null;
+            const element = elementId
+                ? elements.find((el) => el.id === elementId)
+                : null;
+            const box = element ? getBoundingBox(element) : null;
+            const offset =
+                box && elementId
+                    ? { x: payload.x - box.x, y: payload.y - box.y }
+                    : undefined;
+            const comment: BoardComment = {
+                id: uuid(),
+                x: payload.x,
+                y: payload.y,
+                elementId,
+                offset,
+                createdAt: Date.now(),
+                createdBy: { id: authorId, name: authorName },
+                messages: [],
+                reactions: [],
+                resolved: false,
+            };
+
+            if (collaboration) {
+                void collaboration.addComment(comment);
+            } else {
+                setComments([...comments, comment]);
+            }
+
+            return comment.id;
+        },
+        [collaboration, comments, elements, myName, myUserId, setComments],
+    );
+
+    const handleAddCommentMessage = useCallback(
+        (commentId: string, text: string) => {
+            const trimmed = text.trim();
+            if (!trimmed) return;
+            const authorId = myUserId || "guest";
+            const authorName = myName || "Guest";
+            const comment = comments.find((item) => item.id === commentId);
+            if (!comment) return;
+            const nextMessage = {
+                id: uuid(),
+                author: { id: authorId, name: authorName },
+                text: trimmed,
+                createdAt: Date.now(),
+                reactions: [],
+            };
+            const nextMessages = [...(comment.messages || []), nextMessage];
+            if (collaboration) {
+                void collaboration.updateComment(commentId, {
+                    messages: nextMessages,
+                });
+            } else {
+                setComments(
+                    comments.map((item) =>
+                        item.id === commentId
+                            ? { ...item, messages: nextMessages }
+                            : item,
+                    ),
+                );
+            }
+        },
+        [collaboration, comments, myName, myUserId, setComments],
+    );
+
+    const handleToggleCommentReaction = useCallback(
+        (commentId: string, messageId: string, emoji: string) => {
+            const userId = myUserId || "guest";
+            const comment = comments.find((item) => item.id === commentId);
+            if (!comment) return;
+            const nextMessages = (comment.messages || []).map((message) => {
+                if (message.id !== messageId) return message;
+                const reactions = message.reactions || [];
+                const existing = reactions.find(
+                    (reaction) => reaction.emoji === emoji,
+                );
+                let nextReactions: BoardComment["reactions"];
+
+                if (existing) {
+                    const hasReacted = existing.userIds.includes(userId);
+                    const nextUserIds = hasReacted
+                        ? existing.userIds.filter((id) => id !== userId)
+                        : [...existing.userIds, userId];
+                    if (nextUserIds.length === 0) {
+                        nextReactions = reactions.filter(
+                            (reaction) => reaction.emoji !== emoji,
+                        );
+                    } else {
+                        nextReactions = reactions.map((reaction) =>
+                            reaction.emoji === emoji
+                                ? { ...reaction, userIds: nextUserIds }
+                                : reaction,
+                        );
+                    }
+                } else {
+                    nextReactions = [
+                        ...reactions,
+                        { emoji, userIds: [userId] },
+                    ];
+                }
+
+                return { ...message, reactions: nextReactions };
+            });
+
+            if (collaboration) {
+                void collaboration.updateComment(commentId, {
+                    messages: nextMessages,
+                });
+            } else {
+                setComments(
+                    comments.map((item) =>
+                        item.id === commentId
+                            ? { ...item, messages: nextMessages }
+                            : item,
+                    ),
+                );
+            }
+        },
+        [collaboration, comments, myUserId, setComments],
+    );
+
+    const handleDeleteComment = useCallback(
+        (commentId: string) => {
+            if (collaboration) {
+                collaboration.deleteComment(commentId);
+            } else {
+                setComments(comments.filter((item) => item.id !== commentId));
+            }
+            setSelectedCommentIds((prev) =>
+                prev.filter((id) => id !== commentId),
+            );
+        },
+        [collaboration, comments, setComments],
+    );
+
+    const handleToggleCommentResolved = useCallback(
+        (commentId: string) => {
+            const comment = comments.find((item) => item.id === commentId);
+            if (!comment) return;
+            const nextResolved = !comment.resolved;
+            if (collaboration) {
+                void collaboration.updateComment(commentId, {
+                    resolved: nextResolved,
+                });
+            } else {
+                setComments(
+                    comments.map((item) =>
+                        item.id === commentId
+                            ? { ...item, resolved: nextResolved }
+                            : item,
+                    ),
+                );
+            }
+        },
+        [collaboration, comments, setComments],
+    );
+
+    const handleSelectAllComments = useCallback(() => {
+        setSelectedCommentIds(comments.map((comment) => comment.id));
+        setLayersTab("comments");
+        setShowLayersSidebar(true);
+    }, [comments]);
+
+    const handleSelectAllElements = useCallback(() => {
+        const allIds = elements.map((el) => el.id);
+        setSelectedElements(elements);
+        setLayerSelectionIds(allIds);
+        setLastSelectedLayerId(allIds[0] ?? null);
+        setSelectedCommentIds([]);
+        setLayersTab("layers");
+        setShowLayersSidebar(true);
+    }, [elements]);
+
+    const markCommentsSeen = useCallback(() => {
+        const now = Date.now();
+        setCommentSeenAt(now);
+        if (typeof window !== "undefined") {
+            localStorage.setItem(
+                `kladde-comments-seen-${boardId}`,
+                String(now),
+            );
+        }
+    }, [boardId]);
+
+    useEffect(() => {
+        if (layersTab === "comments") {
+            markCommentsSeen();
+        }
+    }, [layersTab, markCommentsSeen]);
+
+    const commentLastActivity = useCallback((comment: BoardComment) => {
+        const messageTimes = (comment.messages || []).map(
+            (message) => message.createdAt,
+        );
+        return Math.max(comment.createdAt, ...messageTimes);
+    }, []);
+
+    const hasUnseenComments = useMemo(() => {
+        if (!myUserId) return false;
+        return comments.some((comment) => {
+            const lastActivity = commentLastActivity(comment);
+            return (
+                lastActivity > commentSeenAt &&
+                comment.createdBy.id !== myUserId
+            );
+        });
+    }, [comments, commentSeenAt, commentLastActivity, myUserId]);
+
+    const handleFocusComment = useCallback(
+        (comment: BoardComment) => {
+            if (setViewportRef.current) {
+                const target = resolveCommentPosition(comment);
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const panX = viewportWidth / 2 - target.x;
+                const panY = viewportHeight / 2 - target.y;
+                setViewportRef.current({ x: panX, y: panY }, 1);
+            }
+            setSelectedCommentIds([comment.id]);
+            setLayersTab("comments");
+            markCommentsSeen();
+        },
+        [resolveCommentPosition, markCommentsSeen],
+    );
+
+    const handleFocusPoint = useCallback((point: { x: number; y: number }) => {
+        if (!setViewportRef.current) return;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const panX = viewportWidth / 2 - point.x;
+        const panY = viewportHeight / 2 - point.y;
+        setViewportRef.current({ x: panX, y: panY }, 1);
     }, []);
 
     const handleHighlightElements = useCallback(
@@ -3128,6 +3431,8 @@ export function Whiteboard({
                     handDrawnMode={handDrawnMode}
                     collaboration={collaboration}
                     elements={previewElements || elements}
+                    comments={comments}
+                    showResolvedComments={showResolvedComments}
                     viewerTheme={
                         (resolvedTheme || theme) as "dark" | "light" | undefined
                     }
@@ -3164,6 +3469,7 @@ export function Whiteboard({
                     onManualViewportChange={() => setFollowedUserId(null)}
                     onSelectionChange={handleSelectionChange}
                     selectedElementIds={layerSelectionIds ?? undefined}
+                    selectedCommentIds={selectedCommentIds}
                     onStrokeColorChange={handleStrokeColorChange}
                     onFillColorChange={handleFillColorChange}
                     canvasBackground={canvasBackground}
@@ -3178,6 +3484,21 @@ export function Whiteboard({
                     showUndoRedo={!isReadOnly}
                     onOpenDocumentEditor={setEditingDocumentId}
                     onOpenMermaidEditor={setEditingMermaidId}
+                    onPaste={handlePaste}
+                    onAddComment={handleAddComment}
+                    onAddCommentMessage={handleAddCommentMessage}
+                    onToggleCommentReaction={handleToggleCommentReaction}
+                    onDeleteComment={handleDeleteComment}
+                    onToggleCommentResolved={handleToggleCommentResolved}
+                    onSelectAllComments={handleSelectAllComments}
+                    onSelectAllElements={handleSelectAllElements}
+                    onSelectComment={(commentId) =>
+                        setSelectedCommentIds([commentId])
+                    }
+                    onFocusComment={handleFocusComment}
+                    onFocusCommentAt={handleFocusPoint}
+                    onCommentSeen={markCommentsSeen}
+                    currentUserId={myUserId}
                 />
 
                 {/* Save Modal */}
@@ -3187,6 +3508,7 @@ export function Whiteboard({
                         setShowSaveModal(false);
                     }}
                     elements={elements}
+                    comments={comments}
                     canvasBackground={canvasBackground}
                     boardId={boardId}
                     boardName={boardName}
@@ -3208,10 +3530,28 @@ export function Whiteboard({
                     elements={elements}
                     selectedIds={new Set(selectedElements.map((el) => el.id))}
                     folders={layerFolders}
+                    comments={comments}
+                    selectedCommentIds={new Set(selectedCommentIds)}
+                    activeTab={layersTab}
+                    onTabChange={(tab) => {
+                        setLayersTab(tab);
+                        if (tab === "comments") {
+                            markCommentsSeen();
+                        }
+                    }}
+                    hasUnseenComments={hasUnseenComments}
+                    showResolvedComments={showResolvedComments}
+                    onToggleShowResolvedComments={() =>
+                        setShowResolvedComments((prev) => !prev)
+                    }
                     isPinned={isLayersPinned}
                     onTogglePin={() => setIsLayersPinned((prev) => !prev)}
                     onClose={() => setShowLayersSidebar(false)}
                     onFocusElement={handleFocusElement}
+                    onFocusComment={handleFocusComment}
+                    onSelectComment={(commentId) =>
+                        setSelectedCommentIds([commentId])
+                    }
                     onHighlightElements={handleHighlightElements}
                     onSelectElement={handleSelectElementFromLayers}
                     onDeleteElement={handleDeleteElement}
