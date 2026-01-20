@@ -8,11 +8,12 @@ import {
   $createParagraphNode,
   $getSelection,
   $isRangeSelection,
-  COMMAND_PRIORITY_LOW,
+  COMMAND_PRIORITY_CRITICAL,
   KEY_ARROW_DOWN_COMMAND,
   KEY_ARROW_UP_COMMAND,
-  KEY_ENTER_COMMAND,
+  KEY_DOWN_COMMAND,
   KEY_ESCAPE_COMMAND,
+  COMMAND_PRIORITY_HIGH,
   LexicalEditor,
 } from "lexical";
 import {
@@ -361,38 +362,53 @@ export function SlashMenuPlugin() {
 
   const onSelect = useCallback(
     (item: SlashMenuItem) => {
-      editor.update(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection)) return;
+      // First, remove the slash command text
+      editor.update(
+        () => {
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return;
 
-        const anchor = selection.anchor;
-        if (anchor.type !== "text") return;
+          const anchor = selection.anchor;
+          if (anchor.type !== "text") return;
 
-        const anchorNode = anchor.getNode();
-        const anchorOffset = anchor.offset;
-        const text = anchorNode.getTextContent();
+          const anchorNode = anchor.getNode();
+          const anchorOffset = anchor.offset;
+          const text = anchorNode.getTextContent();
 
-        // Find the slash and remove everything from slash to cursor
-        const beforeSlash = text.slice(0, anchorOffset).lastIndexOf("/");
-        if (beforeSlash !== -1) {
-          const textBefore = text.slice(0, beforeSlash);
-          const textAfter = text.slice(anchorOffset);
+          // Find the slash and remove everything from slash to cursor
+          const beforeSlash = text.slice(0, anchorOffset).lastIndexOf("/");
+          if (beforeSlash !== -1) {
+            const textBefore = text.slice(0, beforeSlash);
+            const textAfter = text.slice(anchorOffset);
+            const newText = textBefore + textAfter;
 
-          anchorNode.setTextContent(textBefore + textAfter);
-
-          // Set selection after the removed slash command
-          const newSelection = $getSelection();
-          if ($isRangeSelection(newSelection)) {
-            newSelection.setTextNodeRange(
-              anchorNode,
-              beforeSlash,
-              anchorNode,
-              beforeSlash,
-            );
+            if (newText === "") {
+              // If the text node becomes empty, just select the start of the paragraph
+              const parent = anchorNode.getParent();
+              if (parent) {
+                anchorNode.remove();
+                parent.selectStart();
+              }
+            } else {
+              anchorNode.setTextContent(newText);
+              // Set selection at the position where slash was
+              const newSelection = $getSelection();
+              if ($isRangeSelection(newSelection)) {
+                newSelection.setTextNodeRange(
+                  anchorNode,
+                  beforeSlash,
+                  anchorNode,
+                  beforeSlash,
+                );
+              }
+            }
           }
-        }
+        },
+        { discrete: true },
+      );
 
-        // Execute the command
+      // Then execute the command in a separate update to ensure proper state
+      editor.update(() => {
         item.onSelect(editor);
       });
 
@@ -406,20 +422,33 @@ export function SlashMenuPlugin() {
     if (!isOpen) return;
 
     const handleArrowUp = () => {
+      if (results.length === 0) return true;
       setSelectedIndex((prev) => (prev - 1 + results.length) % results.length);
       return true;
     };
 
     const handleArrowDown = () => {
+      if (results.length === 0) return true;
       setSelectedIndex((prev) => (prev + 1) % results.length);
       return true;
     };
 
-    const handleEnter = () => {
+    const handleConfirm = () => {
       if (results[selectedIndex]) {
         onSelect(results[selectedIndex]);
+      } else {
+        closeMenu();
       }
       return true;
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        event.stopPropagation();
+        return handleConfirm();
+      }
+      return false;
     };
 
     const handleEscape = () => {
@@ -430,28 +459,28 @@ export function SlashMenuPlugin() {
     const removeUpListener = editor.registerCommand(
       KEY_ARROW_UP_COMMAND,
       handleArrowUp,
-      COMMAND_PRIORITY_LOW,
+      COMMAND_PRIORITY_HIGH,
     );
     const removeDownListener = editor.registerCommand(
       KEY_ARROW_DOWN_COMMAND,
       handleArrowDown,
-      COMMAND_PRIORITY_LOW,
+      COMMAND_PRIORITY_HIGH,
     );
-    const removeEnterListener = editor.registerCommand(
-      KEY_ENTER_COMMAND,
-      handleEnter,
-      COMMAND_PRIORITY_LOW,
+    const removeKeyDownListener = editor.registerCommand(
+      KEY_DOWN_COMMAND,
+      handleKeyDown,
+      COMMAND_PRIORITY_CRITICAL,
     );
     const removeEscapeListener = editor.registerCommand(
       KEY_ESCAPE_COMMAND,
       handleEscape,
-      COMMAND_PRIORITY_LOW,
+      COMMAND_PRIORITY_HIGH,
     );
 
     return () => {
       removeUpListener();
       removeDownListener();
-      removeEnterListener();
+      removeKeyDownListener();
       removeEscapeListener();
     };
   }, [editor, isOpen, results, selectedIndex, closeMenu, onSelect]);
