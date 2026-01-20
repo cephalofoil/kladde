@@ -238,7 +238,6 @@ export function HtmlTileRenderer({
     if (!content?.chart) return null;
     return renderMermaidToPngBlob({
       chart: content.chart,
-      theme: "neutral",
       scale: mermaidScale,
     });
   }, [content?.chart, mermaidScale]);

@@ -144,13 +144,13 @@ export function TileRenderer({
   };
 
   const buildMermaidPng = useCallback(async () => {
-    if (!content?.chart) return null;
+    const chart = element.tileContent?.chart;
+    if (!chart) return null;
     return renderMermaidToPngBlob({
-      chart: content.chart,
-      theme: "neutral",
+      chart,
       scale: mermaidScale,
     });
-  }, [content?.chart, mermaidScale]);
+  }, [element.tileContent?.chart, mermaidScale]);
 
   const handleMermaidCopyImage = useCallback(async () => {
     try {

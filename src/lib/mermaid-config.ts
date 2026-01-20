@@ -21,12 +21,9 @@ export function getMermaidConfig(options?: { forExport?: boolean }) {
     startOnLoad: false,
     theme: MERMAID_THEME,
     themeVariables: MERMAID_THEME_VARIABLES,
-    securityLevel: "loose",
+    securityLevel: "loose" as const,
     htmlLabels: !forExport,
     flowchart: {
-      htmlLabels: !forExport,
-    },
-    sequence: {
       htmlLabels: !forExport,
     },
   };
