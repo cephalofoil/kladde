@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { BoardElement, TileContentSection } from "@/lib/board-types";
 import { getTileIcon, getTileTypeColor } from "../tile-card";
+import { getMermaidConfig } from "@/lib/mermaid-config";
 
 const MERMAID_BASE_MAX_HEIGHT_PX = 180;
 const MERMAID_BASE_MAX_WIDTH_PX = 606;
@@ -92,11 +93,7 @@ function MermaidPreview({ chart, scale }: { chart: string; scale: number }) {
       try {
         const mermaid = (await import("mermaid")).default;
 
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: "default",
-          securityLevel: "loose",
-        });
+        mermaid.initialize(getMermaidConfig());
 
         const id = `mermaid-doc-${Math.random().toString(36).slice(2, 11)}`;
         const { svg } = await mermaid.render(id, chart);

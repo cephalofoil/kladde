@@ -1,15 +1,15 @@
 "use client";
 
+import { getMermaidConfig } from "@/lib/mermaid-config";
+
 interface RenderMermaidPngOptions {
   chart: string;
-  theme?: "default" | "neutral" | "dark";
   scale?: number;
   pixelRatio?: number;
 }
 
 export async function renderMermaidToPngBlob({
   chart,
-  theme = "neutral",
   scale = 1,
   pixelRatio = 2,
 }: RenderMermaidPngOptions): Promise<Blob | null> {
@@ -19,14 +19,7 @@ export async function renderMermaidToPngBlob({
     const mermaid = (await import("mermaid")).default;
     const normalizedChart = normalizeMermaidChartForExport(chart);
 
-    mermaid.initialize({
-      startOnLoad: false,
-      theme,
-      securityLevel: "loose",
-      htmlLabels: false,
-      flowchart: { htmlLabels: false },
-      sequence: { htmlLabels: false },
-    });
+    mermaid.initialize(getMermaidConfig({ forExport: true }));
 
     const id = `mermaid-export-${Math.random().toString(36).slice(2, 11)}`;
     const { svg } = await mermaid.render(id, normalizedChart);
@@ -82,7 +75,10 @@ export async function renderMermaidToPngBlob({
           return;
         }
 
-        ctx.scale(normalizedPixelRatio * normalizedScale, normalizedPixelRatio * normalizedScale);
+        ctx.scale(
+          normalizedPixelRatio * normalizedScale,
+          normalizedPixelRatio * normalizedScale,
+        );
         ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
 
         canvas.toBlob((blob) => resolve(blob), "image/png");
@@ -148,7 +144,10 @@ function stripLabelNewlines(chart: string): string {
       }
     }
 
-    if ((char === "\n" || char === "\r") && (inSingleQuote || inDoubleQuote || bracketDepth > 0)) {
+    if (
+      (char === "\n" || char === "\r") &&
+      (inSingleQuote || inDoubleQuote || bracketDepth > 0)
+    ) {
       if (char === "\r" && chart[i + 1] === "\n") {
         i += 1;
       }

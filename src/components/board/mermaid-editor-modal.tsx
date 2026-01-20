@@ -5,6 +5,7 @@ import { X, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardElement } from "@/lib/board-types";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getMermaidConfig } from "@/lib/mermaid-config";
 
 // Simple preview component without size constraints
 function MermaidPreview({ chart }: { chart: string }) {
@@ -31,12 +32,7 @@ function MermaidPreview({ chart }: { chart: string }) {
     const renderMermaid = async () => {
       try {
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: "neutral",
-          securityLevel: "loose",
-          htmlLabels: true,
-        });
+        mermaid.initialize(getMermaidConfig());
         const id = `mermaid-modal-${Math.random().toString(36).substr(2, 9)}`;
         const { svg } = await mermaid.render(id, chart);
         setSvgContent(svg);

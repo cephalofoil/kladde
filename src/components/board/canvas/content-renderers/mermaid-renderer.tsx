@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { getMermaidConfig } from "@/lib/mermaid-config";
 
 interface MermaidRendererProps {
   chart: string;
@@ -46,12 +47,7 @@ export function MermaidRenderer({
         // Dynamically import mermaid
         const mermaid = (await import("mermaid")).default;
 
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: "neutral",
-          securityLevel: "loose",
-          htmlLabels: true,
-        });
+        mermaid.initialize(getMermaidConfig());
 
         // Generate unique ID for this diagram
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;

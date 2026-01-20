@@ -22,6 +22,7 @@ import {
   renderFrameImageDataUrl,
   type FrameImageResult,
 } from "./frame-image";
+import { getMermaidConfig } from "./mermaid-config";
 
 // A4 dimensions in points (72 points per inch)
 const MM_TO_POINTS = 2.835;
@@ -539,15 +540,7 @@ async function renderMermaidToDataUrl(chart: string): Promise<MermaidRenderResul
   try {
     const mermaid = (await import("mermaid")).default;
 
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "default",
-      securityLevel: "loose",
-      htmlLabels: false,
-      flowchart: {
-        htmlLabels: false,
-      },
-    });
+    mermaid.initialize(getMermaidConfig({ forExport: true }));
 
     const id = `mermaid-export-${Math.random().toString(36).slice(2, 11)}`;
     const { svg } = await mermaid.render(id, chart);
