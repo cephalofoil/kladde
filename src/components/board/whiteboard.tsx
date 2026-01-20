@@ -3382,6 +3382,8 @@ export function Whiteboard({
           folders={layerFolders}
           comments={comments}
           selectedCommentIds={new Set(selectedCommentIds)}
+          commentSeenAt={commentSeenAt}
+          currentUserId={myUserId}
           activeTab={layersTab}
           onTabChange={(tab) => {
             setLayersTab(tab);
@@ -3394,6 +3396,7 @@ export function Whiteboard({
           onToggleShowResolvedComments={() =>
             setShowResolvedComments((prev) => !prev)
           }
+          onMarkCommentsSeen={markCommentsSeen}
           isPinned={isLayersPinned}
           onTogglePin={() => setIsLayersPinned((prev) => !prev)}
           onClose={() => setShowLayersSidebar(false)}
