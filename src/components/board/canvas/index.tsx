@@ -240,6 +240,7 @@ export function Canvas({
   } | null>(null);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const activeCommentIdRef = useRef<string | null>(null);
+  const [pinnedCommentId, setPinnedCommentId] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
     {},
   );
@@ -1442,6 +1443,21 @@ export function Canvas({
     [containerRef],
   );
 
+  const handleCommentHoverStart = useCallback(
+    (commentId: string) => {
+      if (pinnedCommentId && pinnedCommentId !== commentId) return;
+      setActiveCommentId(commentId);
+      onCommentSeen?.(commentId);
+    },
+    [onCommentSeen, pinnedCommentId],
+  );
+
+  const handleCommentHoverEnd = useCallback(() => {
+    if (pinnedCommentId) return;
+    setActiveCommentId(null);
+    setEmojiPicker(null);
+  }, [pinnedCommentId]);
+
   const visibleComments = showResolvedComments
     ? comments
     : comments.filter((comment) => !comment.resolved);
@@ -1481,6 +1497,29 @@ export function Canvas({
         }
         if (contextMenu) {
           setContextMenu(null);
+        }
+        if (eventTarget?.closest?.('[data-comment-menu="true"]')) {
+          return;
+        }
+        if (eventTarget?.closest?.('[data-comment-icon="true"]')) {
+          return;
+        }
+        if (pinnedCommentId || activeCommentId) {
+          const closingId = pinnedCommentId ?? activeCommentId;
+          if (closingId) {
+            const closingComment = comments.find((c) => c.id === closingId);
+            const draft = commentDrafts[closingId] ?? "";
+            if (
+              closingComment &&
+              (closingComment.messages?.length ?? 0) === 0 &&
+              !draft.trim()
+            ) {
+              onDeleteComment?.(closingId);
+            }
+          }
+          setPinnedCommentId(null);
+          setActiveCommentId(null);
+          setEmojiPicker(null);
         }
         if (!editingTileId) return;
         const { target: tileTarget } = getEventTargetInfo(e);
@@ -1724,6 +1763,7 @@ export function Canvas({
               return null;
             }
             const isOpen = activeCommentId === comment.id;
+            const isPinned = pinnedCommentId === comment.id;
             const isSelected = selectedCommentIds.includes(comment.id);
             const draft = commentDrafts[comment.id] || "";
             const messages = comment.messages || [];
@@ -1737,22 +1777,24 @@ export function Canvas({
                 }}
               >
                 <div
-                  className={cn(
-                    "group relative",
-                    isSelected && "ring-2 ring-accent/60 rounded-full",
-                  )}
+                  className={cn("group relative")}
+                  onMouseEnter={() => handleCommentHoverStart(comment.id)}
+                  onMouseLeave={handleCommentHoverEnd}
                 >
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveCommentId(isOpen ? null : comment.id);
+                      if (isPinned) {
+                        setPinnedCommentId(null);
+                        setActiveCommentId(null);
+                      } else {
+                        setPinnedCommentId(comment.id);
+                        setActiveCommentId(comment.id);
+                      }
                       onSelectComment?.(comment.id);
                       onCommentSeen?.(comment.id);
                     }}
-                    onMouseEnter={() => {
-                      setActiveCommentId(comment.id);
-                      onCommentSeen?.(comment.id);
-                    }}
+                    data-comment-icon="true"
                     className="h-9 w-9 text-muted-foreground hover:text-foreground flex items-center justify-center"
                   >
                     <MessageCircle className="h-5 w-5" />
@@ -1760,9 +1802,9 @@ export function Canvas({
                   <div
                     className={cn(
                       "absolute left-10 top-0 w-96 rounded-2xl border border-border/60 dark:border-transparent bg-background/95 dark:bg-card/95 backdrop-blur-md shadow-2xl opacity-0 pointer-events-none transition-opacity overflow-hidden",
-                      "group-hover:opacity-100 group-hover:pointer-events-auto",
-                      isOpen && "opacity-100 pointer-events-auto",
+                      (isOpen || isPinned) && "opacity-100 pointer-events-auto",
                     )}
+                    data-comment-menu="true"
                   >
                     <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/60 bg-background/70">
                       <div className="flex items-center gap-1">
@@ -1809,7 +1851,11 @@ export function Canvas({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setActiveCommentId(null)}
+                          onClick={() => {
+                            setPinnedCommentId(null);
+                            setActiveCommentId(null);
+                            setEmojiPicker(null);
+                          }}
                           className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center"
                           aria-label="Close"
                         >
