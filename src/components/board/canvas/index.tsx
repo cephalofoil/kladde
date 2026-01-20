@@ -30,13 +30,21 @@ import { getEventTargetInfo } from "./utils/eventTargeting";
 import { isInViewport } from "./utils/viewport";
 
 import { getFrameMembershipUpdates } from "./utils/frameSections";
-import { GripVertical, Undo2, Redo2, Minus, Plus } from "lucide-react";
+import {
+    GripVertical,
+    Undo2,
+    Redo2,
+    Minus,
+    Plus,
+    ShieldCheck,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Link from "next/link";
 
 interface CanvasProps {
     tool: Tool;
@@ -2077,6 +2085,37 @@ export function Canvas({
                         </button>
                     </div>
                 )}
+            </div>
+            <div
+                className="absolute bottom-4 right-4 z-[80] flex items-center"
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+            >
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Link
+                            href="/privacy"
+                            className="group inline-flex"
+                            aria-label="End-to-end encryption details"
+                        >
+                            <ShieldCheck
+                                className="h-6 w-6 fill-accent stroke-accent-foreground transition-colors group-hover:fill-accent/90"
+                                strokeWidth={2}
+                            />
+                        </Link>
+                    </TooltipTrigger>
+                    <TooltipContent
+                        side="top"
+                        sideOffset={8}
+                        className="max-w-[200px] text-center"
+                    >
+                        <span className="block">
+                            End-to-end encryption keeps
+                        </span>
+                        <span className="block">your board encrypted in</span>
+                        <span className="block">your browser. Learn more.</span>
+                    </TooltipContent>
+                </Tooltip>
             </div>
         </div>
     );
