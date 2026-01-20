@@ -17,6 +17,7 @@ export async function renderMermaidToPngBlob({
 
   try {
     const mermaid = (await import("mermaid")).default;
+    const normalizedChart = normalizeMermaidChartForExport(chart);
 
     mermaid.initialize({
       startOnLoad: false,
@@ -28,7 +29,7 @@ export async function renderMermaidToPngBlob({
     });
 
     const id = `mermaid-export-${Math.random().toString(36).slice(2, 11)}`;
-    const { svg } = await mermaid.render(id, chart);
+    const { svg } = await mermaid.render(id, normalizedChart);
 
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(svg, "image/svg+xml");
@@ -93,4 +94,146 @@ export async function renderMermaidToPngBlob({
     console.error("Failed to render Mermaid export:", error);
     return null;
   }
+}
+
+function normalizeMermaidChartForExport(chart: string): string {
+  const chartWithoutNewlinesInLabels = stripLabelNewlines(chart);
+  return sanitizeHtmlLabelsInQuotes(chartWithoutNewlinesInLabels);
+}
+
+function stripLabelNewlines(chart: string): string {
+  let result = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let escapeNext = false;
+  let bracketDepth = 0;
+
+  for (let i = 0; i < chart.length; i += 1) {
+    const char = chart[i];
+
+    if (escapeNext) {
+      result += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      result += char;
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+      result += char;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      result += char;
+      continue;
+    }
+
+    if (!inSingleQuote && !inDoubleQuote) {
+      if (char === "[" || char === "(" || char === "{" || char === "<") {
+        bracketDepth += 1;
+      } else if (
+        char === "]" ||
+        char === ")" ||
+        char === "}" ||
+        char === ">"
+      ) {
+        bracketDepth = Math.max(0, bracketDepth - 1);
+      }
+    }
+
+    if ((char === "\n" || char === "\r") && (inSingleQuote || inDoubleQuote || bracketDepth > 0)) {
+      if (char === "\r" && chart[i + 1] === "\n") {
+        i += 1;
+      }
+      result += " ";
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+function sanitizeHtmlLabelsInQuotes(chart: string): string {
+  let result = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let escapeNext = false;
+  let buffer = "";
+
+  const flushBuffer = () => {
+    if (!buffer) return "";
+    const withLineBreaks = buffer.replace(/<br\s*\/?>/gi, " ");
+    const withoutTags = withLineBreaks.replace(/<\/?[^>]+>/g, "");
+    const collapsed = withoutTags.replace(/\s+/g, " ");
+    const output = collapsed;
+    buffer = "";
+    return output;
+  };
+
+  for (let i = 0; i < chart.length; i += 1) {
+    const char = chart[i];
+
+    if (escapeNext) {
+      if (inSingleQuote || inDoubleQuote) {
+        buffer += char;
+      } else {
+        result += char;
+      }
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      if (inSingleQuote || inDoubleQuote) {
+        buffer += char;
+      } else {
+        result += char;
+      }
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === "'" && !inDoubleQuote) {
+      if (inSingleQuote) {
+        result += flushBuffer();
+        inSingleQuote = false;
+      } else {
+        inSingleQuote = true;
+      }
+      result += char;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      if (inDoubleQuote) {
+        result += flushBuffer();
+        inDoubleQuote = false;
+      } else {
+        inDoubleQuote = true;
+      }
+      result += char;
+      continue;
+    }
+
+    if (inSingleQuote || inDoubleQuote) {
+      buffer += char;
+    } else {
+      result += char;
+    }
+  }
+
+  if (buffer) {
+    result += flushBuffer();
+  }
+
+  return result;
 }

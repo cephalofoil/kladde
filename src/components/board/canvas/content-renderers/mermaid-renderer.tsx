@@ -50,7 +50,7 @@ export function MermaidRenderer({
           startOnLoad: false,
           theme: "neutral",
           securityLevel: "loose",
-          htmlLabels: false,
+          htmlLabels: true,
         });
 
         // Generate unique ID for this diagram
