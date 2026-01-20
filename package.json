@@ -59,6 +59,7 @@
     "cropperjs": "^2.1.0",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
+    "emoji-picker-react": "^4.16.1",
     "fabric": "^6.9.0",
     "framer-motion": "^12.23.24",
     "gifenc": "^1.0.3",

@@ -47,6 +47,7 @@ import {
   SmilePlus,
   ArrowUpRight,
 } from "lucide-react";
+import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
 import {
@@ -242,10 +243,36 @@ export function Canvas({
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
     {},
   );
+  const [emojiPicker, setEmojiPicker] = useState<{
+    commentId: string;
+    messageId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     activeCommentIdRef.current = activeCommentId;
   }, [activeCommentId]);
+
+  useEffect(() => {
+    if (!emojiPicker) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.('[data-emoji-trigger="true"]')) return;
+      if (emojiPickerRef.current?.contains(target)) return;
+      setEmojiPicker(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setEmojiPicker(null);
+    };
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [emojiPicker]);
 
   // Refs for edit states to avoid dependency array issues
   const editingTextElementIdRef = useRef<string | null>(null);
@@ -337,6 +364,28 @@ export function Canvas({
   useEffect(() => {
     selectedIdsRef.current = selectedIds;
   }, [selectedIds]);
+
+  useEffect(() => {
+    if (!emojiPicker) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheel = (event: WheelEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (emojiPickerRef.current?.contains(target)) {
+        event.stopPropagation();
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    container.addEventListener("wheel", handleWheel, {
+      passive: false,
+      capture: true,
+    });
+    return () => {
+      container.removeEventListener("wheel", handleWheel, true);
+    };
+  }, [emojiPicker]);
 
   useEffect(() => {
     if (!selectedElementIds) return;
@@ -1371,20 +1420,51 @@ export function Canvas({
   );
 
   const handleEmojiPicker = useCallback(
-    (commentId: string, messageId: string) => {
-      const emoji = window.prompt("Emoji reaction:");
-      if (!emoji) return;
-      onToggleCommentReaction?.(commentId, messageId, emoji.trim());
+    (
+      commentId: string,
+      messageId: string,
+      event?: React.MouseEvent<HTMLButtonElement>,
+    ) => {
+      const target = event?.currentTarget ?? null;
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (target && containerRect) {
+        const rect = target.getBoundingClientRect();
+        setEmojiPicker({
+          commentId,
+          messageId,
+          x: rect.left - containerRect.left,
+          y: rect.bottom - containerRect.top + 8,
+        });
+      } else {
+        setEmojiPicker({ commentId, messageId, x: 0, y: 0 });
+      }
     },
-    [onToggleCommentReaction],
+    [containerRef],
   );
 
   const visibleComments = showResolvedComments
     ? comments
     : comments.filter((comment) => !comment.resolved);
 
-  const formatTimestamp = (timestamp: number) =>
-    new Date(timestamp).toLocaleString();
+  const formatTimestamp = (timestamp: number) => {
+    const now = Date.now();
+    const diffMs = Math.max(0, now - timestamp);
+    const diffMinutes = Math.floor(diffMs / 60000);
+    if (diffMinutes < 1) return "just now";
+    if (diffMinutes < 60) return `${diffMinutes}min ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "a day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+  const getInitials = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "?";
+    const parts = trimmed.split(/\s+/).slice(0, 2);
+    return parts.map((part) => part[0]?.toUpperCase()).join("");
+  };
 
   return (
     <div
@@ -1635,7 +1715,7 @@ export function Canvas({
 
       {/* Comments Layer */}
       {comments.length > 0 && (
-        <div className="absolute inset-0 z-30 pointer-events-none">
+        <div className="absolute inset-0 z-[70] pointer-events-none">
           {visibleComments.map((comment) => {
             const anchor = resolveCommentAnchor(comment);
             const screenX = anchor.x * zoom + pan.x;
@@ -1679,12 +1759,12 @@ export function Canvas({
                   </button>
                   <div
                     className={cn(
-                      "absolute left-10 top-0 w-72 rounded-lg border border-border/60 dark:border-transparent bg-card/95 backdrop-blur-md shadow-xl p-3 opacity-0 pointer-events-none transition-opacity",
+                      "absolute left-10 top-0 w-96 rounded-2xl border border-border/60 dark:border-transparent bg-background/95 dark:bg-card/95 backdrop-blur-md shadow-2xl opacity-0 pointer-events-none transition-opacity overflow-hidden",
                       "group-hover:opacity-100 group-hover:pointer-events-auto",
                       isOpen && "opacity-100 pointer-events-auto",
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/60 bg-background/70">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -1737,74 +1817,95 @@ export function Canvas({
                         </button>
                       </div>
                     </div>
-                    <div className="space-y-3 pt-2">
-                      <div className="text-[11px] text-muted-foreground">
+                    <div className="max-h-[360px] overflow-auto">
+                      <div className="px-3 pt-3 pb-2 text-xs text-muted-foreground">
                         Created {formatTimestamp(comment.createdAt)}
                       </div>
                       {messages.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="px-3 pb-3 text-base text-muted-foreground">
                           No comments yet.
                         </p>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="divide-y divide-border/60">
                           {messages.map((message) => (
-                            <div key={message.id} className="text-sm space-y-1">
-                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                <span className="font-semibold text-foreground text-xs">
-                                  {message.author.name}
-                                </span>
-                                <span>
-                                  {formatTimestamp(message.createdAt)}
-                                </span>
-                              </div>
-                              <div className="text-foreground">
-                                {message.text}
-                              </div>
-                              <div className="flex flex-wrap gap-1 pt-1">
-                                {(message.reactions || []).map((reaction) => {
-                                  const count = reaction.userIds.length;
-                                  const hasReacted =
-                                    !!currentUserId &&
-                                    reaction.userIds.includes(currentUserId);
-                                  return (
+                            <div
+                              key={message.id}
+                              className="px-3 py-3 text-base"
+                            >
+                              <div className="flex items-start gap-2">
+                                <div className="h-8 w-8 rounded-full bg-muted/60 text-[11px] font-semibold text-muted-foreground flex items-center justify-center">
+                                  {getInitials(message.author.name)}
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span className="font-semibold text-foreground text-sm">
+                                      {message.author.name}
+                                    </span>
+                                    <span>
+                                      {formatTimestamp(message.createdAt)}
+                                    </span>
+                                  </div>
+                                  <div className="text-foreground">
+                                    {message.text}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 pt-1">
+                                    {(message.reactions || []).map(
+                                      (reaction) => {
+                                        const count = reaction.userIds.length;
+                                        const hasReacted =
+                                          !!currentUserId &&
+                                          reaction.userIds.includes(
+                                            currentUserId,
+                                          );
+                                        return (
+                                          <button
+                                            key={reaction.emoji}
+                                            type="button"
+                                            onClick={() =>
+                                              onToggleCommentReaction?.(
+                                                comment.id,
+                                                message.id,
+                                                reaction.emoji,
+                                              )
+                                            }
+                                            className={cn(
+                                              "text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/40 hover:bg-muted transition-colors",
+                                              hasReacted &&
+                                                "bg-accent/20 border-accent/50",
+                                            )}
+                                          >
+                                            {reaction.emoji}
+                                            <span className="ml-1 text-[10px] text-muted-foreground">
+                                              {count}
+                                            </span>
+                                          </button>
+                                        );
+                                      },
+                                    )}
                                     <button
-                                      key={reaction.emoji}
                                       type="button"
-                                      onClick={() =>
-                                        onToggleCommentReaction?.(
+                                      data-emoji-trigger="true"
+                                      onClick={(event) =>
+                                        handleEmojiPicker(
                                           comment.id,
                                           message.id,
-                                          reaction.emoji,
+                                          event,
                                         )
                                       }
-                                      className={cn(
-                                        "text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/40 hover:bg-muted transition-colors",
-                                        hasReacted &&
-                                          "bg-accent/20 border-accent/50",
-                                      )}
+                                      className="text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/20 hover:bg-muted transition-colors"
+                                      aria-label="Add emoji reaction"
                                     >
-                                      {reaction.emoji}
-                                      <span className="ml-1 text-[10px] text-muted-foreground">
-                                        {count}
-                                      </span>
+                                      <SmilePlus className="h-3 w-3" />
                                     </button>
-                                  );
-                                })}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleEmojiPicker(comment.id, message.id)
-                                  }
-                                  className="text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/20 hover:bg-muted transition-colors"
-                                  aria-label="Add emoji reaction"
-                                >
-                                  <SmilePlus className="h-3 w-3" />
-                                </button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ))}
                         </div>
                       )}
+                    </div>
+                    <div className="border-t border-border/60 px-3 py-2 bg-background/80">
                       <form
                         onSubmit={(event) => {
                           event.preventDefault();
@@ -1817,6 +1918,9 @@ export function Canvas({
                         }}
                         className="flex items-center gap-2"
                       >
+                        <div className="h-8 w-8 rounded-full bg-muted/60 text-[11px] font-semibold text-muted-foreground flex items-center justify-center">
+                          {getInitials("You")}
+                        </div>
                         <input
                           type="text"
                           value={draft}
@@ -1826,12 +1930,12 @@ export function Canvas({
                               [comment.id]: event.target.value,
                             }))
                           }
-                          placeholder="Add a comment"
-                          className="flex-1 h-9 rounded-md border border-border/60 dark:border-transparent bg-background/80 px-2 text-sm text-foreground placeholder:text-muted-foreground"
+                          placeholder="Reply, @mention someone..."
+                          className="flex-1 h-9 rounded-full border border-border/60 dark:border-transparent bg-background px-3 text-base text-foreground placeholder:text-muted-foreground"
                         />
                         <button
                           type="submit"
-                          className="h-9 w-9 rounded-md bg-accent text-accent-foreground text-xs font-medium hover:bg-accent/90 flex items-center justify-center"
+                          className="h-9 w-9 rounded-full bg-accent text-accent-foreground text-xs font-medium hover:bg-accent/90 flex items-center justify-center"
                           aria-label="Send"
                         >
                           <ArrowUpRight className="h-4 w-4" />
@@ -1843,6 +1947,34 @@ export function Canvas({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {emojiPicker && (
+        <div className="absolute inset-0 z-[75] pointer-events-none">
+          <div
+            ref={emojiPickerRef}
+            className="absolute w-[360px] rounded-2xl border border-border/60 dark:border-transparent bg-background shadow-2xl pointer-events-auto overflow-hidden"
+            style={{ left: emojiPicker.x, top: emojiPicker.y }}
+            onWheel={(event) => event.stopPropagation()}
+          >
+            <EmojiPicker
+              width={360}
+              height={360}
+              emojiStyle={EmojiStyle.NATIVE}
+              theme={Theme.AUTO}
+              searchPlaceHolder="Search"
+              lazyLoadEmojis
+              onEmojiClick={(emojiData) => {
+                onToggleCommentReaction?.(
+                  emojiPicker.commentId,
+                  emojiPicker.messageId,
+                  emojiData.emoji,
+                );
+                setEmojiPicker(null);
+              }}
+            />
+          </div>
         </div>
       )}
 
