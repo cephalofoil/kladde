@@ -140,6 +140,8 @@ interface CanvasProps {
   currentUserId?: string | null;
   viewMode?: boolean;
   onToggleViewMode?: () => void;
+  snapToObjects?: boolean;
+  onToggleSnapToObjects?: () => void;
 }
 
 export function Canvas({
@@ -214,6 +216,8 @@ export function Canvas({
   currentUserId,
   viewMode = false,
   onToggleViewMode,
+  snapToObjects = true,
+  onToggleSnapToObjects,
 }: CanvasProps) {
   const TEXT_CLIP_BUFFER_PX = 2;
   const LASER_HOLD_DURATION_MS = 3000;
@@ -836,6 +840,7 @@ export function Canvas({
     isToolLocked,
     isReadOnly,
     hasActiveRemoteUsers,
+    snapToObjects,
   });
 
   const {
@@ -2482,6 +2487,26 @@ export function Canvas({
             </button>
             {/* Separator */}
             <div className="my-1.5 h-px bg-border/60" />
+            {/* Snap to objects */}
+            <button
+              type="button"
+              onClick={() => {
+                onToggleSnapToObjects?.();
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center justify-between pl-1.5 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
+            >
+              <div className="flex items-center">
+                <Check
+                  className={cn(
+                    "w-3.5 h-3.5 mr-1",
+                    snapToObjects ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span>Snap to objects</span>
+              </div>
+              <Kbd>Alt+S</Kbd>
+            </button>
             {/* View mode */}
             <button
               type="button"

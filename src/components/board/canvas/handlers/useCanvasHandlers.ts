@@ -131,6 +131,7 @@ interface UseCanvasHandlersProps {
   isToolLocked: boolean;
   isReadOnly: boolean;
   hasActiveRemoteUsers: boolean;
+  snapToObjects?: boolean;
 }
 
 export function useCanvasHandlers({
@@ -172,6 +173,7 @@ export function useCanvasHandlers({
   isToolLocked,
   isReadOnly,
   hasActiveRemoteUsers,
+  snapToObjects = true,
 }: UseCanvasHandlersProps) {
   const {
     drawing,
@@ -1399,22 +1401,27 @@ export function useCanvasHandlers({
                   );
 
               // Snap threshold: 5px in screen space (light snapping)
-              const threshold = 5 / zoom;
+              if (snapToObjects) {
+                const threshold = 5 / zoom;
 
-              const alignmentResult = findAlignmentGuides(
-                draggingBounds,
-                candidates,
-                excludeIds,
-                threshold,
-              );
+                const alignmentResult = findAlignmentGuides(
+                  draggingBounds,
+                  candidates,
+                  excludeIds,
+                  threshold,
+                );
 
-              // Apply snap deltas
-              dx += alignmentResult.snapDeltaX;
-              dy += alignmentResult.snapDeltaY;
+                // Apply snap deltas
+                dx += alignmentResult.snapDeltaX;
+                dy += alignmentResult.snapDeltaY;
 
-              // Update alignment guides state
-              setAlignmentGuides(alignmentResult.guides);
-              setDistanceGuides(alignmentResult.distanceGuides);
+                // Update alignment guides state
+                setAlignmentGuides(alignmentResult.guides);
+                setDistanceGuides(alignmentResult.distanceGuides);
+              } else {
+                setAlignmentGuides([]);
+                setDistanceGuides([]);
+              }
             } else {
               setAlignmentGuides([]);
               setDistanceGuides([]);
@@ -1577,6 +1584,16 @@ export function useCanvasHandlers({
                   el.type !== "laser",
               );
 
+          if (!snapToObjects) {
+            setAlignmentGuides([]);
+            setDistanceGuides([]);
+            return {
+              guides: [],
+              distanceGuides: [],
+              snapDeltaX: 0,
+              snapDeltaY: 0,
+            };
+          }
           const threshold = 5 / zoom;
           const alignmentResult = findAlignmentGuides(
             resizedBounds,

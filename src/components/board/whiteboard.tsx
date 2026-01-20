@@ -221,6 +221,7 @@ export function Whiteboard({
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [showHistorySidebar, setShowHistorySidebar] = useState(false);
   const [viewMode, setViewMode] = useState(false);
+  const [snapToObjects, setSnapToObjects] = useState(true);
   const [isHistoryPinned, setIsHistoryPinned] = useState(false);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting");
@@ -2370,6 +2371,13 @@ export function Whiteboard({
         return;
       }
 
+      // Alt+S: Toggle snap to objects
+      if (e.altKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        setSnapToObjects((prev) => !prev);
+        return;
+      }
+
       if (isReadOnly) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
@@ -3339,6 +3347,8 @@ export function Whiteboard({
           currentUserId={myUserId}
           viewMode={viewMode}
           onToggleViewMode={() => setViewMode((prev) => !prev)}
+          snapToObjects={snapToObjects}
+          onToggleSnapToObjects={() => setSnapToObjects((prev) => !prev)}
         />
 
         {/* Save Modal */}
