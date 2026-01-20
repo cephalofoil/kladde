@@ -584,19 +584,19 @@ export function findAlignmentGuides(
         }
       }
 
+      const refGuideX = referenceGuideX;
       if (
-        referenceGuideX &&
+        refGuideX &&
         !distanceGuides.some(
           (guide) =>
-            guide.axis === referenceGuideX.axis &&
-            Math.abs(guide.gapStart - referenceGuideX.gapStart) < 0.5 &&
-            Math.abs(guide.gapEnd - referenceGuideX.gapEnd) < 0.5 &&
-            Math.abs(
-              guide.crossAxisPosition - referenceGuideX.crossAxisPosition,
-            ) < 0.5,
+            guide.axis === refGuideX.axis &&
+            Math.abs(guide.gapStart - refGuideX.gapStart) < 0.5 &&
+            Math.abs(guide.gapEnd - refGuideX.gapEnd) < 0.5 &&
+            Math.abs(guide.crossAxisPosition - refGuideX.crossAxisPosition) <
+              0.5,
         )
       ) {
-        distanceGuides.push(referenceGuideX);
+        distanceGuides.push(refGuideX);
       }
     }
 
@@ -640,19 +640,19 @@ export function findAlignmentGuides(
         }
       }
 
+      const refGuideY = referenceGuideY;
       if (
-        referenceGuideY &&
+        refGuideY &&
         !distanceGuides.some(
           (guide) =>
-            guide.axis === referenceGuideY.axis &&
-            Math.abs(guide.gapStart - referenceGuideY.gapStart) < 0.5 &&
-            Math.abs(guide.gapEnd - referenceGuideY.gapEnd) < 0.5 &&
-            Math.abs(
-              guide.crossAxisPosition - referenceGuideY.crossAxisPosition,
-            ) < 0.5,
+            guide.axis === refGuideY.axis &&
+            Math.abs(guide.gapStart - refGuideY.gapStart) < 0.5 &&
+            Math.abs(guide.gapEnd - refGuideY.gapEnd) < 0.5 &&
+            Math.abs(guide.crossAxisPosition - refGuideY.crossAxisPosition) <
+              0.5,
         )
       ) {
-        distanceGuides.push(referenceGuideY);
+        distanceGuides.push(refGuideY);
       }
     }
   }

@@ -1587,12 +1587,7 @@ export function useCanvasHandlers({
           if (!snapToObjects) {
             setAlignmentGuides([]);
             setDistanceGuides([]);
-            return {
-              guides: [],
-              distanceGuides: [],
-              snapDeltaX: 0,
-              snapDeltaY: 0,
-            };
+            return { snapDeltaX: 0, snapDeltaY: 0 };
           }
           const threshold = 5 / zoom;
           const alignmentResult = findAlignmentGuides(
