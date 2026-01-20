@@ -135,6 +135,7 @@ interface ToolSidebarProps {
   onToggleEditArrowMode?: () => void;
   rightOffset?: number;
   isSelectionLocked?: boolean;
+  viewMode?: boolean;
 }
 
 // Tools that have adjustable properties
@@ -226,6 +227,7 @@ export function ToolSidebar({
   onToggleEditArrowMode,
   rightOffset = 0,
   isSelectionLocked = false,
+  viewMode = false,
 }: ToolSidebarProps) {
   const { theme, resolvedTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -1446,7 +1448,10 @@ export function ToolSidebar({
 
   const condensedSidebar = (
     <div
-      className="fixed top-1/2 -translate-y-1/2 z-[110] select-none transition-all duration-300"
+      className={cn(
+        "fixed top-1/2 -translate-y-1/2 z-[110] select-none transition-all duration-300",
+        viewMode && "opacity-0 translate-x-4 pointer-events-none",
+      )}
       style={{ right: `${16 + rightOffset}px` }}
     >
       <div className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl py-2 px-1.5 flex flex-col items-center gap-2 max-h-[calc(100vh-160px)] overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent text-foreground">
@@ -1860,6 +1865,7 @@ export function ToolSidebar({
       className={cn(
         "fixed top-1/2 -translate-y-1/2 z-[110] transition-all duration-300 ease-out select-none",
         isCollapsed ? "translate-x-[calc(100%-3rem)]" : "translate-x-0",
+        viewMode && "opacity-0 translate-x-4 pointer-events-none",
       )}
       style={{ right: `${16 + rightOffset}px` }}
     >
