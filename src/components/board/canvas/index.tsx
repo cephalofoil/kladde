@@ -2763,7 +2763,7 @@ export function Canvas({
         >
           <div
             ref={contextMenuRef}
-            className="min-w-[260px] rounded-lg border border-border bg-popover text-popover-foreground shadow-xl py-1"
+            className="min-w-[260px] rounded-sm border border-border bg-popover text-popover-foreground shadow-xl py-1 text-[12px] [&_[data-slot=kbd]]:text-[11px] [&_[data-slot=kbd]]:h-[18px] [&_[data-slot=kbd]]:min-w-[18px] [&_[data-slot=kbd]]:px-1 [&_[data-slot=kbd]]:rounded-[4px]"
           >
             {/* Cut/Copy/Paste */}
             {contextMenu.elementId && (
@@ -2774,7 +2774,7 @@ export function Canvas({
                     onCut?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Cut</span>
                   <Kbd>Ctrl+X</Kbd>
@@ -2785,7 +2785,7 @@ export function Canvas({
                     onCopy?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Copy</span>
                   <Kbd>Ctrl+C</Kbd>
@@ -2798,7 +2798,7 @@ export function Canvas({
                 onPaste?.();
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Paste</span>
               <Kbd>Ctrl+V</Kbd>
@@ -2813,11 +2813,48 @@ export function Canvas({
                     onSelectAllElements?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Select all</span>
                   <Kbd>Ctrl+A</Kbd>
                 </button>
+                {(onToggleViewMode || onToggleSnapToObjects) && (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    {onToggleViewMode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onToggleViewMode();
+                          setContextMenu(null);
+                        }}
+                        className="relative w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                      >
+                        {viewMode && (
+                          <Check className="absolute left-1 h-3.5 w-3.5 opacity-90" />
+                        )}
+                        <span>View mode</span>
+                        <Kbd>Alt+R</Kbd>
+                      </button>
+                    )}
+                    {onToggleSnapToObjects && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onToggleSnapToObjects();
+                          setContextMenu(null);
+                        }}
+                        className="relative w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                      >
+                        {snapToObjects && (
+                          <Check className="absolute left-1 h-3.5 w-3.5 opacity-90" />
+                        )}
+                        <span>Snap to objects</span>
+                        <Kbd>Alt+S</Kbd>
+                      </button>
+                    )}
+                  </>
+                )}
               </>
             )}
 
@@ -2835,7 +2872,7 @@ export function Canvas({
                       onWrapInFrame?.();
                       setContextMenu(null);
                     }}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                    className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                   >
                     <span>Wrap selection in frame</span>
                   </button>
@@ -2850,7 +2887,7 @@ export function Canvas({
                 void handleCopy("png");
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Copy to clipboard as PNG</span>
               <Kbd>Shift+Alt+C</Kbd>
@@ -2861,7 +2898,7 @@ export function Canvas({
                 void handleCopy("svg");
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Copy to clipboard as SVG</span>
             </button>
@@ -2876,7 +2913,7 @@ export function Canvas({
                     onCopyStyles?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Copy styles</span>
                   <Kbd>Ctrl+Alt+C</Kbd>
@@ -2888,7 +2925,7 @@ export function Canvas({
                     setContextMenu(null);
                   }}
                   disabled={!hasStylesToPaste}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>Paste styles</span>
                   <Kbd>Ctrl+Alt+V</Kbd>
@@ -2906,7 +2943,7 @@ export function Canvas({
                     onSendBackward?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Send backward</span>
                   <Kbd>Ctrl+[</Kbd>
@@ -2917,7 +2954,7 @@ export function Canvas({
                     onBringForward?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Bring forward</span>
                   <Kbd>Ctrl+]</Kbd>
@@ -2928,7 +2965,7 @@ export function Canvas({
                     onSendToBack?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Send to back</span>
                   <Kbd>Ctrl+Shift+[</Kbd>
@@ -2939,7 +2976,7 @@ export function Canvas({
                     onBringToFront?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Bring to front</span>
                   <Kbd>Ctrl+Shift+]</Kbd>
@@ -2957,7 +2994,7 @@ export function Canvas({
                     onFlipHorizontal?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Flip horizontal</span>
                   <Kbd>Shift+H</Kbd>
@@ -2968,7 +3005,7 @@ export function Canvas({
                     onFlipVertical?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Flip vertical</span>
                   <Kbd>Shift+V</Kbd>
@@ -2986,7 +3023,7 @@ export function Canvas({
                     onAddLink?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>
                     {contextMenuElement?.link ? "Edit link" : "Add link"}
@@ -2999,7 +3036,7 @@ export function Canvas({
                     onCopyLinkToObject?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Copy link to object</span>
                 </button>
@@ -3016,7 +3053,7 @@ export function Canvas({
                     onDuplicate?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Duplicate</span>
                   <Kbd>Ctrl+D</Kbd>
@@ -3027,7 +3064,7 @@ export function Canvas({
                     onLockSelected?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>{contextMenuElement?.locked ? "Unlock" : "Lock"}</span>
                   <Kbd>Ctrl+Shift+L</Kbd>
@@ -3038,7 +3075,7 @@ export function Canvas({
                     onDeleteSelected?.();
                     setContextMenu(null);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] text-destructive hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] text-destructive hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                 >
                   <span>Delete</span>
                   <Kbd>Delete</Kbd>
@@ -3059,7 +3096,7 @@ export function Canvas({
                 setActiveCommentId(id || null);
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Add comment</span>
             </button>
