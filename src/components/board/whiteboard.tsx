@@ -2829,6 +2829,7 @@ export function Whiteboard({
     const frameElement: BoardElement = {
       id: uuid(),
       type: "frame",
+      points: [],
       x: minX - padding,
       y: minY - padding,
       width: maxX - minX + padding * 2,
