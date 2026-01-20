@@ -279,3 +279,67 @@
 .arrow-create-handle:active .arrow-handle-bg {
     opacity: 0.3 !important;
 }
+
+/* Lexical Checklist / Todo Checkbox Styles */
+.lexical-checklist {
+    list-style: none !important;
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+}
+
+.lexical-checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    padding-left: 1.75rem;
+    position: relative;
+    list-style: none !important;
+    cursor: pointer;
+}
+
+.lexical-checkbox-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.25rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 2px solid var(--border);
+    border-radius: 0.25rem;
+    background: var(--background);
+    transition: all 0.15s ease;
+}
+
+.lexical-checkbox-item:hover::before {
+    border-color: var(--primary);
+}
+
+.lexical-checkbox-item:focus {
+    outline: none;
+}
+
+.lexical-checkbox-item:focus::before {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 20%, transparent);
+}
+
+.lexical-checkbox-checked {
+    text-decoration: line-through;
+    color: var(--muted-foreground);
+}
+
+.lexical-checkbox-checked::before {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.lexical-checkbox-checked::after {
+    content: "";
+    position: absolute;
+    left: 0.375rem;
+    top: 0.4rem;
+    width: 0.375rem;
+    height: 0.625rem;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}

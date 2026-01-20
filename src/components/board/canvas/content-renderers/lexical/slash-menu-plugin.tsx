@@ -18,9 +18,11 @@ import {
 import {
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND,
+  INSERT_CHECK_LIST_COMMAND,
 } from "@lexical/list";
 import { $createCodeNode } from "@lexical/code";
 import { TOGGLE_LINK_COMMAND } from "@lexical/link";
+import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/react/LexicalHorizontalRuleNode";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
   Heading1,
@@ -32,6 +34,8 @@ import {
   Code2,
   Link,
   Type,
+  CheckSquare,
+  Minus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +130,16 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
     keywords: ["list", "number", "ol", "ordered"],
   },
   {
+    key: "checklist",
+    title: "Checklist",
+    description: "Track tasks with a to-do list",
+    icon: <CheckSquare size={16} />,
+    onSelect: (editor) => {
+      editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
+    },
+    keywords: ["checklist", "todo", "task", "checkbox", "check"],
+  },
+  {
     key: "quote",
     title: "Quote",
     description: "Capture a quote",
@@ -164,6 +178,16 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, "https://");
     },
     keywords: ["link", "url", "href"],
+  },
+  {
+    key: "divider",
+    title: "Divider",
+    description: "Visual section divider",
+    icon: <Minus size={16} />,
+    onSelect: (editor) => {
+      editor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined);
+    },
+    keywords: ["divider", "hr", "horizontal", "line", "separator", "rule"],
   },
 ];
 

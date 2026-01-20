@@ -12,8 +12,10 @@ import {
     $convertFromMarkdownString,
     $convertToMarkdownString,
     TRANSFORMERS,
+    CHECK_LIST,
+    ElementTransformer,
 } from "@lexical/markdown";
-import { $getRoot, $getSelection, $isRangeSelection } from "lexical";
+import { $getRoot, $getSelection, $isRangeSelection, LexicalNode } from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -22,12 +24,20 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
+import { CheckListPlugin } from "@lexical/react/LexicalCheckListPlugin";
 import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
+import { AutoLinkPlugin } from "@lexical/react/LexicalAutoLinkPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
+import {
+    HorizontalRuleNode,
+    $createHorizontalRuleNode,
+    $isHorizontalRuleNode,
+} from "@lexical/react/LexicalHorizontalRuleNode";
+import { HorizontalRulePlugin } from "@lexical/react/LexicalHorizontalRulePlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode, CodeHighlightNode } from "@lexical/code";
-import { LinkNode } from "@lexical/link";
+import { LinkNode, AutoLinkNode } from "@lexical/link";
 import type {
     LexicalEditor as LexicalEditorInstance,
     EditorState,
@@ -50,7 +60,10 @@ const theme = {
     list: {
         ul: "list-disc ml-6 mb-3 space-y-1",
         ol: "list-decimal ml-6 mb-3 space-y-1",
+        checklist: "lexical-checklist mb-3 space-y-1",
         listitem: "leading-relaxed",
+        listitemChecked: "lexical-checkbox-item lexical-checkbox-checked",
+        listitemUnchecked: "lexical-checkbox-item",
         nested: {
             listitem: "list-none",
         },
@@ -97,6 +110,7 @@ const theme = {
         strikethrough: "line-through",
         code: "font-mono bg-muted/70 dark:bg-muted/40 px-1.5 py-0.5 rounded text-[0.9em] border border-border/50",
     },
+    hr: "my-4 border-t-2 border-border",
 };
 
 const nodes = [
@@ -107,6 +121,49 @@ const nodes = [
     CodeNode,
     CodeHighlightNode,
     LinkNode,
+    AutoLinkNode,
+    HorizontalRuleNode,
+];
+
+// Custom transformer for horizontal rules (---, ***, ___)
+// The regex expects a trailing space because that's how MarkdownShortcutPlugin triggers element transformers
+const HORIZONTAL_RULE_TRANSFORMER: ElementTransformer = {
+    dependencies: [HorizontalRuleNode],
+    export: (node) => {
+        return $isHorizontalRuleNode(node) ? '---' : null;
+    },
+    regExp: /^(---|___|\*\*\*)\s$/,
+    replace: (parentNode, _children, _match, isImport) => {
+        const line = $createHorizontalRuleNode();
+        if (isImport || parentNode.getNextSibling() != null) {
+            parentNode.replace(line);
+        } else {
+            parentNode.insertBefore(line);
+        }
+        line.selectNext();
+    },
+    type: 'element',
+};
+
+// Combined transformers with HR and CHECK_LIST support
+// CHECK_LIST is exported by @lexical/markdown but NOT included in default TRANSFORMERS
+// It must come before UNORDERED_LIST to match "- [ ]" before "- " is matched
+const CUSTOM_TRANSFORMERS = [CHECK_LIST, ...TRANSFORMERS, HORIZONTAL_RULE_TRANSFORMER];
+
+// URL matchers for AutoLinkPlugin
+const URL_MATCHERS = [
+    (text: string) => {
+        const match = /https?:\/\/[^\s<>]+(?<![.,;:!?])/.exec(text);
+        if (match) {
+            return {
+                index: match.index,
+                length: match[0].length,
+                text: match[0],
+                url: match[0],
+            };
+        }
+        return null;
+    },
 ];
 
 // Plugin to handle markdown import
@@ -125,7 +182,7 @@ function MarkdownImportPlugin({
 
         editor.update(() => {
             if (contentToImport) {
-                $convertFromMarkdownString(contentToImport, TRANSFORMERS);
+                $convertFromMarkdownString(contentToImport, CUSTOM_TRANSFORMERS);
             } else {
                 const root = $getRoot();
                 root.clear();
@@ -142,12 +199,41 @@ function MarkdownImportPlugin({
 function MarkdownOnChangePlugin({
     onChange,
     lastMarkdownRef,
+    flushRef,
 }: {
     onChange?: (markdown: string) => void;
     lastMarkdownRef: React.MutableRefObject<string | undefined>;
+    flushRef?: React.MutableRefObject<(() => void) | null>;
 }) {
     const [editor] = useLexicalComposerContext();
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Flush function to immediately save any pending changes
+    const flush = useCallback(() => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+            editor.getEditorState().read(() => {
+                const markdown = $convertToMarkdownString(CUSTOM_TRANSFORMERS);
+                if (markdown !== lastMarkdownRef.current) {
+                    lastMarkdownRef.current = markdown;
+                    onChange?.(markdown);
+                }
+            });
+        }
+    }, [editor, onChange, lastMarkdownRef]);
+
+    // Expose flush function via ref
+    useEffect(() => {
+        if (flushRef) {
+            flushRef.current = flush;
+        }
+        return () => {
+            if (flushRef) {
+                flushRef.current = null;
+            }
+        };
+    }, [flush, flushRef]);
 
     const handleChange = useCallback(
         (editorState: EditorState) => {
@@ -158,7 +244,7 @@ function MarkdownOnChangePlugin({
 
             timeoutRef.current = setTimeout(() => {
                 editorState.read(() => {
-                    const markdown = $convertToMarkdownString(TRANSFORMERS);
+                    const markdown = $convertToMarkdownString(CUSTOM_TRANSFORMERS);
 
                     // Only call onChange if markdown actually changed
                     if (markdown !== lastMarkdownRef.current) {
@@ -220,7 +306,7 @@ function MarkdownPastePlugin() {
                     if ($isRangeSelection(selection)) {
                         // Clear current selection and insert markdown
                         selection.removeText();
-                        $convertFromMarkdownString(text, TRANSFORMERS);
+                        $convertFromMarkdownString(text, CUSTOM_TRANSFORMERS);
                     }
                 });
             }
@@ -280,6 +366,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
     ) => {
         const editorRef = useRef<LexicalEditorInstance | null>(null);
         const lastMarkdownRef = useRef<string | undefined>(undefined);
+        const flushChangesRef = useRef<(() => void) | null>(null);
         const [markdownContent, setMarkdownContent] = useState(content || "");
 
         // Keep local markdown state in sync with content prop
@@ -307,7 +394,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                     if (!editorRef.current) return "";
                     let markdown = "";
                     editorRef.current.read(() => {
-                        markdown = $convertToMarkdownString(TRANSFORMERS);
+                        markdown = $convertToMarkdownString(CUSTOM_TRANSFORMERS);
                     });
                     lastMarkdownRef.current = markdown;
                     return markdown;
@@ -439,11 +526,15 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
 
                     <HistoryPlugin />
                     <ListPlugin />
+                    <CheckListPlugin />
                     <LinkPlugin />
-                    <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+                    <AutoLinkPlugin matchers={URL_MATCHERS} />
+                    <HorizontalRulePlugin />
+                    <MarkdownShortcutPlugin transformers={CUSTOM_TRANSFORMERS} />
                     <MarkdownOnChangePlugin
                         onChange={onChange}
                         lastMarkdownRef={lastMarkdownRef}
+                        flushRef={flushChangesRef}
                     />
                     <MarkdownImportPlugin
                         markdown={markdownContent}
@@ -457,6 +548,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                         onFocus={onFocus}
                         onBlur={onBlur}
                         onFinish={onFinish}
+                        flushChanges={() => flushChangesRef.current?.()}
                     />
                 </LexicalComposer>
             </div>
@@ -511,10 +603,12 @@ function FocusBlurPlugin({
     onFocus,
     onBlur,
     onFinish,
+    flushChanges,
 }: {
     onFocus?: () => void;
     onBlur?: () => void;
     onFinish?: () => void;
+    flushChanges?: () => void;
 }) {
     const [editor] = useLexicalComposerContext();
 
@@ -527,6 +621,8 @@ function FocusBlurPlugin({
         };
 
         const handleBlur = () => {
+            // Flush any pending debounced changes before triggering blur callbacks
+            flushChanges?.();
             onBlur?.();
             onFinish?.();
         };
@@ -538,7 +634,7 @@ function FocusBlurPlugin({
             rootElement.removeEventListener("focus", handleFocus);
             rootElement.removeEventListener("blur", handleBlur);
         };
-    }, [editor, onFocus, onBlur, onFinish]);
+    }, [editor, onFocus, onBlur, onFinish, flushChanges]);
 
     return null;
 }
