@@ -2849,6 +2849,14 @@ export function Whiteboard({
                         isGuest={!isOwner}
                         boardNameOverride={!isOwner ? collabBoardName : null}
                     />
+                    {showDiskSaveIndicator && (
+                        <SaveStatusIndicator
+                            show={showDiskSaveIndicator}
+                            isSaving={combinedIsSaving}
+                            isDirty={combinedIsDirty}
+                            storageFolderName={workspaceFolderName}
+                        />
+                    )}
                     {false && (
                         <a
                             href="/dashboard"
@@ -2868,71 +2876,61 @@ export function Whiteboard({
                 </div>
 
                 {/* Collaboration + Hotkeys - Top Right */}
-                {(showDiskSaveIndicator || !isReadOnly) && (
+                {!isReadOnly && (
                     <div className="absolute top-4 right-4 z-50 flex items-stretch gap-2">
-                        <SaveStatusIndicator
-                            show={showDiskSaveIndicator}
-                            isSaving={combinedIsSaving}
-                            isDirty={combinedIsDirty}
-                            storageFolderName={workspaceFolderName}
+                        <CollaborationBar
+                            peerCount={peerCount}
+                            myName={myName || "Connecting..."}
+                            collaboratorUsers={collaboratorUsers}
+                            onFollowUser={handleFollowUser}
+                            followedUserId={followedUserId}
+                            spectatedUserIds={spectatedUserIds}
+                            isBeingSpectated={
+                                myUserId
+                                    ? spectatedUserIds.has(myUserId)
+                                    : false
+                            }
+                            onInvite={
+                                canInvite
+                                    ? () => setShowInviteDialog(true)
+                                    : undefined
+                            }
                         />
-                        {!isReadOnly && (
-                            <>
-                                <CollaborationBar
-                                    peerCount={peerCount}
-                                    myName={myName || "Connecting..."}
-                                    collaboratorUsers={collaboratorUsers}
-                                    onFollowUser={handleFollowUser}
-                                    followedUserId={followedUserId}
-                                    spectatedUserIds={spectatedUserIds}
-                                    isBeingSpectated={
-                                        myUserId
-                                            ? spectatedUserIds.has(myUserId)
-                                            : false
-                                    }
-                                    onInvite={
-                                        canInvite
-                                            ? () => setShowInviteDialog(true)
-                                            : undefined
-                                    }
-                                />
-                                {/* Version History Button (owner only) */}
-                                {isOwner && (
-                                    <button
-                                        onClick={() =>
-                                            setShowHistorySidebar((prev) =>
-                                                isHistoryPinned ? true : !prev,
-                                            )
-                                        }
-                                        className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-                                        aria-label="Version history"
-                                        title="Version history"
-                                    >
-                                        <History className="w-4 h-4" />
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => setShowHotkeysDialog(true)}
-                                    className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-                                    aria-label="Keyboard shortcuts"
-                                >
-                                    <span className="text-base font-semibold leading-none">
-                                        ?
-                                    </span>
-                                </button>
-                                <button
-                                    onClick={() =>
-                                        setShowLayersSidebar((prev) =>
-                                            isLayersPinned ? true : !prev,
-                                        )
-                                    }
-                                    className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
-                                    aria-label="Toggle layers sidebar"
-                                >
-                                    <PanelRight className="w-4 h-4" />
-                                </button>
-                            </>
+                        {/* Version History Button (owner only) */}
+                        {isOwner && (
+                            <button
+                                onClick={() =>
+                                    setShowHistorySidebar((prev) =>
+                                        isHistoryPinned ? true : !prev,
+                                    )
+                                }
+                                className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                                aria-label="Version history"
+                                title="Version history"
+                            >
+                                <History className="w-4 h-4" />
+                            </button>
                         )}
+                        <button
+                            onClick={() => setShowHotkeysDialog(true)}
+                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                            aria-label="Keyboard shortcuts"
+                        >
+                            <span className="text-base font-semibold leading-none">
+                                ?
+                            </span>
+                        </button>
+                        <button
+                            onClick={() =>
+                                setShowLayersSidebar((prev) =>
+                                    isLayersPinned ? true : !prev,
+                                )
+                            }
+                            className="h-10 w-10 rounded-md transition-all duration-200 bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent hover:bg-muted/60 text-muted-foreground hover:text-foreground shadow-2xl flex items-center justify-center"
+                            aria-label="Toggle layers sidebar"
+                        >
+                            <PanelRight className="w-4 h-4" />
+                        </button>
                     </div>
                 )}
 
