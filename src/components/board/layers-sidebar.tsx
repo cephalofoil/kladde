@@ -39,7 +39,10 @@ import {
   Sparkles,
   Search,
   Check,
+  ArrowUpDown,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -1316,180 +1319,231 @@ export function LayersSidebar({
           )}
         </div>
       ) : activeTab === "comments" ? (
-        <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
-          <div className="pt-2 space-y-2">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
-              <Search className="w-4 h-4 text-muted-foreground" />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Search */}
+          <div className="border-b border-border px-3 py-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={commentSearchQuery}
                 onChange={(e) => setCommentSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
                 placeholder="Quick search"
+                className="h-9 w-full rounded-md bg-muted/50 border-0 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary/30"
               />
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="p-2 rounded-md border border-border bg-background/70 hover:bg-muted/60 transition-colors"
-                    aria-label="Sort and filter comments"
-                  >
-                    <SlidersHorizontal className="w-4 h-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={commentSort}
-                    onValueChange={(value) =>
-                      setCommentSort(value as "newest" | "oldest" | "status")
-                    }
-                  >
-                    <DropdownMenuRadioItem value="newest">
-                      Sort by date
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="status">
-                      Sort by unread
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="oldest">
-                      Oldest first
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    checked={showResolvedComments}
-                    onCheckedChange={() => onToggleShowResolvedComments?.()}
-                  >
-                    Show resolved comments
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <button
-                type="button"
-                onClick={() => onMarkCommentsSeen?.()}
-                className={cn(
-                  "flex items-center gap-2 text-xs px-2 py-1.5 rounded-md transition-colors",
-                  hasUnseenComments
-                    ? "text-foreground hover:bg-muted/60"
-                    : "text-muted-foreground/60 cursor-default",
-                )}
-                disabled={!hasUnseenComments}
-              >
-                <Check className="w-4 h-4" />
-                Mark all as read
-              </button>
-            </div>
           </div>
-          {filteredComments.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-              No comments yet
-            </div>
-          ) : (
-            <div className="mt-3 space-y-4">
-              {filteredComments.map((comment) => {
-                const isSelected = commentSelection.has(comment.id);
-                const messages = comment.messages || [];
-                const originalMessage = messages[0];
-                const replyMessages = messages.slice(1);
-                const hasReplies = replyMessages.length > 0;
-                const isExpanded = expandedComments.has(comment.id);
-                const activity = getCommentLastActivity(comment);
-                const isUnread =
-                  !!commentSeenAt &&
-                  activity > commentSeenAt &&
-                  comment.createdBy?.id !== currentUserId;
-                const authorName =
-                  originalMessage?.author.name ||
-                  comment.createdBy?.name ||
-                  "Guest";
-                const originalText =
-                  originalMessage?.text?.trim() || "New comment";
-                const originalTimestamp =
-                  originalMessage?.createdAt ?? comment.createdAt;
-                return (
-                  <button
-                    key={comment.id}
-                    type="button"
-                    onClick={() => {
-                      onSelectComment?.(comment.id);
-                      onFocusComment?.(comment);
-                      if (hasReplies) {
-                        toggleExpandedComment(comment.id);
-                      }
-                    }}
-                    className={cn(
-                      "relative w-full px-3 py-3 text-left transition-colors",
-                      isSelected
-                        ? "bg-muted/40 dark:bg-muted/20"
-                        : "hover:bg-muted/60 dark:hover:bg-muted/20",
-                    )}
-                  >
-                    {isUnread && (
-                      <span className="absolute left-0 top-0 h-full w-1 bg-orange-500" />
-                    )}
-                    <div className="flex items-start gap-3">
-                      <div className="h-9 w-9 rounded-full bg-muted/60 text-xs font-semibold text-muted-foreground flex items-center justify-center shrink-0">
-                        {getInitials(authorName)}
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="font-semibold text-foreground text-sm">
-                            {authorName}
+
+          {/* Filter bar */}
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="h-8 px-2 flex items-center gap-2 rounded-md hover:bg-muted/60 transition-colors"
+                >
+                  <SlidersHorizontal className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <ArrowUpDown className="size-4" />
+                  Sort by
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={commentSort}
+                  onValueChange={(value) =>
+                    setCommentSort(value as "newest" | "oldest" | "status")
+                  }
+                >
+                  <DropdownMenuRadioItem value="newest">
+                    Sort by date
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="status">
+                    Sort by unread
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="oldest">
+                    Oldest first
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={showResolvedComments}
+                  onCheckedChange={() => onToggleShowResolvedComments?.()}
+                >
+                  Show resolved comments
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              type="button"
+              onClick={() => onMarkCommentsSeen?.()}
+              className={cn(
+                "h-8 px-2 flex items-center gap-2 text-sm rounded-md transition-colors",
+                hasUnseenComments
+                  ? "text-foreground hover:bg-muted/60"
+                  : "text-muted-foreground/60 cursor-default",
+              )}
+              disabled={!hasUnseenComments}
+            >
+              <Check className="size-4" />
+              Mark all as read
+            </button>
+          </div>
+
+          {/* Comments list */}
+          <ScrollArea ref={listRef} className="flex-1">
+            {filteredComments.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                No comments yet
+              </div>
+            ) : (
+              <div className="flex flex-col divide-y divide-border/50">
+                {filteredComments.map((comment) => {
+                  const isSelected = commentSelection.has(comment.id);
+                  const messages = comment.messages || [];
+                  const originalMessage = messages[0];
+                  const replyMessages = messages.slice(1);
+                  const hasReplies = replyMessages.length > 0;
+                  const isExpanded = expandedComments.has(comment.id);
+                  const activity = getCommentLastActivity(comment);
+                  const seenAt = commentSeenAt ?? 0;
+                  const isUnread =
+                    (seenAt === 0 || activity > seenAt) &&
+                    comment.createdBy?.id !== currentUserId;
+                  const authorName =
+                    originalMessage?.author.name ||
+                    comment.createdBy?.name ||
+                    "Guest";
+                  const originalText =
+                    originalMessage?.text?.trim() || "New comment";
+                  const originalTimestamp =
+                    originalMessage?.createdAt ?? comment.createdAt;
+                  const reactions = comment.reactions || [];
+                  const uniqueReactors = new Set(
+                    reactions.flatMap((r) => r.userIds || []),
+                  );
+                  const reactorCount = uniqueReactors.size;
+
+                  return (
+                    <div
+                      key={comment.id}
+                      className={cn(
+                        "relative px-3 py-4 cursor-pointer transition-colors",
+                        isUnread && "border-l-[3px] border-l-primary",
+                        isSelected
+                          ? "bg-muted/40 dark:bg-muted/20"
+                          : "hover:bg-muted/30",
+                      )}
+                      onClick={() => {
+                        onSelectComment?.(comment.id);
+                        onFocusComment?.(comment);
+                      }}
+                    >
+                      {/* Author row */}
+                      <div className="mb-2 flex items-center gap-2">
+                        <Avatar className="size-6">
+                          <AvatarFallback className="text-xs bg-gradient-to-br from-primary/80 to-primary text-primary-foreground">
+                            {getInitials(authorName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">
+                          {authorName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelativeTime(originalTimestamp)}
+                        </span>
+                        {comment.resolved && (
+                          <span className="text-xs text-emerald-600 font-medium">
+                            Resolved
                           </span>
-                          <span>{formatRelativeTime(originalTimestamp)}</span>
-                          {comment.resolved && (
-                            <span className="text-emerald-600">Resolved</span>
-                          )}
-                        </div>
-                        <div className="text-sm text-foreground">
-                          {originalText}
-                        </div>
-                        {hasReplies && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground pt-1">
-                            {isExpanded ? (
-                              <ChevronUp className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            )}
-                            <span>{replyMessages.length} replies</span>
-                          </div>
                         )}
                       </div>
-                    </div>
-                    {isExpanded && hasReplies && (
-                      <div className="mt-0 space-y-2">
-                        {replyMessages.map((message) => (
-                          <div
-                            key={message.id}
-                            className="flex items-start gap-2"
-                          >
-                            <div className="h-7 w-7 rounded-full bg-muted/60 text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
-                              {getInitials(message.author.name)}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                <span className="font-semibold text-foreground">
-                                  {message.author.name}
-                                </span>
-                                <span>
-                                  {formatRelativeTime(message.createdAt)}
-                                </span>
+
+                      {/* Content */}
+                      <p className="mb-3 text-sm leading-relaxed text-foreground/90">
+                        {originalText}
+                      </p>
+
+                      {/* Footer with reactions and replies */}
+                      {(reactorCount > 0 || hasReplies) && (
+                        <div className="flex items-center justify-between">
+                          {reactorCount > 0 && (
+                            <div className="flex items-center">
+                              <div className="flex -space-x-1.5">
+                                {reactions.slice(0, 3).map((reaction, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="size-5 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[10px]"
+                                  >
+                                    {reaction.emoji}
+                                  </div>
+                                ))}
                               </div>
-                              <div className="text-sm text-foreground">
-                                {message.text}
-                              </div>
+                              {reactorCount > 3 && (
+                                <span className="ml-1.5 text-xs text-muted-foreground">
+                                  + {reactorCount - 3} more
+                                </span>
+                              )}
                             </div>
+                          )}
+                          {hasReplies && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpandedComment(comment.id);
+                              }}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {replyMessages.length} replies
+                              <ChevronDown
+                                className={cn(
+                                  "size-3 transition-transform duration-200",
+                                  isExpanded && "rotate-180",
+                                )}
+                              />
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Expandable replies */}
+                      {hasReplies && isExpanded && (
+                        <div className="mt-3 pt-3 border-t border-border/50">
+                          <div className="flex flex-col gap-3">
+                            {replyMessages.map((message) => (
+                              <div key={message.id} className="flex gap-2">
+                                <Avatar className="size-5 shrink-0">
+                                  <AvatarFallback className="text-[8px] bg-gradient-to-br from-primary/80 to-primary text-primary-foreground">
+                                    {getInitials(message.author.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-xs font-medium">
+                                      {message.author.name}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {formatRelativeTime(message.createdAt)}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs leading-relaxed text-foreground/80">
+                                    {message.text}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
         </div>
       ) : (
         <div ref={listRef} className="flex-1 overflow-y-auto p-2">

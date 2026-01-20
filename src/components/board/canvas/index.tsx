@@ -47,7 +47,9 @@ import {
   SmilePlus,
   ArrowUpRight,
 } from "lucide-react";
-import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
+import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
 import {
@@ -1407,7 +1409,9 @@ export function Canvas({
           : (baseIndex + 1) % comments.length;
       const nextComment = comments[nextIndex];
       if (!nextComment) return;
+      setEmojiPicker(null);
       setActiveCommentId(nextComment.id);
+      setPinnedCommentId(nextComment.id);
       const anchor = resolveCommentAnchor(nextComment);
       const menuOffsetX = 40;
       const menuWidth = 288;
@@ -1454,9 +1458,9 @@ export function Canvas({
 
   const handleCommentHoverEnd = useCallback(() => {
     if (pinnedCommentId) return;
+    if (emojiPicker) return; // Don't close if emoji picker is open
     setActiveCommentId(null);
-    setEmojiPicker(null);
-  }, [pinnedCommentId]);
+  }, [pinnedCommentId, emojiPicker]);
 
   const visibleComments = showResolvedComments
     ? comments
@@ -1502,6 +1506,9 @@ export function Canvas({
           return;
         }
         if (eventTarget?.closest?.('[data-comment-icon="true"]')) {
+          return;
+        }
+        if (emojiPickerRef.current?.contains(eventTarget)) {
           return;
         }
         if (pinnedCommentId || activeCommentId) {
@@ -1795,34 +1802,35 @@ export function Canvas({
                       onCommentSeen?.(comment.id);
                     }}
                     data-comment-icon="true"
-                    className="h-9 w-9 text-muted-foreground hover:text-foreground flex items-center justify-center"
+                    className="size-9 text-muted-foreground hover:text-foreground flex items-center justify-center"
                   >
-                    <MessageCircle className="h-5 w-5" />
+                    <MessageCircle className="size-5" />
                   </button>
                   <div
                     className={cn(
-                      "absolute left-10 top-0 w-96 rounded-2xl border border-border/60 dark:border-transparent bg-background/95 dark:bg-card/95 backdrop-blur-md shadow-2xl opacity-0 pointer-events-none transition-opacity overflow-hidden",
+                      "absolute left-10 top-0 w-80 max-h-[480px] flex flex-col rounded-xl border border-border bg-card shadow-xl opacity-0 pointer-events-none transition-opacity overflow-hidden",
                       (isOpen || isPinned) && "opacity-100 pointer-events-auto",
                     )}
                     data-comment-menu="true"
                   >
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/60 bg-background/70">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleCommentNav("prev")}
-                          className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center"
+                          className="size-7 rounded-md hover:bg-muted transition-colors flex items-center justify-center"
                           aria-label="Previous comment"
                         >
-                          <ChevronLeft className="h-4 w-4" />
+                          <ChevronLeft className="size-4" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleCommentNav("next")}
-                          className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center"
+                          className="size-7 rounded-md hover:bg-muted transition-colors flex items-center justify-center"
                           aria-label="Next comment"
                         >
-                          <ChevronRight className="h-4 w-4" />
+                          <ChevronRight className="size-4" />
                         </button>
                       </div>
                       <div className="flex items-center gap-1">
@@ -1830,7 +1838,7 @@ export function Canvas({
                           type="button"
                           onClick={() => onToggleCommentResolved?.(comment.id)}
                           className={cn(
-                            "h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center",
+                            "size-7 rounded-md hover:bg-muted transition-colors flex items-center justify-center",
                             comment.resolved && "text-emerald-500",
                           )}
                           aria-label={
@@ -1838,16 +1846,18 @@ export function Canvas({
                               ? "Mark unresolved"
                               : "Mark resolved"
                           }
+                          title="Mark as resolved"
                         >
-                          <Check className="h-4 w-4" />
+                          <Check className="size-4" />
                         </button>
                         <button
                           type="button"
                           onClick={() => onDeleteComment?.(comment.id)}
-                          className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center text-destructive"
-                          aria-label="Delete comment"
+                          className="size-7 rounded-md hover:bg-muted transition-colors flex items-center justify-center text-destructive hover:text-destructive"
+                          aria-label="Delete thread"
+                          title="Delete thread"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="size-4" />
                         </button>
                         <button
                           type="button"
@@ -1856,102 +1866,110 @@ export function Canvas({
                             setActiveCommentId(null);
                             setEmojiPicker(null);
                           }}
-                          className="h-7 w-7 rounded-md hover:bg-muted/60 transition-colors flex items-center justify-center"
+                          className="size-7 rounded-md hover:bg-muted transition-colors flex items-center justify-center"
                           aria-label="Close"
+                          title="Close"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="size-4" />
                         </button>
                       </div>
                     </div>
-                    <div className="max-h-[360px] overflow-auto">
-                      <div className="px-3 pt-3 pb-2 text-xs text-muted-foreground">
-                        Created {formatTimestamp(comment.createdAt)}
-                      </div>
-                      {messages.length === 0 ? (
-                        <p className="px-3 pb-3 text-base text-muted-foreground">
-                          No comments yet.
-                        </p>
-                      ) : (
-                        <div className="divide-y divide-border/60">
-                          {messages.map((message) => (
-                            <div
-                              key={message.id}
-                              className="px-3 py-3 text-base"
-                            >
-                              <div className="flex items-start gap-2">
-                                <div className="h-8 w-8 rounded-full bg-muted/60 text-[11px] font-semibold text-muted-foreground flex items-center justify-center">
-                                  {getInitials(message.author.name)}
-                                </div>
-                                <div className="flex-1 space-y-1">
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span className="font-semibold text-foreground text-sm">
-                                      {message.author.name}
-                                    </span>
-                                    <span>
-                                      {formatTimestamp(message.createdAt)}
-                                    </span>
-                                  </div>
-                                  <div className="text-foreground">
-                                    {message.text}
-                                  </div>
-                                  <div className="flex flex-wrap gap-1 pt-1">
-                                    {(message.reactions || []).map(
-                                      (reaction) => {
-                                        const count = reaction.userIds.length;
-                                        const hasReacted =
-                                          !!currentUserId &&
-                                          reaction.userIds.includes(
-                                            currentUserId,
+
+                    {/* Comments */}
+                    <ScrollArea className="flex-1 min-h-0">
+                      <div className="p-3 space-y-4">
+                        {messages.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            No comments yet. Be the first to comment.
+                          </p>
+                        ) : (
+                          messages.map((message) => {
+                            const authorName = message.author?.name || "Guest";
+                            const messageTime = message.createdAt || Date.now();
+                            return (
+                              <div key={message.id} className="group/message">
+                                <div className="flex items-start gap-2.5">
+                                  <Avatar className="size-7 shrink-0">
+                                    <AvatarFallback className="text-[10px] text-white font-medium bg-gradient-to-br from-primary/80 to-primary">
+                                      {getInitials(authorName)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-sm">
+                                        {authorName}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatTimestamp(messageTime)}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-foreground/90 mt-0.5 leading-relaxed">
+                                      {message.text}
+                                    </p>
+
+                                    {/* Reactions */}
+                                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                      {(message.reactions || []).map(
+                                        (reaction) => {
+                                          const count = reaction.userIds.length;
+                                          const hasReacted =
+                                            !!currentUserId &&
+                                            reaction.userIds.includes(
+                                              currentUserId,
+                                            );
+                                          return (
+                                            <button
+                                              key={reaction.emoji}
+                                              type="button"
+                                              onClick={() =>
+                                                onToggleCommentReaction?.(
+                                                  comment.id,
+                                                  message.id,
+                                                  reaction.emoji,
+                                                )
+                                              }
+                                              className={cn(
+                                                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border transition-colors",
+                                                hasReacted
+                                                  ? "bg-primary/10 border-primary/30 text-primary"
+                                                  : "bg-muted/50 border-transparent hover:bg-muted",
+                                              )}
+                                            >
+                                              <span>{reaction.emoji}</span>
+                                              <span className="font-sans">
+                                                {count}
+                                              </span>
+                                            </button>
                                           );
-                                        return (
-                                          <button
-                                            key={reaction.emoji}
-                                            type="button"
-                                            onClick={() =>
-                                              onToggleCommentReaction?.(
-                                                comment.id,
-                                                message.id,
-                                                reaction.emoji,
-                                              )
-                                            }
-                                            className={cn(
-                                              "text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/40 hover:bg-muted transition-colors",
-                                              hasReacted &&
-                                                "bg-accent/20 border-accent/50",
-                                            )}
-                                          >
-                                            {reaction.emoji}
-                                            <span className="ml-1 text-[10px] text-muted-foreground">
-                                              {count}
-                                            </span>
-                                          </button>
-                                        );
-                                      },
-                                    )}
-                                    <button
-                                      type="button"
-                                      data-emoji-trigger="true"
-                                      onClick={(event) =>
-                                        handleEmojiPicker(
-                                          comment.id,
-                                          message.id,
-                                          event,
-                                        )
-                                      }
-                                      className="text-xs px-2 py-0.5 rounded-full border border-border/60 dark:border-transparent bg-muted/20 hover:bg-muted transition-colors"
-                                      aria-label="Add emoji reaction"
-                                    >
-                                      <SmilePlus className="h-3 w-3" />
-                                    </button>
+                                        },
+                                      )}
+                                      <button
+                                        type="button"
+                                        data-emoji-trigger="true"
+                                        onClick={(event) =>
+                                          handleEmojiPicker(
+                                            comment.id,
+                                            message.id,
+                                            event,
+                                          )
+                                        }
+                                        className="inline-flex items-center justify-center size-6 rounded-full hover:bg-muted transition-colors opacity-0 group-hover/message:opacity-100"
+                                        aria-label="Add emoji reaction"
+                                      >
+                                        <SmilePlus className="size-3.5 text-muted-foreground" />
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="border-t border-border/60 px-3 py-2 bg-background/80">
+                            );
+                          })
+                        )}
+                      </div>
+                    </ScrollArea>
+
+                    {/* Reply Input */}
+                    <div className="border-t border-border p-3 bg-card shrink-0">
                       <form
                         onSubmit={(event) => {
                           event.preventDefault();
@@ -1964,28 +1982,33 @@ export function Canvas({
                         }}
                         className="flex items-center gap-2"
                       >
-                        <div className="h-8 w-8 rounded-full bg-muted/60 text-[11px] font-semibold text-muted-foreground flex items-center justify-center">
-                          {getInitials("You")}
+                        <Avatar className="size-7 shrink-0">
+                          <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-medium">
+                            {getInitials("You")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 relative">
+                          <input
+                            type="text"
+                            value={draft}
+                            onChange={(event) =>
+                              setCommentDrafts((prev) => ({
+                                ...prev,
+                                [comment.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Reply, @mention someone..."
+                            className="w-full pr-10 h-9 text-sm bg-muted/50 border-0 rounded-md px-3 outline-none focus:ring-1 focus:ring-ring"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!draft.trim()}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 size-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            aria-label="Send"
+                          >
+                            <ChevronRight className="size-4" />
+                          </button>
                         </div>
-                        <input
-                          type="text"
-                          value={draft}
-                          onChange={(event) =>
-                            setCommentDrafts((prev) => ({
-                              ...prev,
-                              [comment.id]: event.target.value,
-                            }))
-                          }
-                          placeholder="Reply, @mention someone..."
-                          className="flex-1 h-9 rounded-full border border-border/60 dark:border-transparent bg-background px-3 text-base text-foreground placeholder:text-muted-foreground"
-                        />
-                        <button
-                          type="submit"
-                          className="h-9 w-9 rounded-full bg-accent text-accent-foreground text-xs font-medium hover:bg-accent/90 flex items-center justify-center"
-                          aria-label="Send"
-                        >
-                          <ArrowUpRight className="h-4 w-4" />
-                        </button>
                       </form>
                     </div>
                   </div>
@@ -2000,22 +2023,16 @@ export function Canvas({
         <div className="absolute inset-0 z-[75] pointer-events-none">
           <div
             ref={emojiPickerRef}
-            className="absolute w-[360px] rounded-2xl border border-border/60 dark:border-transparent bg-background shadow-2xl pointer-events-auto overflow-hidden"
+            className="absolute pointer-events-auto"
             style={{ left: emojiPicker.x, top: emojiPicker.y }}
             onWheel={(event) => event.stopPropagation()}
           >
             <EmojiPicker
-              width={360}
-              height={360}
-              emojiStyle={EmojiStyle.NATIVE}
-              theme={Theme.AUTO}
-              searchPlaceHolder="Search"
-              lazyLoadEmojis
-              onEmojiClick={(emojiData) => {
+              onEmojiSelect={(emoji) => {
                 onToggleCommentReaction?.(
                   emojiPicker.commentId,
                   emojiPicker.messageId,
-                  emojiData.emoji,
+                  emoji,
                 );
                 setEmojiPicker(null);
               }}

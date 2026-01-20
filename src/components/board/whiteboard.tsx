@@ -1303,7 +1303,10 @@ export function Whiteboard({
     if (!myUserId) return false;
     return comments.some((comment) => {
       const lastActivity = commentLastActivity(comment);
-      return lastActivity > commentSeenAt && comment.createdBy.id !== myUserId;
+      return (
+        (commentSeenAt === 0 || lastActivity > commentSeenAt) &&
+        comment.createdBy?.id !== myUserId
+      );
     });
   }, [comments, commentSeenAt, commentLastActivity, myUserId]);
 
