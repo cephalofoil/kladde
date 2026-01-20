@@ -306,6 +306,9 @@ export function Whiteboard({
   const [currentHighlightId, setCurrentHighlightId] = useState<string | null>(
     null,
   );
+  const [sidebarToolOverride, setSidebarToolOverride] = useState<Tool | null>(
+    null,
+  );
   // State for previewing historical canvas state
   const [previewElements, setPreviewElements] = useState<BoardElement[] | null>(
     null,
@@ -2750,6 +2753,258 @@ export function Whiteboard({
     });
   }, [selectedElements, saveToUndoStack, handleUpdateElement]);
 
+  // Clipboard styles state for copy/paste styles
+  const [copiedStyles, setCopiedStyles] =
+    useState<Partial<BoardElement> | null>(null);
+
+  const handleCut = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    handleCopySelected();
+    handleDeleteSelected();
+  }, [handleCopySelected, handleDeleteSelected, selectedElements]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    saveToUndoStack();
+
+    const newElements: BoardElement[] = [];
+    const maxZIndex = Math.max(...elements.map((el) => el.zIndex ?? 0), 0);
+
+    selectedElements.forEach((element, index) => {
+      if (element.type === "laser") return;
+
+      const box = getBoundingBox(element);
+      const offset = 20;
+
+      const newElement: BoardElement = {
+        ...element,
+        id: uuid(),
+        groupId: undefined,
+        zIndex: maxZIndex + index + 1,
+      };
+
+      if (
+        element.type === "pen" ||
+        element.type === "line" ||
+        element.type === "arrow"
+      ) {
+        newElement.points = element.points.map((p) => ({
+          x: p.x + offset,
+          y: p.y + offset,
+        }));
+      } else {
+        newElement.x = (element.x ?? 0) + offset;
+        newElement.y = (element.y ?? 0) + offset;
+      }
+
+      newElements.push(newElement);
+    });
+
+    if (collaboration) {
+      newElements.forEach((el) => collaboration.addElement(el));
+    } else {
+      setElements([...elements, ...newElements]);
+    }
+
+    setSelectedElements(newElements);
+  }, [selectedElements, elements, saveToUndoStack, collaboration]);
+
+  const handleWrapInFrame = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    if (selectedElements.some((el) => el.frameId)) return;
+    saveToUndoStack();
+
+    // Calculate bounding box of all selected elements
+    const boxes = selectedElements
+      .map((el) => getBoundingBox(el))
+      .filter(Boolean);
+    if (boxes.length === 0) return;
+
+    const minX = Math.min(...boxes.map((b) => b!.x));
+    const minY = Math.min(...boxes.map((b) => b!.y));
+    const maxX = Math.max(...boxes.map((b) => b!.x + b!.width));
+    const maxY = Math.max(...boxes.map((b) => b!.y + b!.height));
+
+    const padding = 40;
+    const frameElement: BoardElement = {
+      id: uuid(),
+      type: "frame",
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2,
+      strokeColor: "#666666",
+      strokeWidth: 2,
+      fillColor: "transparent",
+      label: "Frame",
+      zIndex: Math.min(...selectedElements.map((el) => el.zIndex ?? 0)) - 1,
+    };
+
+    if (collaboration) {
+      collaboration.addElement(frameElement);
+    } else {
+      setElements([...elements, frameElement]);
+    }
+  }, [selectedElements, elements, saveToUndoStack, collaboration]);
+
+  const handleCopyStyles = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    const element = selectedElements[0];
+    setCopiedStyles({
+      strokeColor: element.strokeColor,
+      strokeWidth: element.strokeWidth,
+      fillColor: element.fillColor,
+      fillPattern: element.fillPattern,
+      opacity: element.opacity,
+      strokeStyle: element.strokeStyle,
+      cornerRadius: element.cornerRadius,
+      lineCap: element.lineCap,
+      connectorStyle: element.connectorStyle,
+      elbowRoute: element.elbowRoute,
+      arrowStart: element.arrowStart,
+      arrowEnd: element.arrowEnd,
+      fontFamily: element.fontFamily,
+      fontSize: element.fontSize,
+      textAlign: element.textAlign,
+    });
+  }, [selectedElements]);
+
+  const handlePasteStyles = useCallback(() => {
+    if (selectedElements.length === 0 || !copiedStyles) return;
+    saveToUndoStack();
+
+    selectedElements.forEach((el) => {
+      const updates: Partial<BoardElement> = {};
+      if (copiedStyles.strokeColor !== undefined)
+        updates.strokeColor = copiedStyles.strokeColor;
+      if (copiedStyles.strokeWidth !== undefined)
+        updates.strokeWidth = copiedStyles.strokeWidth;
+      if (copiedStyles.fillColor !== undefined)
+        updates.fillColor = copiedStyles.fillColor;
+      if (copiedStyles.fillPattern !== undefined)
+        updates.fillPattern = copiedStyles.fillPattern;
+      if (copiedStyles.opacity !== undefined)
+        updates.opacity = copiedStyles.opacity;
+      if (copiedStyles.strokeStyle !== undefined)
+        updates.strokeStyle = copiedStyles.strokeStyle;
+      if (copiedStyles.cornerRadius !== undefined && el.type === "rectangle") {
+        updates.cornerRadius = copiedStyles.cornerRadius;
+      }
+      if (
+        copiedStyles.lineCap !== undefined &&
+        (el.type === "pen" || el.type === "line" || el.type === "arrow")
+      ) {
+        updates.lineCap = copiedStyles.lineCap;
+      }
+      if (
+        copiedStyles.connectorStyle !== undefined &&
+        (el.type === "line" || el.type === "arrow")
+      ) {
+        updates.connectorStyle = copiedStyles.connectorStyle;
+      }
+      if (
+        copiedStyles.elbowRoute !== undefined &&
+        (el.type === "line" || el.type === "arrow")
+      ) {
+        updates.elbowRoute = copiedStyles.elbowRoute;
+      }
+      if (
+        copiedStyles.arrowStart !== undefined &&
+        (el.type === "line" || el.type === "arrow")
+      ) {
+        updates.arrowStart = copiedStyles.arrowStart;
+      }
+      if (
+        copiedStyles.arrowEnd !== undefined &&
+        (el.type === "line" || el.type === "arrow")
+      ) {
+        updates.arrowEnd = copiedStyles.arrowEnd;
+      }
+      if (copiedStyles.fontFamily !== undefined && el.type === "text") {
+        updates.fontFamily = copiedStyles.fontFamily;
+      }
+      if (copiedStyles.fontSize !== undefined && el.type === "text") {
+        updates.fontSize = copiedStyles.fontSize;
+      }
+      if (copiedStyles.textAlign !== undefined && el.type === "text") {
+        updates.textAlign = copiedStyles.textAlign;
+      }
+      handleUpdateElement(el.id, updates);
+    });
+  }, [selectedElements, copiedStyles, saveToUndoStack, handleUpdateElement]);
+
+  const handleFlipHorizontal = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    saveToUndoStack();
+
+    selectedElements.forEach((element) => {
+      const box = getBoundingBox(element);
+      if (!box) return;
+
+      const centerX = box.x + box.width / 2;
+
+      if (
+        element.type === "pen" ||
+        element.type === "line" ||
+        element.type === "arrow"
+      ) {
+        const newPoints = element.points.map((p) => ({
+          x: centerX * 2 - p.x,
+          y: p.y,
+        }));
+        handleUpdateElement(element.id, { points: newPoints });
+      } else {
+        const newX = centerX * 2 - (element.x ?? 0) - (element.width ?? 0);
+        handleUpdateElement(element.id, { x: newX });
+      }
+    });
+  }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+
+  const handleFlipVertical = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    saveToUndoStack();
+
+    selectedElements.forEach((element) => {
+      const box = getBoundingBox(element);
+      if (!box) return;
+
+      const centerY = box.y + box.height / 2;
+
+      if (
+        element.type === "pen" ||
+        element.type === "line" ||
+        element.type === "arrow"
+      ) {
+        const newPoints = element.points.map((p) => ({
+          x: p.x,
+          y: centerY * 2 - p.y,
+        }));
+        handleUpdateElement(element.id, { points: newPoints });
+      } else {
+        const newY = centerY * 2 - (element.y ?? 0) - (element.height ?? 0);
+        handleUpdateElement(element.id, { y: newY });
+      }
+    });
+  }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+
+  const handleAddLink = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    const element = selectedElements[0];
+    const currentLink = element.link || "";
+    const newLink = window.prompt("Enter URL:", currentLink);
+    if (newLink !== null) {
+      saveToUndoStack();
+      handleUpdateElement(element.id, { link: newLink || undefined });
+    }
+  }, [selectedElements, saveToUndoStack, handleUpdateElement]);
+
+  const handleCopyLinkToObject = useCallback(() => {
+    if (selectedElements.length === 0) return;
+    const element = selectedElements[0];
+    const objectLink = `${window.location.origin}${window.location.pathname}?focus=${element.id}`;
+    navigator.clipboard.writeText(objectLink).catch(console.error);
+  }, [selectedElements]);
+
   const handleDuplicateElement = useCallback(
     (id: string) => {
       const element = elements.find((el) => el.id === id);
@@ -3198,7 +3453,7 @@ export function Whiteboard({
 
         {!isReadOnly && (
           <ToolSidebar
-            selectedTool={tool}
+            selectedTool={sidebarToolOverride ?? tool}
             currentTool={tool}
             strokeColor={strokeColor}
             onStrokeColorChange={handleStrokeColorChange}
@@ -3336,6 +3591,23 @@ export function Whiteboard({
           onOpenDocumentEditor={setEditingDocumentId}
           onOpenMermaidEditor={setEditingMermaidId}
           onPaste={handlePaste}
+          onCut={handleCut}
+          onCopy={handleCopySelected}
+          onDuplicate={handleDuplicateSelected}
+          onWrapInFrame={handleWrapInFrame}
+          onCopyStyles={handleCopyStyles}
+          onPasteStyles={handlePasteStyles}
+          onBringForward={handleMoveForward}
+          onSendBackward={handleMoveBackward}
+          onBringToFront={handleBringToFront}
+          onSendToBack={handleSendToBack}
+          onFlipHorizontal={handleFlipHorizontal}
+          onFlipVertical={handleFlipVertical}
+          onAddLink={handleAddLink}
+          onCopyLinkToObject={handleCopyLinkToObject}
+          onLockSelected={handleToggleLockSelected}
+          onDeleteSelected={handleDeleteSelected}
+          hasStylesToPaste={!!copiedStyles}
           onAddComment={handleAddComment}
           onAddCommentMessage={handleAddCommentMessage}
           onToggleCommentReaction={handleToggleCommentReaction}
@@ -3352,6 +3624,9 @@ export function Whiteboard({
           onToggleViewMode={() => setViewMode((prev) => !prev)}
           snapToObjects={snapToObjects}
           onToggleSnapToObjects={() => setSnapToObjects((prev) => !prev)}
+          onTextEditingChange={(isEditing) => {
+            setSidebarToolOverride(isEditing ? "text" : null);
+          }}
         />
 
         {/* Save Modal */}

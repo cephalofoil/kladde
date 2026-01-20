@@ -3521,6 +3521,70 @@ export function useCanvasHandlers({
     ],
   );
 
+  const handleDoubleClick = useCallback(
+    (e: ReactMouseEvent) => {
+      if (isReadOnly) return;
+      if (tool !== "select") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const { elementId, isInteractive } = getEventTargetInfo(e);
+      if (isInteractive || elementId) return;
+      const point = getMousePosition(e);
+      const minWidth = getMinSingleCharWidth(
+        "",
+        fontSize,
+        fontFamily,
+        letterSpacing,
+      );
+      setTextInput({
+        x: point.x,
+        y: point.y,
+        width: minWidth,
+        height: fontSize * lineHeight,
+        isTextBox: false,
+      });
+      setTextValue("");
+      setEditingTextElementId(null);
+      setEditingShapeTextId(null);
+      setEditingTextStyle({
+        strokeColor,
+        strokeWidth,
+        opacity,
+        fontFamily,
+        textAlign,
+        fontSize,
+        letterSpacing,
+        lineHeight,
+      });
+      setSelectedIds([]);
+      setIsBoxSelecting(false);
+      setSelectionBox(null);
+      setTimeout(() => textInputRef.current?.focus(), 10);
+    },
+    [
+      fontFamily,
+      fontSize,
+      getMousePosition,
+      isReadOnly,
+      letterSpacing,
+      lineHeight,
+      opacity,
+      setEditingShapeTextId,
+      setEditingTextElementId,
+      setEditingTextStyle,
+      setIsBoxSelecting,
+      setSelectionBox,
+      setSelectedIds,
+      setTextInput,
+      setTextValue,
+      strokeColor,
+      strokeWidth,
+      textAlign,
+      textInputRef,
+      tool,
+    ],
+  );
+
   const handleMouseUp = useCallback(() => {
     if (isReadOnly && !isPanning) return;
     if (isPanning) {
@@ -4274,6 +4338,7 @@ export function useCanvasHandlers({
     getMousePosition,
     handleMouseMove,
     handleMouseDown,
+    handleDoubleClick,
     handleMouseUp,
     handleMouseLeave,
     handleTextSubmit,

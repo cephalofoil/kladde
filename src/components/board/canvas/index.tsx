@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  useLayoutEffect,
+} from "react";
 import type {
   Tool,
   BoardElement,
@@ -119,6 +126,23 @@ interface CanvasProps {
   onOpenDocumentEditor?: (elementId: string) => void;
   onOpenMermaidEditor?: (elementId: string) => void;
   onPaste?: () => void;
+  onCut?: () => void;
+  onCopy?: () => void;
+  onDuplicate?: () => void;
+  onWrapInFrame?: () => void;
+  onCopyStyles?: () => void;
+  onPasteStyles?: () => void;
+  onBringForward?: () => void;
+  onSendBackward?: () => void;
+  onBringToFront?: () => void;
+  onSendToBack?: () => void;
+  onFlipHorizontal?: () => void;
+  onFlipVertical?: () => void;
+  onAddLink?: () => void;
+  onCopyLinkToObject?: () => void;
+  onLockSelected?: () => void;
+  onDeleteSelected?: () => void;
+  hasStylesToPaste?: boolean;
   onAddComment?: (payload: {
     x: number;
     y: number;
@@ -145,6 +169,7 @@ interface CanvasProps {
   onToggleViewMode?: () => void;
   snapToObjects?: boolean;
   onToggleSnapToObjects?: () => void;
+  onTextEditingChange?: (isEditing: boolean) => void;
 }
 
 export function Canvas({
@@ -203,6 +228,23 @@ export function Canvas({
   onOpenDocumentEditor,
   onOpenMermaidEditor,
   onPaste,
+  onCut,
+  onCopy,
+  onDuplicate,
+  onWrapInFrame,
+  onCopyStyles,
+  onPasteStyles,
+  onBringForward,
+  onSendBackward,
+  onBringToFront,
+  onSendToBack,
+  onFlipHorizontal,
+  onFlipVertical,
+  onAddLink,
+  onCopyLinkToObject,
+  onLockSelected,
+  onDeleteSelected,
+  hasStylesToPaste,
   onAddComment,
   onAddCommentMessage,
   onToggleCommentReaction,
@@ -221,6 +263,7 @@ export function Canvas({
   onToggleViewMode,
   snapToObjects = true,
   onToggleSnapToObjects,
+  onTextEditingChange,
 }: CanvasProps) {
   const TEXT_CLIP_BUFFER_PX = 2;
   const LASER_HOLD_DURATION_MS = 3000;
@@ -240,6 +283,12 @@ export function Canvas({
     worldY: number;
     elementId: string | null;
   } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
+  const contextMenuElement = useMemo(() => {
+    if (!contextMenu?.elementId) return null;
+    return elements.find((el) => el.id === contextMenu.elementId) ?? null;
+  }, [contextMenu?.elementId, elements]);
+
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const activeCommentIdRef = useRef<string | null>(null);
   const [pinnedCommentId, setPinnedCommentId] = useState<string | null>(null);
@@ -367,6 +416,45 @@ export function Canvas({
   useEffect(() => {
     selectedIdsRef.current = selectedIds;
   }, [selectedIds]);
+
+  useEffect(() => {
+    onTextEditingChange?.(!!textInput);
+  }, [onTextEditingChange, textInput]);
+
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current || !containerRef.current)
+      return;
+    const menuRect = contextMenuRef.current.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const padding = 8;
+    const maxLeft = Math.max(
+      padding,
+      containerRect.width - menuRect.width - padding,
+    );
+    const maxTop = Math.max(
+      padding,
+      containerRect.height - menuRect.height - padding,
+    );
+    const clampedLeft = Math.min(
+      Math.max(contextMenu.screenX, padding),
+      maxLeft,
+    );
+    const clampedTop = Math.min(Math.max(contextMenu.screenY, padding), maxTop);
+    if (
+      clampedLeft !== contextMenu.screenX ||
+      clampedTop !== contextMenu.screenY
+    ) {
+      setContextMenu((prev) =>
+        prev
+          ? {
+              ...prev,
+              screenX: clampedLeft,
+              screenY: clampedTop,
+            }
+          : prev,
+      );
+    }
+  }, [contextMenu, containerRef]);
 
   useEffect(() => {
     if (!emojiPicker) return;
@@ -899,6 +987,7 @@ export function Canvas({
     getMousePosition,
     handleMouseMove,
     handleMouseDown,
+    handleDoubleClick,
     handleMouseUp,
     handleMouseLeave,
     handleTextSubmit,
@@ -987,22 +1076,26 @@ export function Canvas({
   useEffect(() => {
     if (!textInput) return;
     if (tool === "text") return;
+    if (editingTextStyle) return;
     if (textValue.trim()) {
       handleTextSubmit({ skipToolChange: true });
     } else {
       setTextInput(null);
       setTextValue("");
       setEditingTextElementId(null);
+      setEditingShapeTextId(null);
       setEditingTextStyle(null);
     }
   }, [
     tool,
     textInput,
     textValue,
+    editingTextStyle,
     handleTextSubmit,
     setTextInput,
     setTextValue,
     setEditingTextElementId,
+    setEditingShapeTextId,
     setEditingTextStyle,
   ]);
 
@@ -1313,6 +1406,9 @@ export function Canvas({
         target
           ?.closest?.("[data-element-id]")
           ?.getAttribute("data-element-id") ?? null;
+      if (elementId && !selectedIdsRef.current.includes(elementId)) {
+        setSelectedIds([elementId]);
+      }
       setContextMenu({
         screenX,
         screenY,
@@ -1536,6 +1632,7 @@ export function Canvas({
         if (!insideActiveTile) setEditingTileId(null);
       }}
       onMouseDown={handleMouseDown}
+      onDoubleClickCapture={handleDoubleClick}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
@@ -2664,29 +2761,96 @@ export function Canvas({
           onMouseDown={(event) => event.stopPropagation()}
           data-context-menu="true"
         >
-          <div className="min-w-[240px] rounded border border-border/60 dark:border-transparent bg-popover text-popover-foreground shadow-xl py-1.5">
-            {/* Paste */}
+          <div
+            ref={contextMenuRef}
+            className="min-w-[260px] rounded-lg border border-border bg-popover text-popover-foreground shadow-xl py-1"
+          >
+            {/* Cut/Copy/Paste */}
+            {contextMenu.elementId && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCut?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Cut</span>
+                  <Kbd>Ctrl+X</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCopy?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Copy</span>
+                  <Kbd>Ctrl+C</Kbd>
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => {
                 onPaste?.();
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between pl-6 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Paste</span>
               <Kbd>Ctrl+V</Kbd>
             </button>
-            {/* Separator */}
-            <div className="my-1.5 h-px bg-border/60" />
-            {/* Copy options */}
+
+            {!contextMenu.elementId && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectAllElements?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Select all</span>
+                  <Kbd>Ctrl+A</Kbd>
+                </button>
+              </>
+            )}
+
+            {/* Wrap in frame - only when element selected */}
+            {contextMenu.elementId &&
+              !selectedIds.some((id) => {
+                const element = elements.find((el) => el.id === id);
+                return element?.frameId;
+              }) && (
+                <>
+                  <div className="my-1 h-px bg-border" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onWrapInFrame?.();
+                      setContextMenu(null);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                  >
+                    <span>Wrap selection in frame</span>
+                  </button>
+                </>
+              )}
+
+            {/* Copy as PNG/SVG */}
+            <div className="my-1 h-px bg-border" />
             <button
               type="button"
               onClick={() => {
                 void handleCopy("png");
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between pl-6 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Copy to clipboard as PNG</span>
               <Kbd>Shift+Alt+C</Kbd>
@@ -2697,67 +2861,193 @@ export function Canvas({
                 void handleCopy("svg");
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between pl-6 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Copy to clipboard as SVG</span>
             </button>
-            {/* Separator */}
-            <div className="my-1.5 h-px bg-border/60" />
-            {/* Select all */}
-            <button
-              type="button"
-              onClick={() => {
-                onSelectAllElements?.();
-                setContextMenu(null);
-              }}
-              className="w-full flex items-center justify-between pl-6 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
-            >
-              <span>Select all</span>
-              <Kbd>Ctrl+A</Kbd>
-            </button>
-            {/* Separator */}
-            <div className="my-1.5 h-px bg-border/60" />
-            {/* Snap to objects */}
-            <button
-              type="button"
-              onClick={() => {
-                onToggleSnapToObjects?.();
-                setContextMenu(null);
-              }}
-              className="w-full flex items-center justify-between pl-1.5 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
-            >
-              <div className="flex items-center">
-                <Check
-                  className={cn(
-                    "w-3.5 h-3.5 mr-1",
-                    snapToObjects ? "opacity-100" : "opacity-0",
-                  )}
-                />
-                <span>Snap to objects</span>
-              </div>
-              <Kbd>Alt+S</Kbd>
-            </button>
-            {/* View mode */}
-            <button
-              type="button"
-              onClick={() => {
-                onToggleViewMode?.();
-                setContextMenu(null);
-              }}
-              className="w-full flex items-center justify-between pl-1.5 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
-            >
-              <div className="flex items-center">
-                <Check
-                  className={cn(
-                    "w-3.5 h-3.5 mr-1",
-                    viewMode ? "opacity-100" : "opacity-0",
-                  )}
-                />
-                <span>View mode</span>
-              </div>
-              <Kbd>Alt+R</Kbd>
-            </button>
-            {/* Additional options */}
+
+            {/* Copy/Paste styles - only when element selected */}
+            {contextMenu.elementId && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCopyStyles?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Copy styles</span>
+                  <Kbd>Ctrl+Alt+C</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPasteStyles?.();
+                    setContextMenu(null);
+                  }}
+                  disabled={!hasStylesToPaste}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span>Paste styles</span>
+                  <Kbd>Ctrl+Alt+V</Kbd>
+                </button>
+              </>
+            )}
+
+            {/* Z-order controls - only when element selected */}
+            {contextMenu.elementId && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSendBackward?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Send backward</span>
+                  <Kbd>Ctrl+[</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onBringForward?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Bring forward</span>
+                  <Kbd>Ctrl+]</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSendToBack?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Send to back</span>
+                  <Kbd>Ctrl+Shift+[</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onBringToFront?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Bring to front</span>
+                  <Kbd>Ctrl+Shift+]</Kbd>
+                </button>
+              </>
+            )}
+
+            {/* Flip controls - only when element selected */}
+            {contextMenu.elementId && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onFlipHorizontal?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Flip horizontal</span>
+                  <Kbd>Shift+H</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onFlipVertical?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Flip vertical</span>
+                  <Kbd>Shift+V</Kbd>
+                </button>
+              </>
+            )}
+
+            {/* Link controls - only when element selected */}
+            {contextMenu.elementId && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddLink?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>
+                    {contextMenuElement?.link ? "Edit link" : "Add link"}
+                  </span>
+                  <Kbd>Ctrl+K</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCopyLinkToObject?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Copy link to object</span>
+                </button>
+              </>
+            )}
+
+            {/* Duplicate/Lock/Delete - only when element selected */}
+            {contextMenu.elementId && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDuplicate?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Duplicate</span>
+                  <Kbd>Ctrl+D</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLockSelected?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>{contextMenuElement?.locked ? "Unlock" : "Lock"}</span>
+                  <Kbd>Ctrl+Shift+L</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteSelected?.();
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] text-destructive hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
+                >
+                  <span>Delete</span>
+                  <Kbd>Delete</Kbd>
+                </button>
+              </>
+            )}
+
+            {/* Add comment - always available */}
+            <div className="my-1 h-px bg-border" />
             <button
               type="button"
               onClick={() => {
@@ -2769,7 +3059,7 @@ export function Canvas({
                 setActiveCommentId(id || null);
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between pl-6 pr-3 py-1 text-xs hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
             >
               <span>Add comment</span>
             </button>
