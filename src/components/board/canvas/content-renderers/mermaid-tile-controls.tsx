@@ -39,49 +39,49 @@ export function MermaidTileControls({
       {/* Zoom Controls */}
       <button
         onClick={handleZoomOut}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+        className="p-1.5 hover:bg-muted rounded transition-colors"
         title="Zoom Out"
       >
-        <ZoomOut className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+        <ZoomOut className="h-4 w-4 text-muted-foreground" />
       </button>
 
       <button
         onClick={handleResetZoom}
-        className="px-2 py-1 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+        className="px-2 py-1 hover:bg-muted rounded transition-colors"
         title="Reset Zoom"
       >
-        <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
+        <span className="text-xs text-muted-foreground font-medium">
           {Math.round(scale * 100)}%
         </span>
       </button>
 
       <button
         onClick={handleZoomIn}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+        className="p-1.5 hover:bg-muted rounded transition-colors"
         title="Zoom In"
       >
-        <ZoomIn className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+        <ZoomIn className="h-4 w-4 text-muted-foreground" />
       </button>
 
-      <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
+      <div className="w-px h-4 bg-border mx-1" />
 
       {/* Edit Button */}
       <button
         onClick={onEdit}
-        className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+        className="p-1.5 hover:bg-muted rounded transition-colors"
         title="Edit Diagram"
       >
-        <Edit className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+        <Edit className="h-4 w-4 text-muted-foreground" />
       </button>
 
       {/* Expand Button */}
       {onExpand && (
         <button
           onClick={onExpand}
-          className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+          className="p-1.5 hover:bg-muted rounded transition-colors"
           title="Open Fullscreen Editor"
         >
-          <Maximize2 className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+          <Maximize2 className="h-4 w-4 text-muted-foreground" />
         </button>
       )}
 
@@ -89,10 +89,10 @@ export function MermaidTileControls({
       {onCopyImage && (
         <button
           onClick={onCopyImage}
-          className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+          className="p-1.5 hover:bg-muted rounded transition-colors"
           title="Copy as Image"
         >
-          <Copy className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+          <Copy className="h-4 w-4 text-muted-foreground" />
         </button>
       )}
 
@@ -100,10 +100,10 @@ export function MermaidTileControls({
       {onDownloadImage && (
         <button
           onClick={onDownloadImage}
-          className="p-1.5 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded transition-colors"
+          className="p-1.5 hover:bg-muted rounded transition-colors"
           title="Download as PNG"
         >
-          <Download className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+          <Download className="h-4 w-4 text-muted-foreground" />
         </button>
       )}
     </div>

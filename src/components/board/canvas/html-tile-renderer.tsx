@@ -15,6 +15,7 @@ import { CodeRenderer } from "./content-renderers/code-renderer";
 import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
+import { renderMermaidToPngBlob } from "./utils/mermaid-export";
 import { DocumentRenderer } from "./content-renderers/document-renderer";
 import {
   HeaderColorPicker,
@@ -26,6 +27,48 @@ import {
   type NoteStyle,
 } from "./content-renderers/note-tile-renderer";
 import { getEventTargetInfo } from "./utils/eventTargeting";
+
+const MERMAID_QUICK_TEMPLATES = [
+  {
+    name: "Flowchart",
+    code: `graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+    C --> E[End]
+    D --> E`,
+  },
+  {
+    name: "Sequence",
+    code: `sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+    A->>B: Hello Bob!
+    B->>A: Hello Alice!`,
+  },
+  {
+    name: "Class",
+    code: `classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound()
+    }
+    class Dog {
+        +bark()
+    }
+    Animal <|-- Dog`,
+  },
+  {
+    name: "State",
+    code: `stateDiagram-v2
+    [*] --> Still
+    Still --> Moving
+    Moving --> Still
+    Moving --> Crash
+    Crash --> [*]`,
+  },
+];
 
 interface HtmlTileRendererProps {
   element: BoardElement;
@@ -56,7 +99,6 @@ export function HtmlTileRenderer({
   const [mermaidScale, setMermaidScale] = useState(
     element.tileContent?.mermaidScale || 1,
   );
-  const [mermaidSvgContent, setMermaidSvgContent] = useState<string>("");
 
   const x = element.x || 0;
   const y = element.y || 0;
@@ -101,7 +143,7 @@ export function HtmlTileRenderer({
       case "tile-code":
         return "bg-neutral-800 dark:bg-neutral-950";
       case "tile-mermaid":
-        return "bg-sky-50 dark:bg-neutral-900";
+        return "bg-background";
       case "tile-image":
         return "bg-gray-100 dark:bg-neutral-900";
       case "tile-document":
@@ -118,7 +160,7 @@ export function HtmlTileRenderer({
       case "tile-note":
         return "text-amber-900 dark:text-amber-100";
       case "tile-mermaid":
-        return "text-sky-900 dark:text-neutral-100";
+        return "text-foreground";
       case "tile-document":
         return "text-orange-900 dark:text-neutral-100";
       default:
@@ -193,64 +235,13 @@ export function HtmlTileRenderer({
   );
 
   const buildMermaidPng = useCallback(async () => {
-    if (!mermaidSvgContent) return null;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(mermaidSvgContent, "image/svg+xml");
-    const svg = doc.querySelector("svg");
-    if (!svg) return null;
-
-    const viewBox = svg.getAttribute("viewBox");
-    let svgWidth = parseFloat(svg.getAttribute("width") || "");
-    let svgHeight = parseFloat(svg.getAttribute("height") || "");
-
-    if ((!svgWidth || !svgHeight) && viewBox) {
-      const parts = viewBox.split(" ").map((value) => parseFloat(value));
-      if (parts.length === 4 && parts.every((value) => Number.isFinite(value))) {
-        svgWidth = parts[2];
-        svgHeight = parts[3];
-      }
-    }
-
-    if (!svgWidth || !svgHeight) {
-      svgWidth = Math.max(1, width - 16);
-      svgHeight = Math.max(1, height - 48);
-    }
-
-    svg.setAttribute("width", `${svgWidth}`);
-    svg.setAttribute("height", `${svgHeight}`);
-    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-
-    const serializer = new XMLSerializer();
-    const svgString = serializer.serializeToString(svg);
-    const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
-    const svgUrl = URL.createObjectURL(svgBlob);
-
-    try {
-      const image = new Image();
-      image.decoding = "async";
-      image.src = svgUrl;
-      await image.decode();
-
-      const scale = 2;
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(svgWidth * scale);
-      canvas.height = Math.ceil(svgHeight * scale);
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return null;
-      ctx.scale(scale, scale);
-      ctx.drawImage(image, 0, 0, svgWidth, svgHeight);
-
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/png");
-      });
-
-      return blob;
-    } finally {
-      URL.revokeObjectURL(svgUrl);
-    }
-  }, [mermaidSvgContent, width, height]);
+    if (!content?.chart) return null;
+    return renderMermaidToPngBlob({
+      chart: content.chart,
+      theme: "neutral",
+      scale: mermaidScale,
+    });
+  }, [content?.chart, mermaidScale]);
 
   const handleMermaidCopyImage = useCallback(async () => {
     try {
@@ -379,27 +370,61 @@ export function HtmlTileRenderer({
         }
 
         return content?.chart ? (
-          <div className="absolute left-2 right-2 bottom-2 top-12 pointer-events-none rounded-b-lg overflow-hidden">
+          <div className="absolute left-2 right-2 bottom-2 top-12 pointer-events-none rounded-b-lg overflow-hidden flex items-center justify-center">
             <MermaidRenderer
               chart={content.chart}
               width={width - 16}
               height={height - 50}
               scale={mermaidScale}
               className="h-full"
-              onSvgReady={setMermaidSvgContent}
             />
           </div>
         ) : (
           <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center pointer-events-auto rounded-b-lg">
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex flex-col items-center justify-center gap-2 px-6 py-4 rounded-lg border-2 border-dashed border-sky-300 dark:border-sky-700 hover:border-sky-400 dark:hover:border-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
-                <span className="text-2xl text-sky-600 dark:text-sky-400">+</span>
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-4 max-w-xs text-center">
+              <img
+                src="/icons/diagram-tool.svg"
+                alt=""
+                className="w-12 h-12 opacity-40 dark:invert dark:opacity-50"
+              />
+              <h3 className="text-sm font-medium text-foreground">
+                Create your diagram
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Visualize flows, sequences, and structures with Mermaid syntax
+              </p>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="mt-1 px-4 py-2 text-sm font-medium bg-foreground text-background rounded-full hover:bg-foreground/90 transition-colors"
+              >
+                + Create Diagram
+              </button>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span>or try:</span>
+                {MERMAID_QUICK_TEMPLATES.map((template, idx) => (
+                  <span key={template.name}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdate?.({
+                          tileContent: {
+                            ...content,
+                            chart: template.code,
+                          },
+                        });
+                        setIsEditing(true);
+                      }}
+                      className="text-primary hover:underline"
+                    >
+                      {template.name}
+                    </button>
+                    {idx < MERMAID_QUICK_TEMPLATES.length - 1 && (
+                      <span>,</span>
+                    )}
+                  </span>
+                ))}
               </div>
-              <span className="text-sm font-medium text-sky-700 dark:text-sky-300">Add Diagram</span>
-            </button>
+            </div>
           </div>
         );
       }

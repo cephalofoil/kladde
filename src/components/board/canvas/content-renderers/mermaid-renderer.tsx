@@ -48,8 +48,9 @@ export function MermaidRenderer({
 
         mermaid.initialize({
           startOnLoad: false,
-          theme: isDarkMode ? "dark" : "default",
+          theme: "neutral",
           securityLevel: "loose",
+          htmlLabels: false,
         });
 
         // Generate unique ID for this diagram
@@ -93,7 +94,7 @@ export function MermaidRenderer({
   if (!svgContent) {
     return (
       <div className={cn("w-full h-full flex items-center justify-center", className)}>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm text-muted-foreground">
           Rendering diagram...
         </div>
       </div>
@@ -105,7 +106,7 @@ export function MermaidRenderer({
       ref={containerRef}
       className={cn(
         "w-full h-full overflow-hidden relative flex items-center justify-center",
-        "[&>div>svg]:max-w-full [&>div>svg]:max-h-full [&>div>svg]:w-auto [&>div>svg]:h-auto",
+        "[&_svg]:max-w-full [&_svg]:max-h-full [&_svg]:w-auto [&_svg]:h-auto",
         className
       )}
       style={{ width, height, pointerEvents: "none" }}

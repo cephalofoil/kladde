@@ -33,8 +33,9 @@ function MermaidPreview({ chart }: { chart: string }) {
         const mermaid = (await import("mermaid")).default;
         mermaid.initialize({
           startOnLoad: false,
-          theme: isDarkMode ? "dark" : "default",
+          theme: "neutral",
           securityLevel: "loose",
+          htmlLabels: false,
         });
         const id = `mermaid-modal-${Math.random().toString(36).substr(2, 9)}`;
         const { svg } = await mermaid.render(id, chart);
