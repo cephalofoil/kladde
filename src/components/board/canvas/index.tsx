@@ -48,6 +48,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Kbd } from "@/components/ui/kbd";
 import {
   Tooltip,
   TooltipContent,
@@ -2428,7 +2429,7 @@ export function Canvas({
           onMouseDown={(event) => event.stopPropagation()}
           data-context-menu="true"
         >
-          <div className="min-w-[240px] rounded-lg border border-border/60 dark:border-transparent bg-popover text-popover-foreground shadow-xl py-1.5">
+          <div className="min-w-[240px] rounded border border-border/60 dark:border-transparent bg-popover text-popover-foreground shadow-xl py-1">
             {/* Paste */}
             <button
               type="button"
@@ -2436,13 +2437,13 @@ export function Canvas({
                 onPaste?.();
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1 text-xs hover:bg-muted/60 transition-colors"
             >
               <span>Paste</span>
-              <span className="text-muted-foreground text-xs">Ctrl+V</span>
+              <Kbd>Ctrl+V</Kbd>
             </button>
             {/* Separator */}
-            <div className="mx-3 my-1.5 h-px bg-border/60" />
+            <div className="mx-3 my-1 h-px bg-border/60" />
             {/* Copy options */}
             <button
               type="button"
@@ -2450,10 +2451,10 @@ export function Canvas({
                 void handleCopy("png");
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1 text-xs hover:bg-muted/60 transition-colors"
             >
               <span>Copy to clipboard as PNG</span>
-              <span className="text-muted-foreground text-xs">Shift+Alt+C</span>
+              <Kbd>Shift+Alt+C</Kbd>
             </button>
             <button
               type="button"
@@ -2461,12 +2462,12 @@ export function Canvas({
                 void handleCopy("svg");
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1 text-xs hover:bg-muted/60 transition-colors"
             >
               <span>Copy to clipboard as SVG</span>
             </button>
             {/* Separator */}
-            <div className="mx-3 my-1.5 h-px bg-border/60" />
+            <div className="mx-3 my-1 h-px bg-border/60" />
             {/* Select all */}
             <button
               type="button"
@@ -2474,13 +2475,13 @@ export function Canvas({
                 onSelectAllElements?.();
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1 text-xs hover:bg-muted/60 transition-colors"
             >
               <span>Select all</span>
-              <span className="text-muted-foreground text-xs">Ctrl+A</span>
+              <Kbd>Ctrl+A</Kbd>
             </button>
             {/* Separator */}
-            <div className="mx-3 my-1.5 h-px bg-border/60" />
+            <div className="mx-3 my-1 h-px bg-border/60" />
             {/* View mode */}
             <button
               type="button"
@@ -2488,10 +2489,10 @@ export function Canvas({
                 onToggleViewMode?.();
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1 text-xs hover:bg-muted/60 transition-colors"
             >
               <span>View mode</span>
-              <span className="text-muted-foreground text-xs">Alt+R</span>
+              <Kbd>Alt+R</Kbd>
             </button>
             {/* Additional options */}
             <button
@@ -2505,7 +2506,7 @@ export function Canvas({
                 setActiveCommentId(id || null);
                 setContextMenu(null);
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted/60 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1 text-xs hover:bg-muted/60 transition-colors"
             >
               <span>Add comment</span>
             </button>
