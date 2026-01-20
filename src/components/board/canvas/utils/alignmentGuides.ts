@@ -20,6 +20,7 @@ export interface DistanceGuide {
   gapStart: number; // start of gap (right edge of left element, or bottom of top element)
   gapEnd: number; // end of gap (left edge of right element, or top of bottom element)
   crossAxisPosition: number; // Y position for horizontal gaps, X position for vertical gaps
+  isReference?: boolean; // true when showing the source gap for the snap distance
 }
 
 export interface AlignmentResult {
@@ -234,6 +235,8 @@ export function findAlignmentGuides(
   let distanceSnapY: { delta: number; distance: number; gap: number } | null =
     null;
   const distanceGuides: DistanceGuide[] = [];
+  let referenceGuideX: DistanceGuide | null = null;
+  let referenceGuideY: DistanceGuide | null = null;
 
   // Only check distance snapping if we don't have edge alignment on that axis
   if (!bestSnapX || !bestSnapY) {
@@ -245,15 +248,23 @@ export function findAlignmentGuides(
     const sortedByY = [...allBounds].sort((a, b) => a.y - b.y);
 
     // Collect all existing gaps between elements
-    const existingHorizontalGaps: number[] = [];
-    const existingVerticalGaps: number[] = [];
+    const existingHorizontalGaps: Array<{
+      gap: number;
+      left: BoundingBox;
+      right: BoundingBox;
+    }> = [];
+    const existingVerticalGaps: Array<{
+      gap: number;
+      top: BoundingBox;
+      bottom: BoundingBox;
+    }> = [];
 
     for (let i = 0; i < sortedByX.length - 1; i++) {
       const left = sortedByX[i];
       const right = sortedByX[i + 1];
       const gap = right.x - (left.x + left.width);
       if (gap > 0) {
-        existingHorizontalGaps.push(gap);
+        existingHorizontalGaps.push({ gap, left, right });
       }
     }
 
@@ -262,7 +273,7 @@ export function findAlignmentGuides(
       const bottom = sortedByY[i + 1];
       const gap = bottom.y - (top.y + top.height);
       if (gap > 0) {
-        existingVerticalGaps.push(gap);
+        existingVerticalGaps.push({ gap, top, bottom });
       }
     }
 
@@ -322,7 +333,7 @@ export function findAlignmentGuides(
         const currentGap = draggingLeft - leftNeighborRight;
 
         for (const existingGap of existingHorizontalGaps) {
-          const targetLeft = leftNeighborRight + existingGap;
+          const targetLeft = leftNeighborRight + existingGap.gap;
           const delta = targetLeft - draggingLeft;
           const dist = Math.abs(delta);
 
@@ -330,7 +341,30 @@ export function findAlignmentGuides(
             dist <= threshold &&
             (!distanceSnapX || dist < distanceSnapX.distance)
           ) {
-            distanceSnapX = { delta, distance: dist, gap: existingGap };
+            distanceSnapX = { delta, distance: dist, gap: existingGap.gap };
+            if (
+              existingGap.left.y <
+                existingGap.right.y + existingGap.right.height &&
+              existingGap.left.y + existingGap.left.height > existingGap.right.y
+            ) {
+              const crossY =
+                (Math.max(existingGap.left.y, existingGap.right.y) +
+                  Math.min(
+                    existingGap.left.y + existingGap.left.height,
+                    existingGap.right.y + existingGap.right.height,
+                  )) /
+                2;
+              referenceGuideX = {
+                axis: "horizontal",
+                distance: existingGap.gap,
+                gapStart: existingGap.left.x + existingGap.left.width,
+                gapEnd: existingGap.right.x,
+                crossAxisPosition: crossY,
+                isReference: true,
+              };
+            } else {
+              referenceGuideX = null;
+            }
           }
         }
       }
@@ -340,7 +374,7 @@ export function findAlignmentGuides(
         const currentGap = rightNeighborLeft - draggingRight;
 
         for (const existingGap of existingHorizontalGaps) {
-          const targetRight = rightNeighborLeft - existingGap;
+          const targetRight = rightNeighborLeft - existingGap.gap;
           const targetLeft = targetRight - draggingBounds.width;
           const delta = targetLeft - draggingLeft;
           const dist = Math.abs(delta);
@@ -349,7 +383,30 @@ export function findAlignmentGuides(
             dist <= threshold &&
             (!distanceSnapX || dist < distanceSnapX.distance)
           ) {
-            distanceSnapX = { delta, distance: dist, gap: existingGap };
+            distanceSnapX = { delta, distance: dist, gap: existingGap.gap };
+            if (
+              existingGap.left.y <
+                existingGap.right.y + existingGap.right.height &&
+              existingGap.left.y + existingGap.left.height > existingGap.right.y
+            ) {
+              const crossY =
+                (Math.max(existingGap.left.y, existingGap.right.y) +
+                  Math.min(
+                    existingGap.left.y + existingGap.left.height,
+                    existingGap.right.y + existingGap.right.height,
+                  )) /
+                2;
+              referenceGuideX = {
+                axis: "horizontal",
+                distance: existingGap.gap,
+                gapStart: existingGap.left.x + existingGap.left.width,
+                gapEnd: existingGap.right.x,
+                crossAxisPosition: crossY,
+                isReference: true,
+              };
+            } else {
+              referenceGuideX = null;
+            }
           }
         }
       }
@@ -404,7 +461,7 @@ export function findAlignmentGuides(
         const topNeighborBottom = topNeighbor.y + topNeighbor.height;
 
         for (const existingGap of existingVerticalGaps) {
-          const targetTop = topNeighborBottom + existingGap;
+          const targetTop = topNeighborBottom + existingGap.gap;
           const delta = targetTop - draggingTop;
           const dist = Math.abs(delta);
 
@@ -412,7 +469,30 @@ export function findAlignmentGuides(
             dist <= threshold &&
             (!distanceSnapY || dist < distanceSnapY.distance)
           ) {
-            distanceSnapY = { delta, distance: dist, gap: existingGap };
+            distanceSnapY = { delta, distance: dist, gap: existingGap.gap };
+            if (
+              existingGap.top.x <
+                existingGap.bottom.x + existingGap.bottom.width &&
+              existingGap.top.x + existingGap.top.width > existingGap.bottom.x
+            ) {
+              const crossX =
+                (Math.max(existingGap.top.x, existingGap.bottom.x) +
+                  Math.min(
+                    existingGap.top.x + existingGap.top.width,
+                    existingGap.bottom.x + existingGap.bottom.width,
+                  )) /
+                2;
+              referenceGuideY = {
+                axis: "vertical",
+                distance: existingGap.gap,
+                gapStart: existingGap.top.y + existingGap.top.height,
+                gapEnd: existingGap.bottom.y,
+                crossAxisPosition: crossX,
+                isReference: true,
+              };
+            } else {
+              referenceGuideY = null;
+            }
           }
         }
       }
@@ -421,7 +501,7 @@ export function findAlignmentGuides(
         const bottomNeighborTop = bottomNeighbor.y;
 
         for (const existingGap of existingVerticalGaps) {
-          const targetBottom = bottomNeighborTop - existingGap;
+          const targetBottom = bottomNeighborTop - existingGap.gap;
           const targetTop = targetBottom - draggingBounds.height;
           const delta = targetTop - draggingTop;
           const dist = Math.abs(delta);
@@ -430,7 +510,30 @@ export function findAlignmentGuides(
             dist <= threshold &&
             (!distanceSnapY || dist < distanceSnapY.distance)
           ) {
-            distanceSnapY = { delta, distance: dist, gap: existingGap };
+            distanceSnapY = { delta, distance: dist, gap: existingGap.gap };
+            if (
+              existingGap.top.x <
+                existingGap.bottom.x + existingGap.bottom.width &&
+              existingGap.top.x + existingGap.top.width > existingGap.bottom.x
+            ) {
+              const crossX =
+                (Math.max(existingGap.top.x, existingGap.bottom.x) +
+                  Math.min(
+                    existingGap.top.x + existingGap.top.width,
+                    existingGap.bottom.x + existingGap.bottom.width,
+                  )) /
+                2;
+              referenceGuideY = {
+                axis: "vertical",
+                distance: existingGap.gap,
+                gapStart: existingGap.top.y + existingGap.top.height,
+                gapEnd: existingGap.bottom.y,
+                crossAxisPosition: crossX,
+                isReference: true,
+              };
+            } else {
+              referenceGuideY = null;
+            }
           }
         }
       }
@@ -474,9 +577,26 @@ export function findAlignmentGuides(
               gapStart: left.x + left.width,
               gapEnd: right.x,
               crossAxisPosition: crossY,
+              isReference:
+                left !== draggingSnapped && right !== draggingSnapped,
             });
           }
         }
+      }
+
+      if (
+        referenceGuideX &&
+        !distanceGuides.some(
+          (guide) =>
+            guide.axis === referenceGuideX.axis &&
+            Math.abs(guide.gapStart - referenceGuideX.gapStart) < 0.5 &&
+            Math.abs(guide.gapEnd - referenceGuideX.gapEnd) < 0.5 &&
+            Math.abs(
+              guide.crossAxisPosition - referenceGuideX.crossAxisPosition,
+            ) < 0.5,
+        )
+      ) {
+        distanceGuides.push(referenceGuideX);
       }
     }
 
@@ -513,9 +633,26 @@ export function findAlignmentGuides(
               gapStart: top.y + top.height,
               gapEnd: bottom.y,
               crossAxisPosition: crossX,
+              isReference:
+                top !== draggingSnapped && bottom !== draggingSnapped,
             });
           }
         }
+      }
+
+      if (
+        referenceGuideY &&
+        !distanceGuides.some(
+          (guide) =>
+            guide.axis === referenceGuideY.axis &&
+            Math.abs(guide.gapStart - referenceGuideY.gapStart) < 0.5 &&
+            Math.abs(guide.gapEnd - referenceGuideY.gapEnd) < 0.5 &&
+            Math.abs(
+              guide.crossAxisPosition - referenceGuideY.crossAxisPosition,
+            ) < 0.5,
+        )
+      ) {
+        distanceGuides.push(referenceGuideY);
       }
     }
   }

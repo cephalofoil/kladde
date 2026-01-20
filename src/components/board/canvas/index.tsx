@@ -2004,6 +2004,7 @@ export function Canvas({
           {/* Render distance guides with measurements */}
           {distanceGuides.map((guide, i) => {
             const isHorizontal = guide.axis === "horizontal";
+            const isReference = guide.isReference ?? false;
             const midPoint = (guide.gapStart + guide.gapEnd) / 2;
             const capSize = 6 / zoom;
             const fontSize = 10 / zoom;
@@ -2029,83 +2030,117 @@ export function Canvas({
                   y2={isHorizontal ? guide.crossAxisPosition : guide.gapEnd}
                   stroke="var(--accent)"
                   strokeWidth={1 / zoom}
-                  opacity={0.8}
+                  opacity={isReference ? 0.35 : 0.8}
+                  strokeDasharray={
+                    isReference ? `${4 / zoom},${3 / zoom}` : undefined
+                  }
                 />
-                {/* Start cap */}
-                <line
-                  x1={
-                    isHorizontal
-                      ? guide.gapStart
-                      : guide.crossAxisPosition - capSize / 2
-                  }
-                  y1={
-                    isHorizontal
-                      ? guide.crossAxisPosition - capSize / 2
-                      : guide.gapStart
-                  }
-                  x2={
-                    isHorizontal
-                      ? guide.gapStart
-                      : guide.crossAxisPosition + capSize / 2
-                  }
-                  y2={
-                    isHorizontal
-                      ? guide.crossAxisPosition + capSize / 2
-                      : guide.gapStart
-                  }
-                  stroke="var(--accent)"
-                  strokeWidth={1 / zoom}
-                  opacity={0.8}
-                />
-                {/* End cap */}
-                <line
-                  x1={
-                    isHorizontal
-                      ? guide.gapEnd
-                      : guide.crossAxisPosition - capSize / 2
-                  }
-                  y1={
-                    isHorizontal
-                      ? guide.crossAxisPosition - capSize / 2
-                      : guide.gapEnd
-                  }
-                  x2={
-                    isHorizontal
-                      ? guide.gapEnd
-                      : guide.crossAxisPosition + capSize / 2
-                  }
-                  y2={
-                    isHorizontal
-                      ? guide.crossAxisPosition + capSize / 2
-                      : guide.gapEnd
-                  }
-                  stroke="var(--accent)"
-                  strokeWidth={1 / zoom}
-                  opacity={0.8}
-                />
-                {/* Distance label background */}
-                <rect
-                  x={labelX + labelOffsetX - labelWidth / 2}
-                  y={labelY + labelOffsetY - labelHeight / 2}
-                  width={labelWidth}
-                  height={labelHeight}
-                  rx={3 / zoom}
-                  ry={3 / zoom}
-                  fill="var(--accent)"
-                />
-                {/* Distance label text */}
-                <text
-                  x={labelX + labelOffsetX}
-                  y={labelY + labelOffsetY}
-                  fill="white"
-                  fontSize={fontSize}
-                  fontFamily="system-ui, sans-serif"
-                  fontWeight="500"
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                >
-                  {labelText}
-                </text>
+                {isReference ? (
+                  <>
+                    {/* Reference gap label */}
+                    <rect
+                      x={labelX + labelOffsetX - labelWidth / 2}
+                      y={labelY + labelOffsetY - labelHeight / 2}
+                      width={labelWidth}
+                      height={labelHeight}
+                      rx={3 / zoom}
+                      ry={3 / zoom}
+                      fill="var(--accent)"
+                      opacity={0.6}
+                    />
+                    <text
+                      x={labelX + labelOffsetX}
+                      y={labelY + labelOffsetY}
+                      fill="white"
+                      fontSize={fontSize}
+                      fontFamily="system-ui, sans-serif"
+                      fontWeight="500"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      opacity={0.9}
+                    >
+                      {labelText}
+                    </text>
+                  </>
+                ) : (
+                  <>
+                    {/* Start cap */}
+                    <line
+                      x1={
+                        isHorizontal
+                          ? guide.gapStart
+                          : guide.crossAxisPosition - capSize / 2
+                      }
+                      y1={
+                        isHorizontal
+                          ? guide.crossAxisPosition - capSize / 2
+                          : guide.gapStart
+                      }
+                      x2={
+                        isHorizontal
+                          ? guide.gapStart
+                          : guide.crossAxisPosition + capSize / 2
+                      }
+                      y2={
+                        isHorizontal
+                          ? guide.crossAxisPosition + capSize / 2
+                          : guide.gapStart
+                      }
+                      stroke="var(--accent)"
+                      strokeWidth={1 / zoom}
+                      opacity={0.8}
+                    />
+                    {/* End cap */}
+                    <line
+                      x1={
+                        isHorizontal
+                          ? guide.gapEnd
+                          : guide.crossAxisPosition - capSize / 2
+                      }
+                      y1={
+                        isHorizontal
+                          ? guide.crossAxisPosition - capSize / 2
+                          : guide.gapEnd
+                      }
+                      x2={
+                        isHorizontal
+                          ? guide.gapEnd
+                          : guide.crossAxisPosition + capSize / 2
+                      }
+                      y2={
+                        isHorizontal
+                          ? guide.crossAxisPosition + capSize / 2
+                          : guide.gapEnd
+                      }
+                      stroke="var(--accent)"
+                      strokeWidth={1 / zoom}
+                      opacity={0.8}
+                    />
+                    {/* Distance label background */}
+                    <rect
+                      x={labelX + labelOffsetX - labelWidth / 2}
+                      y={labelY + labelOffsetY - labelHeight / 2}
+                      width={labelWidth}
+                      height={labelHeight}
+                      rx={3 / zoom}
+                      ry={3 / zoom}
+                      fill="var(--accent)"
+                    />
+                    {/* Distance label text */}
+                    <text
+                      x={labelX + labelOffsetX}
+                      y={labelY + labelOffsetY}
+                      fill="white"
+                      fontSize={fontSize}
+                      fontFamily="system-ui, sans-serif"
+                      fontWeight="500"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
+                      {labelText}
+                    </text>
+                  </>
+                )}
               </g>
             );
           })}
