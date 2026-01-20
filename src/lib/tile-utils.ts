@@ -20,7 +20,7 @@ export function getMinTileSize(tileType: TileType): {
 } {
   switch (tileType) {
     case "tile-text":
-      return { width: 400, height: 250 };
+      return { width: 500, height: 250 };
     case "tile-note":
       return { width: 200, height: 150 };
     case "tile-code":
@@ -45,7 +45,7 @@ export function getDefaultTileSize(tileType: TileType): {
 } {
   switch (tileType) {
     case "tile-text":
-      return { width: 400, height: 250 };
+      return { width: 600, height: 250 };
     case "tile-note":
       return { width: 250, height: 200 };
     case "tile-code":
