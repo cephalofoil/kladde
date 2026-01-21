@@ -2,9 +2,13 @@
   "name": "kladde",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
+    "dev:electron": "concurrently -k \"pnpm dev\" \"wait-on http://localhost:3000 && electron .\"",
     "build": "next build",
+    "build:electron": "pnpm build && electron-builder --dir",
+    "dist:electron": "pnpm build && electron-builder",
     "start": "next start",
     "lint": "eslint ."
   },
@@ -102,10 +106,29 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^40.0.0",
+    "electron-builder": "^25.1.8",
     "partykit": "^0.0.115",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.kladde.app",
+    "productName": "Kladde",
+    "asar": false,
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**",
+      "public/**",
+      ".next/standalone/**",
+      ".next/static/**",
+      "package.json"
+    ]
   }
 }
