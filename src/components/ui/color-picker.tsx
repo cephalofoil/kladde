@@ -31,6 +31,7 @@ export interface ColorPickerProps {
   showAlpha?: boolean;
   showEyedropper?: boolean;
   showSwatches?: boolean;
+  showFormatTabs?: boolean;
 }
 
 type ColorFormat = "hex" | "rgb" | "hsl";
@@ -483,6 +484,89 @@ function ColorFormatInput({
   );
 }
 
+interface HexInputProps {
+  rgb: RGB;
+  onChange: (rgb: RGB) => void;
+}
+
+function HexInput({ rgb, onChange }: HexInputProps) {
+  const [inputValue, setInputValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    const trimmed = inputValue.trim();
+    if (!isValidHex(trimmed)) return;
+
+    const timeoutId = setTimeout(() => {
+      const parsed = parseColor(trimmed);
+      if (!parsed) return;
+      if (rgb.a !== undefined && parsed.a === undefined) {
+        parsed.a = rgb.a;
+      }
+      onChange(parsed);
+    }, 120);
+
+    return () => clearTimeout(timeoutId);
+  }, [inputValue, isFocused, onChange, rgb.a]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(rgbToHex(rgb));
+    }
+  }, [rgb, isFocused]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleApply = () => {
+    const trimmed = inputValue.trim();
+    if (!isValidHex(trimmed)) {
+      setInputValue(rgbToHex(rgb));
+      return;
+    }
+
+    const parsed = parseColor(trimmed);
+    if (parsed) {
+      if (rgb.a !== undefined && parsed.a === undefined) {
+        parsed.a = rgb.a;
+      }
+      onChange(parsed);
+      setInputValue(rgbToHex(parsed));
+      return;
+    }
+
+    setInputValue(rgbToHex(rgb));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleApply();
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        Hex
+      </label>
+      <Input
+        value={inputValue}
+        onChange={handleChange}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => {
+          setIsFocused(false);
+          handleApply();
+        }}
+        onKeyDown={handleKeyDown}
+        className="font-mono text-sm"
+        placeholder="#FFFFFF"
+      />
+    </div>
+  );
+}
+
 /**
  * ColorSwatches Component
  * Recent colors display
@@ -553,6 +637,7 @@ export function ColorPicker({
   showAlpha = true,
   showEyedropper = true,
   showSwatches = true,
+  showFormatTabs = true,
 }: ColorPickerProps) {
   const [format, setFormat] = useState<ColorFormat>("hex");
   const [recentColors, setRecentColors] = useState<string[]>([]);
@@ -670,7 +755,7 @@ export function ColorPicker({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/20"
         style={{ zIndex: 999998 }}
         onClick={onClose}
       />
@@ -717,12 +802,16 @@ export function ColorPicker({
           )}
 
           {/* Format Input */}
-          <ColorFormatInput
-            rgb={rgb}
-            format={format}
-            onFormatChange={setFormat}
-            onChange={handleRgbChange}
-          />
+          {showFormatTabs ? (
+            <ColorFormatInput
+              rgb={rgb}
+              format={format}
+              onFormatChange={setFormat}
+              onChange={handleRgbChange}
+            />
+          ) : (
+            <HexInput rgb={rgb} onChange={handleRgbChange} />
+          )}
 
           {/* Eyedropper */}
           {showEyedropper && supportsEyedropper && (

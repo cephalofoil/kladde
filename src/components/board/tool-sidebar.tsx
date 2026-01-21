@@ -2276,6 +2276,7 @@ export function ToolSidebar({
         showAlpha={true}
         showEyedropper={true}
         showSwatches={true}
+        showFormatTabs={false}
       />
 
       {/* Fill Color Picker Modal */}
@@ -2289,6 +2290,7 @@ export function ToolSidebar({
         showAlpha={true}
         showEyedropper={true}
         showSwatches={true}
+        showFormatTabs={false}
       />
 
       {/* Font Submenu - slides out to the left */}
