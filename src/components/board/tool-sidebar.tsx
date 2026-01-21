@@ -44,6 +44,7 @@ import {
   BookOpen,
   ChevronDown,
   MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import {
   Tool,
@@ -56,6 +57,7 @@ import {
   BoardElement,
   FrameStyle,
 } from "@/lib/board-types";
+import { parseColor } from "@/lib/utils/color-conversions";
 import { getArrowheadPoints, normalizeArrowhead } from "@/lib/arrowheads";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
@@ -234,6 +236,8 @@ export function ToolSidebar({
   const [isCondensed, setIsCondensed] = useState(false);
   const [showStrokeColorPicker, setShowStrokeColorPicker] = useState(false);
   const [showFillColorPicker, setShowFillColorPicker] = useState(false);
+  const [customStrokeColor, setCustomStrokeColor] = useState<string | null>(null);
+  const [customFillColor, setCustomFillColor] = useState<string | null>(null);
   const [openArrowEndMenu, setOpenArrowEndMenu] = useState<
     "start" | "end" | null
   >(null);
@@ -608,6 +612,44 @@ export function ToolSidebar({
     setOpenArrowEndMenu(which);
   };
 
+  const hasSelectedElements = selectedElements.length > 0;
+
+  // Reorder colors based on theme: black first in light mode, white first in dark mode
+  const currentTheme = resolvedTheme || theme;
+  const orderedColors =
+    currentTheme === "light"
+      ? COLORS
+      : [COLORS[1], COLORS[0], ...COLORS.slice(2)];
+  const sidebarColors = orderedColors.filter(
+    (color) => !SIDEBAR_HIDDEN_COLORS.has(color),
+  );
+  const isHighlighterElement = (el: BoardElement) =>
+    el.type === "pen" && el.penMode === "highlighter";
+  const useHighlightPalette =
+    selectedTool === "highlighter" ||
+    (hasSelectedElements && selectedElements.every(isHighlighterElement));
+  const paletteColors = useHighlightPalette ? HIGHLIGHT_COLORS : sidebarColors;
+
+  useEffect(() => {
+    if (
+      strokeColor &&
+      strokeColor !== "transparent" &&
+      !paletteColors.includes(strokeColor)
+    ) {
+      setCustomStrokeColor(strokeColor);
+    }
+  }, [paletteColors, strokeColor]);
+
+  useEffect(() => {
+    if (
+      fillColor &&
+      fillColor !== "transparent" &&
+      !paletteColors.includes(fillColor)
+    ) {
+      setCustomFillColor(fillColor);
+    }
+  }, [fillColor, paletteColors]);
+
   // Don't show sidebar for non-adjustable tools
   if (
     !ADJUSTABLE_TOOLS.includes(selectedTool) &&
@@ -615,8 +657,6 @@ export function ToolSidebar({
   ) {
     return null;
   }
-
-  const hasSelectedElements = selectedElements.length > 0;
   const selectionGroupId = selectedElements[0]?.groupId;
   const isSelectionSingleGroup =
     !!selectionGroupId &&
@@ -652,21 +692,6 @@ export function ToolSidebar({
     !!onMoveBackward;
   const showMoreMenu = showLayerOrderActions || showAlign || showGroupAction;
 
-  // Reorder colors based on theme: black first in light mode, white first in dark mode
-  const currentTheme = resolvedTheme || theme;
-  const orderedColors =
-    currentTheme === "light"
-      ? COLORS
-      : [COLORS[1], COLORS[0], ...COLORS.slice(2)];
-  const sidebarColors = orderedColors.filter(
-    (color) => !SIDEBAR_HIDDEN_COLORS.has(color),
-  );
-  const isHighlighterElement = (el: BoardElement) =>
-    el.type === "pen" && el.penMode === "highlighter";
-  const useHighlightPalette =
-    selectedTool === "highlighter" ||
-    (hasSelectedElements && selectedElements.every(isHighlighterElement));
-  const paletteColors = useHighlightPalette ? HIGHLIGHT_COLORS : sidebarColors;
 
   // Determine what controls to show based on selected elements or current tool
   const showFill = hasSelectedElements
@@ -758,6 +783,15 @@ export function ToolSidebar({
       };
     }
     return { backgroundColor: color };
+  };
+
+  const getContrastIconColor = (color?: string | null) => {
+    if (!color) return "hsl(var(--foreground))";
+    const parsed = parseColor(color);
+    if (!parsed) return "hsl(var(--foreground))";
+    const luminance =
+      (0.2126 * parsed.r + 0.7152 * parsed.g + 0.0722 * parsed.b) / 255;
+    return luminance > 0.6 ? "#0b0b0b" : "#ffffff";
   };
 
   const iconButton = cn(
@@ -1477,7 +1511,9 @@ export function ToolSidebar({
                   }}
                   className={cn(
                     "h-6 w-6 rounded-md border border-input transition-transform hover:scale-110",
-                    strokeColor === color ? "scale-105" : undefined,
+                    strokeColor === color
+                      ? "scale-105 ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
+                      : undefined,
                   )}
                   style={{ backgroundColor: color }}
                   title={color}
@@ -1486,19 +1522,40 @@ export function ToolSidebar({
               <button
                 type="button"
                 onClick={() => {
-                  setShowStrokeColorPicker(true);
+                  if (customStrokeColor) {
+                    if (strokeColor === customStrokeColor) {
+                      setShowStrokeColorPicker(true);
+                    } else {
+                      onStrokeColorChange(customStrokeColor);
+                    }
+                  } else {
+                    setShowStrokeColorPicker(true);
+                  }
                   setOpenStrokeMenu(false);
                 }}
-                className="h-6 w-6 rounded-md border border-input overflow-hidden"
-                title="Custom color"
+                className={cn(
+                  "h-6 w-6 rounded-md border border-input overflow-hidden",
+                  customStrokeColor && strokeColor === customStrokeColor
+                    ? "ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
+                    : undefined,
+                )}
+                title={customStrokeColor ?? "Custom color"}
               >
                 <div
-                  className="w-full h-full"
+                  className="relative w-full h-full"
                   style={{
-                    background:
-                      "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
+                    background: customStrokeColor
+                      ? customStrokeColor
+                      : "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
                   }}
-                />
+                >
+                  {customStrokeColor && strokeColor === customStrokeColor && (
+                    <Plus
+                      className="absolute inset-0 m-auto h-3 w-3 opacity-90"
+                      style={{ color: getContrastIconColor(customStrokeColor) }}
+                    />
+                  )}
+                </div>
               </button>
             </div>
           </DropdownMenuContent>
@@ -1548,36 +1605,53 @@ export function ToolSidebar({
                       onFillColorChange(color);
                       setOpenFillMenu(false);
                     }}
-                    className={cn(
-                      "h-6 w-6 rounded-md border border-input transition-transform hover:scale-110",
-                      fillColor === color ? "scale-105" : undefined,
-                    )}
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
+                  className={cn(
+                    "h-6 w-6 rounded-md border border-input transition-transform hover:scale-110",
+                    fillColor === color
+                      ? "scale-105 ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
+                      : undefined,
+                  )}
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
                 ))}
                 <button
                   type="button"
                   onClick={() => {
-                    setShowFillColorPicker(true);
+                    if (customFillColor) {
+                      if (fillColor === customFillColor) {
+                        setShowFillColorPicker(true);
+                      } else {
+                        onFillColorChange(customFillColor);
+                      }
+                    } else {
+                      setShowFillColorPicker(true);
+                    }
                     setOpenFillMenu(false);
                   }}
                   className={cn(
                     "h-6 w-6 rounded-md border border-input overflow-hidden",
-                    fillColor !== "transparent" &&
-                      !paletteColors.includes(fillColor)
-                      ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                    customFillColor && fillColor === customFillColor
+                      ? "ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
                       : undefined,
                   )}
-                  title="Custom fill color"
+                  title={customFillColor ?? "Custom fill color"}
                 >
                   <div
-                    className="w-full h-full"
+                    className="relative w-full h-full"
                     style={{
-                      background:
-                        "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
+                      background: customFillColor
+                        ? customFillColor
+                        : "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
                     }}
-                  />
+                  >
+                    {customFillColor && fillColor === customFillColor && (
+                      <Plus
+                        className="absolute inset-0 m-auto h-3 w-3 opacity-90"
+                        style={{ color: getContrastIconColor(customFillColor) }}
+                      />
+                    )}
+                  </div>
                 </button>
               </div>
             </DropdownMenuContent>
@@ -1934,31 +2008,53 @@ export function ToolSidebar({
                   onClick={() => onStrokeColorChange(color)}
                   className={cn(
                     SWATCH_BASE,
-                    strokeColor === color ? "scale-105" : undefined,
+                    strokeColor === color
+                      ? "scale-105 ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
+                      : undefined,
                   )}
                   style={{
                     backgroundColor: color,
-                    boxShadow:
-                      strokeColor === color
-                        ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${color}, 0 0 14px ${color}66`
-                        : undefined,
                   }}
                   title={color}
                 />
               ))}
               {/* Custom color picker */}
               <button
-                onClick={() => setShowStrokeColorPicker(true)}
-                className={cn(SWATCH_BASE, "cursor-pointer overflow-hidden")}
-                title="Custom color"
+                onClick={() => {
+                  if (customStrokeColor) {
+                    if (strokeColor === customStrokeColor) {
+                      setShowStrokeColorPicker(true);
+                    } else {
+                      onStrokeColorChange(customStrokeColor);
+                    }
+                  } else {
+                    setShowStrokeColorPicker(true);
+                  }
+                }}
+                className={cn(
+                  SWATCH_BASE,
+                  "cursor-pointer overflow-hidden",
+                  customStrokeColor && strokeColor === customStrokeColor
+                    ? "ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
+                    : undefined,
+                )}
+                title={customStrokeColor ?? "Custom color"}
               >
                 <div
-                  className="w-full h-full"
+                  className="relative w-full h-full"
                   style={{
-                    background:
-                      "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
+                    background: customStrokeColor
+                      ? customStrokeColor
+                      : "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
                   }}
-                />
+                >
+                  {customStrokeColor && strokeColor === customStrokeColor && (
+                    <Plus
+                      className="absolute inset-0 m-auto h-3.5 w-3.5 opacity-90"
+                      style={{ color: getContrastIconColor(customStrokeColor) }}
+                    />
+                  )}
+                </div>
               </button>
             </div>
           </div>
@@ -1996,38 +2092,53 @@ export function ToolSidebar({
                       }
                       className={cn(
                         SWATCH_BASE,
-                        fillColor === color ? "scale-105" : undefined,
+                        fillColor === color
+                          ? "scale-105 ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
+                          : undefined,
                       )}
                       style={{
                         backgroundColor: color,
-                        boxShadow:
-                          fillColor === color
-                            ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${color}, 0 0 14px ${color}66`
-                            : undefined,
                       }}
                       title={color}
                     />
                   ))}
                   {/* Custom color picker */}
                   <button
-                    onClick={() => setShowFillColorPicker(true)}
+                    onClick={() => {
+                      if (customFillColor) {
+                        if (fillColor === customFillColor) {
+                          setShowFillColorPicker(true);
+                        } else {
+                          onFillColorChange(customFillColor);
+                        }
+                      } else {
+                        setShowFillColorPicker(true);
+                      }
+                    }}
                     className={cn(
                       SWATCH_BASE,
                       "cursor-pointer overflow-hidden",
-                      fillColor !== "transparent" &&
-                        !paletteColors.includes(fillColor)
-                        ? "scale-105"
+                      customFillColor && fillColor === customFillColor
+                        ? "ring-1 ring-foreground/40 ring-offset-1 ring-offset-background"
                         : undefined,
                     )}
-                    title="Custom fill color"
+                    title={customFillColor ?? "Custom fill color"}
                   >
                     <div
-                      className="w-full h-full"
+                      className="relative w-full h-full"
                       style={{
-                        background:
-                          "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
+                        background: customFillColor
+                          ? customFillColor
+                          : "linear-gradient(135deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 57%, #4b0082 71%, #9400d3 85%, #ff0000 100%)",
                       }}
-                    />
+                    >
+                      {customFillColor && fillColor === customFillColor && (
+                        <Plus
+                          className="absolute inset-0 m-auto h-3.5 w-3.5 opacity-90"
+                          style={{ color: getContrastIconColor(customFillColor) }}
+                        />
+                      )}
+                    </div>
                   </button>
                 </div>
               </div>
@@ -2268,7 +2379,10 @@ export function ToolSidebar({
       {/* Stroke Color Picker Modal */}
       <ColorPicker
         value={strokeColor}
-        onChange={onStrokeColorChange}
+        onChange={(color) => {
+          setCustomStrokeColor(color);
+          onStrokeColorChange(color);
+        }}
         isOpen={showStrokeColorPicker}
         onClose={() => setShowStrokeColorPicker(false)}
         title="Custom Stroke Color"
@@ -2282,7 +2396,10 @@ export function ToolSidebar({
       {/* Fill Color Picker Modal */}
       <ColorPicker
         value={fillColor}
-        onChange={(color) => onFillColorChange?.(color)}
+        onChange={(color) => {
+          setCustomFillColor(color);
+          onFillColorChange?.(color);
+        }}
         isOpen={showFillColorPicker}
         onClose={() => setShowFillColorPicker(false)}
         title="Custom Fill Color"

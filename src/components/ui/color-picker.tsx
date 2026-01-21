@@ -715,6 +715,14 @@ export function ColorPicker({
     onClose();
   }, [hex, onChange, onClose]);
 
+  const handleClose = useCallback(() => {
+    const outputColor = hex;
+    onChange(outputColor);
+    addRecentColor(outputColor);
+    setRecentColors(getRecentColors());
+    onClose();
+  }, [hex, onChange, onClose]);
+
   const handleSwatchSelect = useCallback((color: string) => {
     const parsed = parseColor(color);
     if (parsed) {
@@ -727,14 +735,14 @@ export function ColorPicker({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
+        if (e.key === "Escape") {
+          handleClose();
+        }
+      };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [handleClose, isOpen]);
 
   if (!isOpen) return null;
 
@@ -757,7 +765,7 @@ export function ColorPicker({
       <div
         className="fixed inset-0 bg-black/20"
         style={{ zIndex: 999998 }}
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal */}
@@ -770,7 +778,7 @@ export function ColorPicker({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           <Button
-            onClick={onClose}
+            onClick={handleClose}
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:text-foreground"
