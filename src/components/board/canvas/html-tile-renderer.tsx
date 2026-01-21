@@ -213,6 +213,11 @@ export function HtmlTileRenderer({
     e.stopPropagation();
   }, []);
 
+  const isLinkTarget = useCallback((e: React.SyntheticEvent) => {
+    const target = e.target as HTMLElement | null;
+    return Boolean(target?.closest("a"));
+  }, []);
+
   const requestTextEdit = useCallback(
     (e: React.SyntheticEvent) => {
       stopCanvas(e);
@@ -283,7 +288,17 @@ export function HtmlTileRenderer({
           "pointer-events-auto",
         )}
         data-canvas-interactive="true"
-        onMouseDownCapture={isTextEditing ? stopCanvas : requestTextEdit}
+        onMouseDownCapture={(e) => {
+          if (isTextEditing) {
+            stopCanvas(e);
+            return;
+          }
+          if (isLinkTarget(e)) {
+            stopCanvas(e);
+            return;
+          }
+          requestTextEdit(e);
+        }}
         onMouseMoveCapture={stopCanvas}
         onMouseUpCapture={stopCanvas}
       >
