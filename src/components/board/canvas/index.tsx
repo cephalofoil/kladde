@@ -59,6 +59,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
+import { getModifierKey, isMac } from "@/lib/platform";
 import {
     Tooltip,
     TooltipContent,
@@ -273,6 +274,14 @@ export function Canvas({
     const LASER_HOLD_DURATION_MS = 3000;
     const LASER_FADE_DURATION_MS = 800;
     const LASER_TTL_MS = LASER_HOLD_DURATION_MS + LASER_FADE_DURATION_MS + 250;
+    const modKey = useMemo(() => getModifierKey(), []);
+    const shiftKey = useMemo(() => (isMac() ? "⇧" : "Shift"), []);
+    const altKey = useMemo(() => (isMac() ? "⌥" : "Alt"), []);
+    const undoShortcut = useMemo(() => `${modKey}+Z`, [modKey]);
+    const redoShortcut = useMemo(
+        () => (isMac() ? `${modKey}+${shiftKey}+Z` : `${modKey}+Y`),
+        [modKey, shiftKey],
+    );
 
     // Tile editing state
     const [editingTileId, setEditingTileId] = useState<string | null>(null);
@@ -2975,7 +2984,7 @@ export function Canvas({
                                     ? "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
                                     : "text-muted-foreground/40 cursor-not-allowed",
                             )}
-                            title="Undo (Ctrl+Z)"
+                            title={`Undo (${undoShortcut})`}
                         >
                             <Undo2 className="w-4 h-4" />
                         </button>
@@ -2988,7 +2997,7 @@ export function Canvas({
                                     ? "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
                                     : "text-muted-foreground/40 cursor-not-allowed",
                             )}
-                            title="Redo (Ctrl+Y)"
+                            title={`Redo (${redoShortcut})`}
                         >
                             <Redo2 className="w-4 h-4" />
                         </button>
@@ -3021,7 +3030,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Cut</span>
-                                    <Kbd>Ctrl+X</Kbd>
+                                    <Kbd>{`${modKey}+X`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3032,7 +3041,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Copy</span>
-                                    <Kbd>Ctrl+C</Kbd>
+                                    <Kbd>{`${modKey}+C`}</Kbd>
                                 </button>
                             </>
                         )}
@@ -3045,7 +3054,7 @@ export function Canvas({
                             className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                         >
                             <span>Paste</span>
-                            <Kbd>Ctrl+V</Kbd>
+                            <Kbd>{`${modKey}+V`}</Kbd>
                         </button>
 
                         {!contextMenu.elementId && (
@@ -3060,7 +3069,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Select all</span>
-                                    <Kbd>Ctrl+A</Kbd>
+                                    <Kbd>{`${modKey}+A`}</Kbd>
                                 </button>
                                 {(onToggleViewMode ||
                                     onToggleSnapToObjects) && (
@@ -3079,7 +3088,7 @@ export function Canvas({
                                                     <Check className="absolute left-1 h-3.5 w-3.5 opacity-90" />
                                                 )}
                                                 <span>View mode</span>
-                                                <Kbd>Alt+R</Kbd>
+                                                <Kbd>{`${altKey}+R`}</Kbd>
                                             </button>
                                         )}
                                         {onToggleSnapToObjects && (
@@ -3095,7 +3104,7 @@ export function Canvas({
                                                     <Check className="absolute left-1 h-3.5 w-3.5 opacity-90" />
                                                 )}
                                                 <span>Snap to objects</span>
-                                                <Kbd>Alt+S</Kbd>
+                                                <Kbd>{`${altKey}+S`}</Kbd>
                                             </button>
                                         )}
                                     </>
@@ -3137,7 +3146,7 @@ export function Canvas({
                             className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                         >
                             <span>Copy to clipboard as PNG</span>
-                            <Kbd>Shift+Alt+C</Kbd>
+                            <Kbd>{`${shiftKey}+${altKey}+C`}</Kbd>
                         </button>
                         <button
                             type="button"
@@ -3163,7 +3172,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Copy styles</span>
-                                    <Kbd>Ctrl+Alt+C</Kbd>
+                                    <Kbd>{`${modKey}+${altKey}+C`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3175,7 +3184,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <span>Paste styles</span>
-                                    <Kbd>Ctrl+Alt+V</Kbd>
+                                    <Kbd>{`${modKey}+${altKey}+V`}</Kbd>
                                 </button>
                             </>
                         )}
@@ -3193,7 +3202,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Send backward</span>
-                                    <Kbd>Ctrl+[</Kbd>
+                                    <Kbd>{`${modKey}+[`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3204,7 +3213,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Bring forward</span>
-                                    <Kbd>Ctrl+]</Kbd>
+                                    <Kbd>{`${modKey}+]`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3215,7 +3224,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Send to back</span>
-                                    <Kbd>Ctrl+Shift+[</Kbd>
+                                    <Kbd>{`${modKey}+${shiftKey}+[`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3226,7 +3235,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Bring to front</span>
-                                    <Kbd>Ctrl+Shift+]</Kbd>
+                                    <Kbd>{`${modKey}+${shiftKey}+]`}</Kbd>
                                 </button>
                             </>
                         )}
@@ -3244,7 +3253,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Flip horizontal</span>
-                                    <Kbd>Shift+H</Kbd>
+                                    <Kbd>{`${shiftKey}+H`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3255,7 +3264,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Flip vertical</span>
-                                    <Kbd>Shift+V</Kbd>
+                                    <Kbd>{`${shiftKey}+V`}</Kbd>
                                 </button>
                             </>
                         )}
@@ -3277,7 +3286,7 @@ export function Canvas({
                                             ? "Edit link"
                                             : "Add link"}
                                     </span>
-                                    <Kbd>Ctrl+K</Kbd>
+                                    <Kbd>{`${modKey}+K`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3305,7 +3314,7 @@ export function Canvas({
                                     className="w-full flex items-center justify-between px-5 py-1.5 text-[12px] hover:bg-muted/80 dark:hover:bg-muted/40 transition-colors"
                                 >
                                     <span>Duplicate</span>
-                                    <Kbd>Ctrl+D</Kbd>
+                                    <Kbd>{`${modKey}+D`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
@@ -3320,7 +3329,7 @@ export function Canvas({
                                             ? "Unlock"
                                             : "Lock"}
                                     </span>
-                                    <Kbd>Ctrl+Shift+L</Kbd>
+                                    <Kbd>{`${modKey}+${shiftKey}+L`}</Kbd>
                                 </button>
                                 <button
                                     type="button"
