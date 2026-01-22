@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Palette, Trash2 } from "lucide-react";
 import type { NoteColor, NoteStyle } from "@/lib/board-types";
+import { measureWrappedTextHeightPx } from "../text-utils";
 import { TornNoteTileRenderer } from "./torn-note-tile-renderer";
 
 export type { NoteColor };
@@ -20,6 +21,8 @@ interface NoteTileRendererProps {
     content: string;
     color?: NoteColor;
     style?: NoteStyle;
+    fontFamily?: string;
+    textAlign?: "left" | "center" | "right";
     onChange?: (content: string) => void;
     onColorChange?: (color: NoteColor) => void;
     onStyleChange?: (style: NoteStyle) => void;
@@ -63,6 +66,8 @@ export function NoteTileRenderer({
     content,
     color = "butter",
     style = "classic",
+    fontFamily,
+    textAlign,
     onChange,
     onColorChange,
     onStyleChange,
@@ -79,6 +84,8 @@ export function NoteTileRenderer({
             <TornNoteTileRenderer
                 content={content}
                 color={color}
+                fontFamily={fontFamily}
+                textAlign={textAlign}
                 onChange={onChange}
                 onColorChange={onColorChange}
                 onDelete={onDelete}
@@ -90,21 +97,82 @@ export function NoteTileRenderer({
             />
         );
     }
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const [localContent, setLocalContent] = useState(content);
+    const [autoFontSize, setAutoFontSize] = useState(24);
+    const [verticalPadding, setVerticalPadding] = useState(16);
     const resolvedColor = color === "natural-tan" ? "butter" : color;
+    const resolvedFontFamily = fontFamily || "var(--font-inter)";
+    const resolvedTextAlign = textAlign || "center";
 
     useEffect(() => {
         setLocalContent(content);
     }, [content]);
 
-    const handleContentChange = useCallback(
-        (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-            const newContent = e.target.value;
-            setLocalContent(newContent);
-            onChange?.(newContent);
-        },
-        [onChange],
-    );
+    const plainText = useMemo(() => {
+        const text = localContent || "";
+        return text.replace(/\r\n/g, "\n");
+    }, [localContent]);
+
+    useLayoutEffect(() => {
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            const { width, height } = entry.contentRect;
+            if (!width || !height) return;
+            const paddingX = 20;
+            const minPadding = 12;
+            const availableWidth = Math.max(0, width - paddingX * 2);
+            const availableHeight = Math.max(0, height - minPadding * 2);
+            if (!availableWidth || !availableHeight) return;
+            const minSize = 12;
+            const maxSize = Math.max(
+                minSize,
+                Math.min(72, Math.floor(availableHeight)),
+            );
+            const textToMeasure = plainText || " ";
+            let low = minSize;
+            let high = maxSize;
+            let best = minSize;
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const measuredHeight = measureWrappedTextHeightPx({
+                    text: textToMeasure,
+                    width: availableWidth,
+                    fontSize: mid,
+                    lineHeight: 1.2,
+                    fontFamily: resolvedFontFamily,
+                    letterSpacing: 0,
+                    textAlign: resolvedTextAlign,
+                });
+                if (measuredHeight <= availableHeight) {
+                    best = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            setAutoFontSize(best);
+            const measuredHeight = measureWrappedTextHeightPx({
+                text: textToMeasure,
+                width: availableWidth,
+                fontSize: best,
+                lineHeight: 1.2,
+                fontFamily: resolvedFontFamily,
+                letterSpacing: 0,
+                textAlign: resolvedTextAlign,
+            });
+            const nextPadding = Math.max(
+                minPadding,
+                Math.floor((height - measuredHeight) / 2),
+            );
+            setVerticalPadding(nextPadding);
+        });
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, [plainText, resolvedFontFamily, resolvedTextAlign]);
 
     // Tape style matching the reference exactly
     const tapeStyle: React.CSSProperties = {
@@ -214,25 +282,44 @@ export function NoteTileRenderer({
 
                 {/* Text content */}
                 {/* When selected but not editing, disable pointer events so drag works */}
-                <textarea
-                    value={localContent}
-                    onChange={handleContentChange}
-                    readOnly={readOnly || (isSelected && !isEditing)}
-                    placeholder="Type your note..."
-                    className={cn(
-                        "w-full h-full px-5 pt-6 pb-4 bg-transparent border-none outline-none resize-none",
-                        "font-bold text-2xl text-note-text leading-tight tracking-tight",
-                        "placeholder:text-note-text/25",
-                        readOnly ? "cursor-default" : "cursor-text",
-                        isSelected && !isEditing && "pointer-events-none",
-                    )}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        onRequestEdit?.();
-                    }}
-                />
+                <div ref={containerRef} className="w-full h-full">
+                    <textarea
+                        ref={textareaRef}
+                        value={localContent}
+                        onChange={(e) => {
+                            const next = e.target.value;
+                            setLocalContent(next);
+                            onChange?.(next);
+                        }}
+                        readOnly={readOnly || (isSelected && !isEditing)}
+                        placeholder="Type your note..."
+                        className={cn(
+                            "w-full h-full px-5 bg-transparent border-none outline-none resize-none",
+                            "font-bold text-note-text leading-tight tracking-tight",
+                            "placeholder:text-note-text/25 placeholder:text-base focus:placeholder:opacity-0",
+                            readOnly ? "cursor-default" : "cursor-text",
+                        )}
+                        style={{
+                            fontFamily: resolvedFontFamily,
+                            textAlign: resolvedTextAlign,
+                            fontSize: `${autoFontSize}px`,
+                            lineHeight: "1.2",
+                            paddingTop: `${verticalPadding}px`,
+                            paddingBottom: `${verticalPadding}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                            if (!readOnly && !isEditing) {
+                                onRequestEdit?.();
+                            }
+                        }}
+                        onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            onRequestEdit?.();
+                        }}
+                    />
+                </div>
             </div>
         </div>
     );

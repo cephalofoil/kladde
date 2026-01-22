@@ -1863,6 +1863,17 @@ export function Whiteboard({
                             width: nextWidth,
                             height: nextHeight,
                         });
+                    } else if (
+                        el.type === "tile" &&
+                        el.tileType === "tile-note"
+                    ) {
+                        const nextContent = {
+                            ...(el.tileContent || {}),
+                            noteFontFamily: font,
+                        };
+                        handleUpdateElement(el.id, {
+                            tileContent: nextContent,
+                        });
                     }
                 });
                 if (typeof document !== "undefined" && document.fonts?.load) {
@@ -1917,6 +1928,17 @@ export function Whiteboard({
                 selectedElements.forEach((el) => {
                     if (el.type === "text") {
                         handleUpdateElement(el.id, { textAlign: align });
+                    } else if (
+                        el.type === "tile" &&
+                        el.tileType === "tile-note"
+                    ) {
+                        const nextContent = {
+                            ...(el.tileContent || {}),
+                            noteTextAlign: align,
+                        };
+                        handleUpdateElement(el.id, {
+                            tileContent: nextContent,
+                        });
                     }
                 });
             }
@@ -2743,6 +2765,8 @@ export function Whiteboard({
                         noteText: text,
                         noteStyle: selectedNoteStyle,
                         noteColor,
+                        noteFontFamily: fontFamily,
+                        noteTextAlign: "center",
                     },
                     opacity: 100,
                 };
@@ -2763,6 +2787,7 @@ export function Whiteboard({
         [
             collaboration,
             elements,
+            fontFamily,
             isReadOnly,
             saveToUndoStack,
             selectedNoteStyle,
@@ -2770,6 +2795,7 @@ export function Whiteboard({
             setLastSelectedLayerId,
             setSelectedElements,
             setElements,
+            textAlign,
         ],
     );
 
@@ -3670,6 +3696,18 @@ export function Whiteboard({
             }
             if (firstElement.textAlign !== undefined) {
                 setTextAlign(firstElement.textAlign);
+            }
+            if (
+                firstElement.type === "tile" &&
+                firstElement.tileType === "tile-note"
+            ) {
+                const noteFont = firstElement.tileContent?.noteFontFamily;
+                const noteAlign =
+                    firstElement.tileContent?.noteTextAlign || "center";
+                if (noteFont) {
+                    setFontFamily(noteFont);
+                }
+                setTextAlign(noteAlign);
             }
             if (firstElement.fontSize !== undefined) {
                 setFontSize(firstElement.fontSize);

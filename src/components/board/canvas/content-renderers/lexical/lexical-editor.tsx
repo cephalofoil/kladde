@@ -15,7 +15,12 @@ import {
     CHECK_LIST,
     ElementTransformer,
 } from "@lexical/markdown";
-import { $getRoot, $getSelection, $isRangeSelection, LexicalNode } from "lexical";
+import {
+    $getRoot,
+    $getSelection,
+    $isRangeSelection,
+    LexicalNode,
+} from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -130,7 +135,7 @@ const nodes = [
 const HORIZONTAL_RULE_TRANSFORMER: ElementTransformer = {
     dependencies: [HorizontalRuleNode],
     export: (node) => {
-        return $isHorizontalRuleNode(node) ? '---' : null;
+        return $isHorizontalRuleNode(node) ? "---" : null;
     },
     regExp: /^(---|___|\*\*\*)\s$/,
     replace: (parentNode, _children, _match, isImport) => {
@@ -142,13 +147,17 @@ const HORIZONTAL_RULE_TRANSFORMER: ElementTransformer = {
         }
         line.selectNext();
     },
-    type: 'element',
+    type: "element",
 };
 
 // Combined transformers with HR and CHECK_LIST support
 // CHECK_LIST is exported by @lexical/markdown but NOT included in default TRANSFORMERS
 // It must come before UNORDERED_LIST to match "- [ ]" before "- " is matched
-const CUSTOM_TRANSFORMERS = [CHECK_LIST, ...TRANSFORMERS, HORIZONTAL_RULE_TRANSFORMER];
+const CUSTOM_TRANSFORMERS = [
+    CHECK_LIST,
+    ...TRANSFORMERS,
+    HORIZONTAL_RULE_TRANSFORMER,
+];
 
 // URL matchers for AutoLinkPlugin
 const URL_MATCHERS = [
@@ -182,7 +191,10 @@ function MarkdownImportPlugin({
 
         editor.update(() => {
             if (contentToImport) {
-                $convertFromMarkdownString(contentToImport, CUSTOM_TRANSFORMERS);
+                $convertFromMarkdownString(
+                    contentToImport,
+                    CUSTOM_TRANSFORMERS,
+                );
             } else {
                 const root = $getRoot();
                 root.clear();
@@ -244,7 +256,8 @@ function MarkdownOnChangePlugin({
 
             timeoutRef.current = setTimeout(() => {
                 editorState.read(() => {
-                    const markdown = $convertToMarkdownString(CUSTOM_TRANSFORMERS);
+                    const markdown =
+                        $convertToMarkdownString(CUSTOM_TRANSFORMERS);
 
                     // Only call onChange if markdown actually changed
                     if (markdown !== lastMarkdownRef.current) {
@@ -331,6 +344,8 @@ export interface EditorProps {
     readOnly?: boolean;
     autoFocus?: boolean;
     className?: string;
+    contentClassName?: string;
+    contentStyle?: React.CSSProperties;
     showBorder?: boolean;
     showFloatingToolbar?: boolean;
     toolbarVariant?: "floating" | "inline";
@@ -344,6 +359,7 @@ export interface EditorRef {
     importMarkdown: (markdown: string) => void;
     focus: () => void;
     blur: () => void;
+    dispatchCommand: (command: unknown, payload: unknown) => void;
 }
 
 export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
@@ -355,6 +371,8 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
             readOnly = false,
             autoFocus = false,
             className,
+            contentClassName,
+            contentStyle,
             showBorder = true,
             showFloatingToolbar = false,
             toolbarVariant = "floating",
@@ -394,7 +412,8 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                     if (!editorRef.current) return "";
                     let markdown = "";
                     editorRef.current.read(() => {
-                        markdown = $convertToMarkdownString(CUSTOM_TRANSFORMERS);
+                        markdown =
+                            $convertToMarkdownString(CUSTOM_TRANSFORMERS);
                     });
                     lastMarkdownRef.current = markdown;
                     return markdown;
@@ -413,12 +432,25 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                         editorRef.current.blur();
                     }
                 },
+                dispatchCommand: (command: unknown, payload: unknown) => {
+                    if (editorRef.current) {
+                        editorRef.current.dispatchCommand(
+                            command as never,
+                            payload as never,
+                        );
+                    }
+                },
             }),
             [],
         );
 
         const showToolbar = showFloatingToolbar && !readOnly;
-        const renderInlineToolbar = showFloatingToolbar && toolbarVariant === "inline";
+        const renderInlineToolbar =
+            showFloatingToolbar && toolbarVariant === "inline";
+        const contentEditableStyle: React.CSSProperties = {
+            ...contentStyle,
+            caretColor: readOnly ? "transparent" : "auto",
+        };
 
         return (
             <div className={cn("w-full h-full", className)}>
@@ -487,12 +519,9 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                                                     "pt-12",
                                                 readOnly &&
                                                     "bg-transparent cursor-default",
+                                                contentClassName,
                                             )}
-                                            style={{
-                                                caretColor: readOnly
-                                                    ? "transparent"
-                                                    : "auto",
-                                            }}
+                                            style={contentEditableStyle}
                                             spellCheck="false"
                                         />
                                     </div>
@@ -502,7 +531,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                                         className={cn(
                                             "absolute left-3 text-gray-400 dark:text-gray-500 pointer-events-none select-none",
                                             showFloatingToolbar &&
-                                            toolbarVariant === "floating"
+                                                toolbarVariant === "floating"
                                                 ? "top-12"
                                                 : "top-2",
                                         )}
@@ -517,9 +546,7 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
 
                             {!readOnly && <SlashMenuPlugin />}
                             {!readOnly && toolbarVariant === "floating" && (
-                                <FloatingToolbarPlugin
-                                    show={showToolbar}
-                                />
+                                <FloatingToolbarPlugin show={showToolbar} />
                             )}
                         </div>
                     </div>
@@ -530,7 +557,9 @@ export const LexicalEditor = forwardRef<EditorRef, EditorProps>(
                     <LinkPlugin />
                     <AutoLinkPlugin matchers={URL_MATCHERS} />
                     <HorizontalRulePlugin />
-                    <MarkdownShortcutPlugin transformers={CUSTOM_TRANSFORMERS} />
+                    <MarkdownShortcutPlugin
+                        transformers={CUSTOM_TRANSFORMERS}
+                    />
                     <MarkdownOnChangePlugin
                         onChange={onChange}
                         lastMarkdownRef={lastMarkdownRef}
