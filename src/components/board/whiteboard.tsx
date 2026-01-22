@@ -67,6 +67,7 @@ import { useBoardComments } from "@/hooks/use-board-comments";
 import { useDiskStorageSync } from "@/hooks/use-disk-storage-sync";
 import { useBoardStore } from "@/store/board-store";
 import { getBoundingBox, translateElement } from "./whiteboard/utils";
+import { getDefaultTileSize, getMinTileSize } from "@/lib/tile-utils";
 import type { BoundingBox } from "./whiteboard/utils";
 import { HistoryManager } from "@/lib/history-manager";
 import type { CollabPermission, HistoryEntry } from "@/lib/history-types";
@@ -359,6 +360,13 @@ export function Whiteboard({
     const setViewportRef = useRef<
         ((pan: { x: number; y: number }, zoom: number) => void) | null
     >(null);
+    const currentViewportRef = useRef<{
+        pan: { x: number; y: number };
+        zoom: number;
+    }>({
+        pan: { x: 0, y: 0 },
+        zoom: 1,
+    });
     const initialViewportRef = useRef<{
         pan: { x: number; y: number };
         zoom: number;
@@ -415,6 +423,7 @@ export function Whiteboard({
                     typeof parsed?.zoom === "number"
                 ) {
                     initialViewportRef.current = parsed;
+                    currentViewportRef.current = parsed;
                 }
             } catch {
                 initialViewportRef.current = null;
@@ -2481,6 +2490,314 @@ export function Whiteboard({
         setLastSelectedLayerId,
     ]);
 
+    const handlePasteTableNotes = useCallback(
+        (clipboardText: string) => {
+            if (isReadOnly) return;
+            const trimmed = clipboardText.replace(/\r?\n$/, "");
+            if (!trimmed.includes("\t") && !trimmed.includes("\n")) return;
+
+            const rows = trimmed.split(/\r?\n/).map((row) => row.split("\t"));
+            const rowCount = rows.length;
+            const colCount = Math.max(...rows.map((row) => row.length));
+            if (rowCount === 0 || colCount === 0) return;
+
+            const { width: defaultTileWidth, height: defaultTileHeight } =
+                getDefaultTileSize("tile-note");
+            const minNoteSize = getMinTileSize("tile-note");
+            const gap = 24;
+            const maxNoteWidth = 520;
+            const noteFontSize = 24;
+            const noteLineHeight = 1.25;
+            const notePaddingX = 20;
+            const notePaddingY = 40;
+
+            const viewport = currentViewportRef.current;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const worldWidth = viewportWidth / viewport.zoom;
+            const worldHeight = viewportHeight / viewport.zoom;
+            const centerX =
+                (-viewport.pan.x + viewportWidth / 2) / viewport.zoom;
+            const centerY =
+                (-viewport.pan.y + viewportHeight / 2) / viewport.zoom;
+
+            const noteFontFamily =
+                typeof document !== "undefined"
+                    ? getComputedStyle(document.body).fontFamily ||
+                      "ui-sans-serif, system-ui, sans-serif"
+                    : "ui-sans-serif, system-ui, sans-serif";
+
+            const measureNoteSize = (text: string, maxWidth: number) => {
+                const textToMeasure = text.length ? text : " ";
+                const unbounded = measureUnboundedTextSize({
+                    text: textToMeasure,
+                    fontSize: noteFontSize,
+                    fontFamily: noteFontFamily,
+                    letterSpacing: 0,
+                    lineHeight: noteLineHeight,
+                });
+                const desiredWidth = Math.ceil(
+                    unbounded.width + notePaddingX * 2 + 12,
+                );
+                const width = Math.max(
+                    minNoteSize.width,
+                    Math.min(maxWidth, desiredWidth),
+                );
+                const wrappedHeight = measureWrappedTextHeightPx({
+                    text: textToMeasure,
+                    width: Math.max(0, width - notePaddingX * 2),
+                    fontSize: noteFontSize,
+                    lineHeight: noteLineHeight,
+                    fontFamily: noteFontFamily,
+                    letterSpacing: 0,
+                    textAlign: "left",
+                });
+                const height = Math.max(
+                    minNoteSize.height,
+                    Math.ceil(wrappedHeight + notePaddingY + 8),
+                );
+                return { width, height };
+            };
+
+            let startX = 0;
+            let startY = 0;
+            let gridWidth = 0;
+            let gridHeight = 0;
+            const flatCells: Array<{
+                text: string;
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+            }> = [];
+
+            if (rowCount === 1 || colCount === 1) {
+                const cells = rows.flatMap((row) => row);
+                const maxWidth = Math.max(
+                    minNoteSize.width,
+                    Math.min(maxNoteWidth, worldWidth - gap * 2),
+                );
+                const sizedCells = cells.map((text) => ({
+                    text,
+                    size: measureNoteSize(text, maxWidth),
+                }));
+
+                const rowsLayout: Array<{
+                    items: typeof sizedCells;
+                    width: number;
+                    height: number;
+                }> = [];
+                let currentRow: {
+                    items: typeof sizedCells;
+                    width: number;
+                    height: number;
+                } = { items: [], width: 0, height: 0 };
+
+                sizedCells.forEach((cell) => {
+                    const nextWidth =
+                        currentRow.items.length === 0
+                            ? cell.size.width
+                            : currentRow.width + gap + cell.size.width;
+                    if (nextWidth > worldWidth && currentRow.items.length > 0) {
+                        rowsLayout.push(currentRow);
+                        currentRow = {
+                            items: [cell],
+                            width: cell.size.width,
+                            height: cell.size.height,
+                        };
+                    } else {
+                        currentRow.items.push(cell);
+                        currentRow.width = nextWidth;
+                        currentRow.height = Math.max(
+                            currentRow.height,
+                            cell.size.height,
+                        );
+                    }
+                });
+                if (currentRow.items.length > 0) {
+                    rowsLayout.push(currentRow);
+                }
+
+                gridWidth = Math.max(...rowsLayout.map((row) => row.width), 0);
+                gridHeight =
+                    rowsLayout.reduce((sum, row) => sum + row.height, 0) +
+                    Math.max(0, rowsLayout.length - 1) * gap;
+
+                startX = centerX - gridWidth / 2;
+                startY = centerY - gridHeight / 2;
+
+                let yOffset = startY;
+                rowsLayout.forEach((row) => {
+                    let xOffset = startX;
+                    row.items.forEach((cell) => {
+                        flatCells.push({
+                            text: cell.text,
+                            x: xOffset,
+                            y: yOffset + (row.height - cell.size.height) / 2,
+                            width: cell.size.width,
+                            height: cell.size.height,
+                        });
+                        xOffset += cell.size.width + gap;
+                    });
+                    yOffset += row.height + gap;
+                });
+            } else {
+                const maxWidth = Math.max(
+                    minNoteSize.width,
+                    Math.min(
+                        maxNoteWidth,
+                        (worldWidth - gap * (colCount - 1)) / colCount,
+                    ),
+                );
+                const cellSizes: Array<
+                    Array<{
+                        text: string;
+                        width: number;
+                        height: number;
+                    }>
+                > = [];
+                const columnWidths = Array(colCount).fill(0);
+                const rowHeights = Array(rowCount).fill(0);
+
+                rows.forEach((row, rowIndex) => {
+                    const rowCells: Array<{
+                        text: string;
+                        width: number;
+                        height: number;
+                    }> = [];
+                    for (let colIndex = 0; colIndex < colCount; colIndex += 1) {
+                        const text = row[colIndex] ?? "";
+                        const size = measureNoteSize(text, maxWidth);
+                        rowCells.push({ text, ...size });
+                        columnWidths[colIndex] = Math.max(
+                            columnWidths[colIndex],
+                            size.width,
+                        );
+                        rowHeights[rowIndex] = Math.max(
+                            rowHeights[rowIndex],
+                            size.height,
+                        );
+                    }
+                    cellSizes.push(rowCells);
+                });
+
+                gridWidth =
+                    columnWidths.reduce((sum, width) => sum + width, 0) +
+                    (colCount - 1) * gap;
+                gridHeight =
+                    rowHeights.reduce((sum, height) => sum + height, 0) +
+                    (rowCount - 1) * gap;
+                startX = centerX - gridWidth / 2;
+                startY = centerY - gridHeight / 2;
+
+                let yOffset = startY;
+                cellSizes.forEach((row, rowIndex) => {
+                    let xOffset = startX;
+                    row.forEach((cell, colIndex) => {
+                        const columnWidth = columnWidths[colIndex];
+                        const rowHeight = rowHeights[rowIndex];
+                        flatCells.push({
+                            text: cell.text,
+                            x: xOffset + (columnWidth - cell.width) / 2,
+                            y: yOffset + (rowHeight - cell.height) / 2,
+                            width: cell.width,
+                            height: cell.height,
+                        });
+                        xOffset += columnWidth + gap;
+                    });
+                    yOffset += rowHeights[rowIndex] + gap;
+                });
+            }
+
+            if (gridWidth > worldWidth || gridHeight > worldHeight) {
+                const nextZoom = Math.min(
+                    viewportWidth / gridWidth,
+                    viewportHeight / gridHeight,
+                );
+                const panX =
+                    viewportWidth / 2 - (startX + gridWidth / 2) * nextZoom;
+                const panY =
+                    viewportHeight / 2 - (startY + gridHeight / 2) * nextZoom;
+                setViewportRef.current?.({ x: panX, y: panY }, nextZoom);
+            }
+
+            const noteColor =
+                selectedNoteStyle === "torn" ? "natural-tan" : "butter";
+
+            const created: BoardElement[] = [];
+            flatCells.forEach((cell) => {
+                const text = cell.text.trim();
+                const tile: BoardElement = {
+                    id: uuid(),
+                    type: "tile",
+                    points: [],
+                    strokeColor: "#000000",
+                    strokeWidth: 2,
+                    x: cell.x,
+                    y: cell.y,
+                    width: cell.width || defaultTileWidth,
+                    height: cell.height || defaultTileHeight,
+                    tileType: "tile-note",
+                    tileTitle: text.split("\n")[0]?.slice(0, 60) || "Note",
+                    tileContent: {
+                        noteText: text,
+                        noteStyle: selectedNoteStyle,
+                        noteColor,
+                    },
+                    opacity: 100,
+                };
+                created.push(tile);
+            });
+
+            if (created.length === 0) return;
+            saveToUndoStack();
+            if (collaboration) {
+                created.forEach((tile) => collaboration.addElement(tile));
+            } else {
+                setElements([...elements, ...created]);
+            }
+            setSelectedElements(created);
+            setLayerSelectionIds(created.map((tile) => tile.id));
+            setLastSelectedLayerId(created[0]?.id ?? null);
+        },
+        [
+            collaboration,
+            elements,
+            isReadOnly,
+            saveToUndoStack,
+            selectedNoteStyle,
+            setLayerSelectionIds,
+            setLastSelectedLayerId,
+            setSelectedElements,
+            setElements,
+        ],
+    );
+
+    useEffect(() => {
+        const handlePasteEvent = (event: ClipboardEvent) => {
+            if (isReadOnly) return;
+            const target = event.target as HTMLElement | null;
+            if (
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                target?.isContentEditable
+            ) {
+                return;
+            }
+            if (clipboardElements.length > 0) return;
+
+            const text = event.clipboardData?.getData("text/plain") || "";
+            if (!text.trim()) return;
+            if (!text.includes("\t") && !text.includes("\n")) return;
+
+            event.preventDefault();
+            handlePasteTableNotes(text);
+        };
+
+        window.addEventListener("paste", handlePasteEvent);
+        return () => window.removeEventListener("paste", handlePasteEvent);
+    }, [clipboardElements.length, handlePasteTableNotes, isReadOnly]);
+
     // Handle keyboard shortcuts for undo/redo
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -2527,8 +2844,22 @@ export function Whiteboard({
                 handleCopyToClipboard();
             }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
-                e.preventDefault();
-                handlePaste();
+                if (clipboardElements.length > 0) {
+                    e.preventDefault();
+                    handlePaste();
+                    return;
+                }
+                void (async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        if (!text.trim()) return;
+                        if (!text.includes("\t") && !text.includes("\n"))
+                            return;
+                        handlePasteTableNotes(text);
+                    } catch (error) {
+                        console.warn("Clipboard read failed:", error);
+                    }
+                })();
             }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
                 if (selectedElements.length === 0) return;
@@ -2555,6 +2886,7 @@ export function Whiteboard({
         handleRedo,
         handleCopyToClipboard,
         handlePaste,
+        clipboardElements,
         handleCopySelected,
         isReadOnly,
         selectedElements,
@@ -3765,6 +4097,7 @@ export function Whiteboard({
                     }}
                     onViewportChange={(pan, zoom) => {
                         if (typeof window === "undefined") return;
+                        currentViewportRef.current = { pan, zoom };
                         localStorage.setItem(
                             `kladde-viewport-${boardId}`,
                             JSON.stringify({ pan, zoom }),
