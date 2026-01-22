@@ -192,47 +192,47 @@ export function A4DocumentPreview({
         <div className="flex flex-col items-center gap-6">
           {pageLayout.map((page, pageIndex) => (
             <div key={`page-${page.pageNumber}`} className="flex flex-col items-center gap-4">
-              <div
-                className="bg-white shadow-xl rounded-sm transition-all duration-150 flex-shrink-0"
-                style={{
-                  width: A4_WIDTH_PX * SCALE_FACTOR,
-                  minHeight: A4_HEIGHT_PX * SCALE_FACTOR,
-                  padding: MARGIN_PX * SCALE_FACTOR,
-                }}
-              >
+                <div
+                  className="bg-white shadow-xl rounded-sm transition-all duration-150 flex-shrink-0 font-[var(--font-sans)]"
+                  style={{
+                    width: A4_WIDTH_PX * SCALE_FACTOR,
+                    minHeight: A4_HEIGHT_PX * SCALE_FACTOR,
+                    padding: MARGIN_PX * SCALE_FACTOR,
+                  }}
+                >
                 {page.showHeader && (
                   <div ref={headerRef}>
                     {/* Document Title */}
-                    <input
-                      type="text"
-                      value={documentContent.title}
-                      onChange={(e) => onTitleChange(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      placeholder="Document Title"
-                      className="w-full font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 cursor-text"
-                      style={{ fontSize: "32px", lineHeight: 1.3, marginBottom: "5.3px" }}
-                    />
+                      <input
+                        type="text"
+                        value={documentContent.title}
+                        onChange={(e) => onTitleChange(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        placeholder="Document Title"
+                        className="w-full font-semibold text-slate-900 bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-300 cursor-text font-[var(--font-heading)]"
+                        style={{ fontSize: "32px", lineHeight: 1.3, marginBottom: "5.3px" }}
+                      />
 
                     {/* Document Description */}
-                    <textarea
-                      value={documentContent.description}
-                      onChange={(e) => onDescriptionChange(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      placeholder="Add a description..."
-                      rows={1}
-                      className="w-full text-gray-600 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 resize-none cursor-text"
-                      style={{ fontSize: "16px", lineHeight: 1.5, marginBottom: "21.3px" }}
-                    />
+                      <textarea
+                        value={documentContent.description}
+                        onChange={(e) => onDescriptionChange(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        placeholder="Add a description..."
+                        rows={1}
+                        className="w-full text-slate-600 bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-300 resize-none cursor-text font-[var(--font-sans)]"
+                        style={{ fontSize: "16px", lineHeight: 1.5, marginBottom: "21.3px" }}
+                      />
 
                     {/* Divider */}
-                    <div className="border-b border-gray-200" style={{ marginBottom: "21.3px" }} />
+                    <div className="border-b border-slate-200" style={{ marginBottom: "21.3px" }} />
                   </div>
                 )}
 
                 {/* Sections */}
-                <div className="space-y-[10.7px]">
+                <div className="space-y-3">
                   {page.sectionIds.map((sectionId) => {
                     const index = sections.findIndex((section) => section.id === sectionId);
                     const section = sections[index];

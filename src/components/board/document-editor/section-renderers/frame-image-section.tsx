@@ -12,6 +12,7 @@ import {
 const HANDLE_GUTTER_PX = 28;
 const HANDLE_TOP_OFFSET_PX = 6;
 const CONTENT_WIDTH_PX = 794 - 2 * 94;
+const FRAME_ACCENT_COLOR = "#059669";
 
 const getFrameStyleLabel = (style?: string) => {
   switch (style) {
@@ -121,10 +122,16 @@ export function FrameImageSectionRenderer({
   return (
     <div
       className={cn(
-        "group relative flex items-start gap-2 py-1 rounded transition-colors",
-        isDeleted ? "bg-red-50/50" : "hover:bg-gray-50/50"
+        "group relative rounded-lg border px-3 py-2 pl-4 transition-colors",
+        isDeleted
+          ? "border-red-200 bg-red-50/60"
+          : "border-slate-200 bg-slate-50/80 hover:border-slate-300/80"
       )}
     >
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+        style={{ backgroundColor: FRAME_ACCENT_COLOR }}
+      />
       <button
         type="button"
         className="absolute opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
@@ -135,20 +142,33 @@ export function FrameImageSectionRenderer({
       </button>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1 mb-1">
-          <div className="flex items-center justify-center w-4 h-4 rounded bg-emerald-100 text-emerald-700">
-            <Square className="w-3 h-3" />
+        <div className="flex items-start gap-2 mb-2">
+          <div
+            className="flex items-center justify-center w-6 h-6 rounded-md text-white"
+            style={{ backgroundColor: FRAME_ACCENT_COLOR }}
+          >
+            <Square className="w-3.5 h-3.5" />
           </div>
-          <span className="text-[13.3px] font-medium text-gray-600 truncate">
-            {label}
-          </span>
-          <span className="text-[11px] text-gray-400">{styleLabel}</span>
-          {isDeleted && (
-            <div className="flex items-center gap-0.5 text-amber-600 text-[12px]">
-              <AlertTriangle className="w-2.5 h-2.5" />
-              <span>Source deleted</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[13.5px] font-semibold text-slate-900 truncate font-[var(--font-heading)]">
+                {label}
+              </span>
+              <span className="text-[11px] text-slate-400">{styleLabel}</span>
+              {isDeleted && (
+                <span className="flex items-center gap-1 text-amber-600 text-[12px]">
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>Source deleted</span>
+                </span>
+              )}
             </div>
-          )}
+            <span
+              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: FRAME_ACCENT_COLOR }}
+            >
+              Frame
+            </span>
+          </div>
           {!isDeleted && hasTiles && (
             <button
               type="button"
@@ -161,23 +181,23 @@ export function FrameImageSectionRenderer({
           )}
         </div>
 
-        <div className="pl-5">
+        <div className="ml-8">
           {isDeleted ? (
             <div className="border border-dashed border-red-200 bg-red-50 text-red-600 text-[12px] rounded p-2">
               Frame no longer exists.
             </div>
           ) : isRendering ? (
-            <div className="border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-[12px] rounded p-2">
+            <div className="border border-dashed border-slate-200 bg-white text-slate-500 text-[12px] rounded p-2">
               Rendering preview...
             </div>
           ) : preview?.dataUrl ? (
             <img
               src={preview.dataUrl}
               alt={`${label} preview`}
-              className="max-w-full h-auto rounded border border-gray-200"
+              className="max-w-full h-auto rounded border border-slate-200"
             />
           ) : (
-            <div className="border border-dashed border-gray-200 bg-gray-50 text-gray-500 text-[12px] rounded p-2">
+            <div className="border border-dashed border-slate-200 bg-white text-slate-500 text-[12px] rounded p-2">
               Preview unavailable.
             </div>
           )}
@@ -186,7 +206,7 @@ export function FrameImageSectionRenderer({
 
       <button
         onClick={onRemove}
-        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded"
       >
         <X className="w-3 h-3 text-red-500" />
       </button>

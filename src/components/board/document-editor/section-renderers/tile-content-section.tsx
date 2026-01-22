@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardElement, TileContentSection } from "@/lib/board-types";
-import { getTileIcon, getTileTypeColor } from "../tile-card";
+import { getTileIcon } from "../tile-card";
 import { getMermaidConfig } from "@/lib/mermaid-config";
 
 const MERMAID_BASE_MAX_HEIGHT_PX = 180;
@@ -18,6 +18,22 @@ const MERMAID_SCALE_MAX = 2;
 const MERMAID_SCALE_STEP = 0.1;
 const HANDLE_GUTTER_PX = 28;
 const HANDLE_TOP_OFFSET_PX = 6;
+
+const TILE_ACCENT_COLORS: Record<string, string> = {
+  "tile-text": "#2563eb",
+  "tile-note": "#d97706",
+  "tile-code": "#0f766e",
+  "tile-mermaid": "#7c3aed",
+  "tile-image": "#db2777",
+};
+
+const TILE_TYPE_LABELS: Record<string, string> = {
+  "tile-text": "Text Tile",
+  "tile-note": "Note Tile",
+  "tile-code": "Code Tile",
+  "tile-mermaid": "Diagram Tile",
+  "tile-image": "Image Tile",
+};
 
 const clampMermaidScale = (value: number) =>
   Math.min(MERMAID_SCALE_MAX, Math.max(MERMAID_SCALE_MIN, value));
@@ -47,11 +63,27 @@ function parseMarkdown(text: string): string {
     }
     // Unordered list
     else if (html.match(/^[-*] /)) {
-      html = html.replace(/^[-*] (.+)$/, '<li class="ml-3 text-[14.7px] leading-relaxed">• $1</li>');
+      html = html.replace(/^[-*] (.+)$/, (_match, content) => {
+        const trimmed = String(content).trimStart();
+        const cleaned = trimmed.replace(/^•\s*/, "");
+        return `
+          <div class="ml-3 flex items-start gap-2 text-[14.7px] leading-relaxed">
+            <span class="text-[18px] leading-none text-foreground">•</span>
+            <span class="text-foreground">${cleaned}</span>
+          </div>
+        `;
+      });
     }
     // Ordered list
     else if (html.match(/^\d+\. /)) {
-      html = html.replace(/^(\d+)\. (.+)$/, '<li class="ml-3 text-[14.7px] leading-relaxed">$1. $2</li>');
+      html = html.replace(/^(\d+)\. (.+)$/, (_match, index, content) => {
+        return `
+          <div class="ml-3 flex items-start gap-2 text-[14.7px] leading-relaxed">
+            <span class="min-w-[18px] text-[13.5px] font-semibold text-muted-foreground">${index}.</span>
+            <span class="text-foreground">${content}</span>
+          </div>
+        `;
+      });
     }
     // Empty line
     else if (!html.trim()) {
@@ -59,7 +91,7 @@ function parseMarkdown(text: string): string {
     }
     // Regular paragraph
     else {
-      html = `<p class="my-0.5 text-[14.7px] leading-relaxed">${html}</p>`;
+      html = `<p class="my-0.5 text-[14.7px] leading-relaxed text-foreground">${html}</p>`;
     }
 
     // Inline formatting
@@ -158,7 +190,7 @@ function MermaidPreview({ chart, scale }: { chart: string; scale: number }) {
   return (
     <div
       ref={containerRef}
-      className="bg-white border border-gray-200 rounded p-2"
+      className="bg-white border border-slate-200 rounded-md p-2"
       style={{ width: displayWidth, height: displayHeight }}
     >
       <div
@@ -186,6 +218,8 @@ export function TileContentSectionRenderer({
   const tileContent = liveTile?.tileContent || section.cachedContent;
   const isDeleted = !liveTile && section.cachedContent;
   const mermaidScale = clampMermaidScale(section.mermaidScale ?? 1);
+  const accentColor = TILE_ACCENT_COLORS[tileType ?? ""] || "#94a3b8";
+  const typeLabel = TILE_TYPE_LABELS[tileType ?? ""] || "Tile";
 
   const handleMermaidScaleChange = (nextScale: number) => {
     const clamped = clampMermaidScale(nextScale);
@@ -203,7 +237,7 @@ export function TileContentSectionRenderer({
         if (tileContent.richText) {
           return (
             <div
-              className="text-gray-700 text-[14.7px] leading-relaxed prose prose-sm max-w-none"
+              className="text-foreground text-[14.7px] leading-relaxed prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: parseMarkdown(tileContent.richText) }}
             />
           );
@@ -214,18 +248,18 @@ export function TileContentSectionRenderer({
         if (tileContent.noteText) {
           return (
             <div
-              className="bg-yellow-50 border-yellow-400"
+              className="bg-amber-50 border border-amber-200 rounded-md"
               style={{
-                borderLeftWidth: "4px",
                 paddingLeft: "10.7px",
+                paddingRight: "10.7px",
                 paddingTop: "8px",
                 paddingBottom: "8px",
-                marginTop: "5.3px",
-                marginBottom: "5.3px",
+                marginTop: "6px",
+                marginBottom: "6px",
               }}
             >
               <div
-                className="text-gray-700 text-[14.7px] leading-relaxed"
+                className="text-foreground text-[14.7px] leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: parseMarkdown(tileContent.noteText) }}
               />
             </div>
@@ -236,12 +270,12 @@ export function TileContentSectionRenderer({
       case "tile-code":
         if (tileContent.code) {
           return (
-            <div className="bg-gray-800 rounded p-2 overflow-x-auto">
-              <pre className="text-[12px] font-mono text-gray-100 whitespace-pre-wrap">
+            <div className="bg-slate-900 rounded-md p-2 overflow-x-auto">
+              <pre className="text-[12px] font-mono text-slate-100 whitespace-pre-wrap">
                 {tileContent.code}
               </pre>
               {tileContent.language && (
-                <span className="text-[10.7px] text-gray-400 mt-1 block">
+                <span className="text-[10.7px] text-slate-400 mt-1 block">
                   {tileContent.language}
                 </span>
               )}
@@ -287,10 +321,16 @@ export function TileContentSectionRenderer({
   return (
     <div
       className={cn(
-        "group relative flex items-start gap-2 py-1 rounded transition-colors",
-        isDeleted ? "bg-red-50/50" : "hover:bg-gray-50/50"
+        "group relative rounded-lg border px-3 py-2 pl-4 transition-colors",
+        isDeleted
+          ? "border-red-200 bg-red-50/60"
+          : "border-slate-200 bg-slate-50/80 hover:border-slate-300/80"
       )}
     >
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+        style={{ backgroundColor: accentColor }}
+      />
       {/* Drag Handle */}
       <button
         type="button"
@@ -304,24 +344,38 @@ export function TileContentSectionRenderer({
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Header with type badge and title */}
-        <div className="flex items-center gap-1 mb-1">
+        <div className="flex items-start gap-2 mb-2">
           <div
-            className={cn(
-              "flex items-center justify-center w-4 h-4 rounded text-white",
-              getTileTypeColor(tileType)
-            )}
+            className="flex items-center justify-center w-6 h-6 rounded-md text-white"
+            style={{ backgroundColor: accentColor }}
           >
-            {getTileIcon(tileType, "w-3 h-3")}
+            {getTileIcon(tileType, "w-3.5 h-3.5")}
           </div>
-          <span className="text-[13.3px] font-medium text-gray-600 truncate">
-            {tileTitle}
-          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[13.5px] font-semibold text-slate-900 truncate font-[var(--font-heading)]">
+                {tileTitle}
+              </span>
+              {isDeleted && (
+                <span className="flex items-center gap-1 text-amber-600 text-[12px]">
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>Source deleted</span>
+                </span>
+              )}
+            </div>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: accentColor }}
+            >
+              {typeLabel}
+            </span>
+          </div>
           {tileType === "tile-mermaid" && tileContent?.chart && (
             <div className="ml-auto flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => handleMermaidScaleChange(mermaidScale - MERMAID_SCALE_STEP)}
-                className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                className="px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded"
                 title="Reduce diagram size"
               >
                 -
@@ -329,7 +383,7 @@ export function TileContentSectionRenderer({
               <button
                 type="button"
                 onClick={() => handleMermaidScaleChange(1)}
-                className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                className="px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded"
                 title="Reset size"
               >
                 {Math.round(mermaidScale * 100)}%
@@ -337,29 +391,23 @@ export function TileContentSectionRenderer({
               <button
                 type="button"
                 onClick={() => handleMermaidScaleChange(mermaidScale + MERMAID_SCALE_STEP)}
-                className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                className="px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded"
                 title="Increase diagram size"
               >
                 +
               </button>
             </div>
           )}
-          {isDeleted && (
-            <div className="flex items-center gap-0.5 text-amber-600 text-[12px]">
-              <AlertTriangle className="w-2.5 h-2.5" />
-              <span>Source deleted</span>
-            </div>
-          )}
         </div>
 
         {/* Tile Content */}
-        <div className="pl-5">{renderContent()}</div>
+        <div className="ml-8">{renderContent()}</div>
       </div>
 
       {/* Remove Button */}
       <button
         onClick={onRemove}
-        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded"
       >
         <X className="w-3 h-3 text-red-500" />
       </button>
