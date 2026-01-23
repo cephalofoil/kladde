@@ -1895,9 +1895,6 @@ export function Canvas({
                                     element={el}
                                     isSelected={selectedIds.includes(el.id)}
                                     isTextEditing={editingTileId === el.id}
-                                    isCanvasTransient={
-                                        isDragging || isResizing || isPanning
-                                    }
                                     onRequestTextEdit={() => {
                                         setEditingTileId(el.id);
                                         setSelectedIds([el.id]);

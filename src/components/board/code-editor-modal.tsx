@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef, useMemo } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import {
     X,
     Search,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardElement } from "@/lib/board-types";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import {
     CODE_THEMES,
     getThemeByName,
@@ -28,6 +27,7 @@ import {
     canFormatLanguage,
     downloadCodeAsFile,
 } from "./canvas/utils/code-export";
+import { CodeMirrorEditor } from "@/components/board/code-mirror-editor";
 
 interface CodeEditorModalProps {
     codeElement: BoardElement;
@@ -60,11 +60,7 @@ export function CodeEditorModal({
 
     // Refs
     const codeRef = useRef(code);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
-    const editorContainerRef = useRef<HTMLDivElement>(null);
-    const codeDisplayRef = useRef<HTMLDivElement>(null);
-    const codeContentRef = useRef<HTMLDivElement>(null);
 
     // Copy state
     const [copied, setCopied] = useState(false);
@@ -212,57 +208,8 @@ export function CodeEditorModal({
         );
     };
 
-    // Handle tab key in textarea
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Tab") {
-            e.preventDefault();
-            const target = e.currentTarget;
-            const start = target.selectionStart;
-            const end = target.selectionEnd;
-            const newValue =
-                code.substring(0, start) + "  " + code.substring(end);
-            setCode(newValue);
-            setTimeout(() => {
-                target.selectionStart = target.selectionEnd = start + 2;
-            }, 0);
-        }
-    };
-
     const themeConfig = getThemeByName(theme);
-    const normalizedThemeStyle = useMemo(() => {
-        const entries = Object.entries(themeConfig.style).map(
-            ([key, value]) => [
-                key,
-                {
-                    ...value,
-                    fontWeight: 400,
-                    fontStyle: "normal",
-                } as React.CSSProperties,
-            ],
-        );
-        return Object.fromEntries(entries);
-    }, [themeConfig.style]);
     const lines = code.split("\n");
-    const editorTypographyStyle = {
-        fontFamily: "var(--font-mono)",
-        fontSize: "14px",
-        lineHeight: "1.6",
-        letterSpacing: "0",
-        fontVariantLigatures: "none",
-        fontWeight: 400,
-        tabSize: 2,
-    } as const;
-
-    const handleEditorScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
-        const target = e.currentTarget;
-        if (codeContentRef.current) {
-            codeContentRef.current.style.transform = `translate(${-target.scrollLeft}px, ${-target.scrollTop}px)`;
-        }
-        if (codeDisplayRef.current) {
-            codeDisplayRef.current.scrollTop = target.scrollTop;
-            codeDisplayRef.current.scrollLeft = target.scrollLeft;
-        }
-    };
 
     return (
         <div
@@ -272,43 +219,22 @@ export function CodeEditorModal({
             <div
                 className={cn(
                     "w-[92%] max-w-[1600px] min-w-[700px] h-full",
-                    "rounded-2xl shadow-2xl flex flex-col overflow-hidden",
+                    "bg-card rounded-2xl shadow-2xl flex flex-col overflow-hidden",
                     "transition-all duration-300 ease-in-out",
                 )}
                 style={{
                     opacity: isAnimating ? 0 : 1,
                     transform: isAnimating ? "scale(0.95)" : "scale(1)",
-                    backgroundColor: themeConfig.previewColors.background,
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div
-                    className="flex items-center justify-between px-4 py-3 border-b"
-                    style={{
-                        borderColor: themeConfig.isDark
-                            ? "rgba(255,255,255,0.1)"
-                            : "rgba(0,0,0,0.1)",
-                        backgroundColor: themeConfig.isDark
-                            ? "rgba(0,0,0,0.3)"
-                            : "rgba(255,255,255,0.5)",
-                    }}
-                >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
                     <div className="flex items-center gap-3">
-                        <span
-                            className="text-sm font-medium"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
-                        >
+                        <span className="text-sm font-medium text-foreground">
                             {codeElement.tileTitle || "Code Editor"}
                         </span>
-                        <span
-                            className="text-xs"
-                            style={{
-                                color: themeConfig.previewColors.comment,
-                            }}
-                        >
+                        <span className="text-xs text-muted-foreground">
                             {lines.length} lines
                         </span>
                     </div>
@@ -327,13 +253,7 @@ export function CodeEditorModal({
                             onChange={(e) =>
                                 setTheme(e.target.value as CodeThemeName)
                             }
-                            className="px-2 py-1 text-xs rounded border bg-transparent transition-colors"
-                            style={{
-                                borderColor: themeConfig.isDark
-                                    ? "rgba(255,255,255,0.2)"
-                                    : "rgba(0,0,0,0.2)",
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
+                            className="px-2 py-1 text-xs rounded border border-border bg-background transition-colors text-foreground"
                         >
                             {CODE_THEMES.map((t) => (
                                 <option
@@ -364,13 +284,10 @@ export function CodeEditorModal({
                             className={cn(
                                 "p-1.5 rounded transition-colors",
                                 showSearch
-                                    ? "bg-white/20"
-                                    : "hover:bg-white/10",
+                                    ? "bg-primary/10 text-primary"
+                                    : "hover:bg-muted text-foreground",
                             )}
                             title="Search (Ctrl+F)"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
                         >
                             <Search className="w-4 h-4" />
                         </button>
@@ -379,11 +296,8 @@ export function CodeEditorModal({
                         {canFormatLanguage(language) && (
                             <button
                                 onClick={handleFormat}
-                                className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                                className="p-1.5 rounded hover:bg-muted transition-colors text-foreground"
                                 title="Format Code"
-                                style={{
-                                    color: themeConfig.isDark ? "#fff" : "#000",
-                                }}
                             >
                                 <Sparkles className="w-4 h-4" />
                             </button>
@@ -392,11 +306,8 @@ export function CodeEditorModal({
                         {/* Copy Button */}
                         <button
                             onClick={handleCopy}
-                            className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                            className="p-1.5 rounded hover:bg-muted transition-colors text-foreground"
                             title="Copy Code"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
                         >
                             {copied ? (
                                 <Check className="w-4 h-4" />
@@ -408,11 +319,8 @@ export function CodeEditorModal({
                         {/* Download Button */}
                         <button
                             onClick={handleDownload}
-                            className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                            className="p-1.5 rounded hover:bg-muted transition-colors text-foreground"
                             title="Download Code"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
                         >
                             <Download className="w-4 h-4" />
                         </button>
@@ -420,10 +328,7 @@ export function CodeEditorModal({
                         {/* Close Button */}
                         <button
                             onClick={handleClose}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-white/10 transition-colors"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-muted transition-colors text-foreground"
                         >
                             <span className="text-sm">Save & Close</span>
                             <X className="w-4 h-4" />
@@ -433,23 +338,8 @@ export function CodeEditorModal({
 
                 {/* Search Bar */}
                 {showSearch && (
-                    <div
-                        className="flex items-center gap-2 px-4 py-2 border-b"
-                        style={{
-                            borderColor: themeConfig.isDark
-                                ? "rgba(255,255,255,0.1)"
-                                : "rgba(0,0,0,0.1)",
-                            backgroundColor: themeConfig.isDark
-                                ? "rgba(0,0,0,0.2)"
-                                : "rgba(255,255,255,0.3)",
-                        }}
-                    >
-                        <Search
-                            className="w-4 h-4"
-                            style={{
-                                color: themeConfig.previewColors.comment,
-                            }}
-                        />
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
+                        <Search className="w-4 h-4 text-muted-foreground" />
                         <input
                             ref={searchInputRef}
                             type="text"
@@ -465,18 +355,10 @@ export function CodeEditorModal({
                                 }
                             }}
                             placeholder="Search in code..."
-                            className="flex-1 bg-transparent text-sm outline-none"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
+                            className="flex-1 bg-transparent text-sm outline-none text-foreground"
                         />
                         {searchResults.length > 0 && (
-                            <span
-                                className="text-xs"
-                                style={{
-                                    color: themeConfig.previewColors.comment,
-                                }}
-                            >
+                            <span className="text-xs text-muted-foreground">
                                 {currentSearchIndex + 1} of{" "}
                                 {searchResults.length}
                             </span>
@@ -484,20 +366,14 @@ export function CodeEditorModal({
                         <button
                             onClick={handlePrevResult}
                             disabled={searchResults.length === 0}
-                            className="p-1 rounded hover:bg-white/10 disabled:opacity-50"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
+                            className="p-1 rounded hover:bg-muted disabled:opacity-50 text-foreground"
                         >
                             <ChevronUp className="w-4 h-4" />
                         </button>
                         <button
                             onClick={handleNextResult}
                             disabled={searchResults.length === 0}
-                            className="p-1 rounded hover:bg-white/10 disabled:opacity-50"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
+                            className="p-1 rounded hover:bg-muted disabled:opacity-50 text-foreground"
                         >
                             <ChevronDown className="w-4 h-4" />
                         </button>
@@ -507,10 +383,7 @@ export function CodeEditorModal({
                                 setSearchQuery("");
                                 setSearchResults([]);
                             }}
-                            className="p-1 rounded hover:bg-white/10"
-                            style={{
-                                color: themeConfig.isDark ? "#fff" : "#000",
-                            }}
+                            className="p-1 rounded hover:bg-muted text-foreground"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -518,98 +391,26 @@ export function CodeEditorModal({
                 )}
 
                 {/* Editor with Syntax Highlighting */}
-                <div
-                    ref={editorContainerRef}
-                    className="flex-1 overflow-auto relative"
-                >
-                    {/* Syntax Highlighted Display */}
-                    <div
-                        ref={codeDisplayRef}
-                        className="absolute inset-0 pointer-events-none overflow-hidden"
-                    >
-                        <div
-                            ref={codeContentRef}
-                            className="absolute inset-0 will-change-transform"
-                        >
-                            <SyntaxHighlighter
-                                language={language}
-                                style={normalizedThemeStyle}
-                                showLineNumbers
-                                wrapLines
-                                lineProps={(lineNumber) => ({
-                                    style: {
-                                        display: "block",
-                                        backgroundColor:
-                                            highlightedLines.includes(
-                                                lineNumber,
-                                            )
-                                                ? "rgba(255, 255, 0, 0.15)"
-                                                : searchResults.includes(
-                                                        lineNumber,
-                                                    )
-                                                  ? "rgba(255, 165, 0, 0.1)"
-                                                  : undefined,
-                                    },
-                                    onClick: () => handleLineClick(lineNumber),
-                                })}
-                                customStyle={{
-                                    margin: 0,
-                                    padding: "16px",
-                                    paddingLeft: "60px",
-                                    minHeight: "100%",
-                                    background: "transparent",
-                                    ...editorTypographyStyle,
-                                }}
-                                codeTagProps={{
-                                    style: editorTypographyStyle,
-                                }}
-                                lineNumberStyle={{
-                                    minWidth: "3em",
-                                    paddingRight: "1em",
-                                    color: themeConfig.previewColors.comment,
-                                    userSelect: "none",
-                                    fontFamily: "var(--font-mono)",
-                                    fontSize: "14px",
-                                    lineHeight: "1.6",
-                                    fontWeight: 400,
-                                    fontStyle: "normal",
-                                }}
-                            >
-                                {code || " "}
-                            </SyntaxHighlighter>
-                        </div>
-                    </div>
-
-                    {/* Editable Textarea Overlay */}
-                    <textarea
-                        ref={textareaRef}
+                <div className="flex-1 overflow-hidden relative">
+                    <CodeMirrorEditor
                         value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        onScroll={handleEditorScroll}
-                        wrap="off"
-                        className="absolute inset-0 w-full h-full font-mono text-transparent caret-white bg-transparent outline-none resize-none"
-                        style={{
-                            padding: "16px",
-                            paddingLeft: "60px",
-                            ...editorTypographyStyle,
-                            caretColor: themeConfig.isDark ? "#fff" : "#000",
-                        }}
-                        spellCheck={false}
-                        autoFocus
+                        language={language}
+                        theme={theme}
+                        readOnly={false}
+                        wordWrap={false}
+                        scale={1}
+                        fontSize={14}
+                        highlightedLines={highlightedLines}
+                        searchLines={searchResults}
+                        onChange={setCode}
+                        onLineToggle={handleLineClick}
+                        placeholderText="// Type your code here..."
+                        className="h-full"
                     />
                 </div>
 
                 {/* Footer */}
-                <div
-                    className="px-4 py-2 border-t text-xs flex items-center justify-between"
-                    style={{
-                        borderColor: themeConfig.isDark
-                            ? "rgba(255,255,255,0.1)"
-                            : "rgba(0,0,0,0.1)",
-                        color: themeConfig.previewColors.comment,
-                    }}
-                >
+                <div className="px-4 py-2 border-t border-border text-xs flex items-center justify-between text-muted-foreground bg-muted/30">
                     <div>
                         <kbd
                             className="px-1.5 py-0.5 rounded text-[10px]"

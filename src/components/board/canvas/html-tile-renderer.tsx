@@ -82,7 +82,6 @@ interface HtmlTileRendererProps {
     element: BoardElement;
     isSelected: boolean;
     isTextEditing: boolean;
-    isCanvasTransient?: boolean;
     onRequestTextEdit: () => void;
     onUpdate?: (updates: Partial<BoardElement>) => void;
     onDelete?: () => void;
@@ -96,7 +95,6 @@ export const HtmlTileRenderer = memo(
         element,
         isSelected,
         isTextEditing,
-        isCanvasTransient = false,
         onRequestTextEdit,
         onUpdate,
         onDelete,
@@ -533,7 +531,6 @@ export const HtmlTileRenderer = memo(
                                 theme={codeTheme}
                                 highlightedLines={codeHighlightedLines}
                                 foldedRanges={codeFoldedRanges}
-                                isLowFidelity={isCanvasTransient}
                                 onChange={handleCodeChange}
                                 onLanguageChange={handleCodeLanguageChange}
                                 onHighlightedLinesChange={
