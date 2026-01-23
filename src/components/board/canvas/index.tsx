@@ -128,6 +128,7 @@ interface CanvasProps {
     showUndoRedo?: boolean;
     onOpenDocumentEditor?: (elementId: string) => void;
     onOpenMermaidEditor?: (elementId: string) => void;
+    onOpenCodeEditor?: (elementId: string) => void;
     onPaste?: () => void;
     onCut?: () => void;
     onCopy?: () => void;
@@ -232,6 +233,7 @@ export function Canvas({
     showUndoRedo = true,
     onOpenDocumentEditor,
     onOpenMermaidEditor,
+    onOpenCodeEditor,
     onPaste,
     onCut,
     onCopy,
@@ -1903,6 +1905,7 @@ export function Canvas({
                                     onDelete={() => onDeleteElement(el.id)}
                                     onOpenDocumentEditor={onOpenDocumentEditor}
                                     onOpenMermaidEditor={onOpenMermaidEditor}
+                                    onOpenCodeEditor={onOpenCodeEditor}
                                 />
                             </div>
                         ))}

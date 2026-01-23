@@ -215,6 +215,13 @@ export function TileRenderer({
                         <CodeRenderer
                             code={content?.code || ""}
                             language={content?.language || "javascript"}
+                            scale={content?.codeScale}
+                            wordWrap={content?.codeWordWrap}
+                            theme={
+                                content?.codeTheme as "atom-dark" | undefined
+                            }
+                            highlightedLines={content?.codeHighlightedLines}
+                            foldedRanges={content?.codeFoldedRanges}
                             onChange={(code) =>
                                 onUpdate?.({
                                     tileContent: { ...content, code },

@@ -12,10 +12,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RichTextRenderer } from "./content-renderers/rich-text-renderer";
 import { CodeRenderer } from "./content-renderers/code-renderer";
+import { CodeTileControls } from "./content-renderers/code-tile-controls";
 import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
 import { renderMermaidToPngBlob } from "./utils/mermaid-export";
+import {
+    copyCodeAsImage,
+    downloadCodeAsFile,
+    formatCode,
+    canFormatLanguage,
+} from "./utils/code-export";
+import { type CodeThemeName } from "@/lib/code-themes";
 import { DocumentRenderer } from "./content-renderers/document-renderer";
 import {
     HeaderColorPicker,
@@ -79,6 +87,7 @@ interface HtmlTileRendererProps {
     onDelete?: () => void;
     onOpenDocumentEditor?: (elementId: string) => void;
     onOpenMermaidEditor?: (elementId: string) => void;
+    onOpenCodeEditor?: (elementId: string) => void;
 }
 
 export const HtmlTileRenderer = memo(
@@ -91,6 +100,7 @@ export const HtmlTileRenderer = memo(
         onDelete,
         onOpenDocumentEditor,
         onOpenMermaidEditor,
+        onOpenCodeEditor,
     }: HtmlTileRendererProps) {
         const [isEditingTitle, setIsEditingTitle] = useState(false);
         const [isEditing, setIsEditing] = useState(false);
@@ -100,6 +110,23 @@ export const HtmlTileRenderer = memo(
         const [mermaidScale, setMermaidScale] = useState(
             element.tileContent?.mermaidScale || 1,
         );
+
+        // Code-specific state
+        const [codeScale, setCodeScale] = useState(
+            element.tileContent?.codeScale || 1,
+        );
+        const [codeWordWrap, setCodeWordWrap] = useState(
+            element.tileContent?.codeWordWrap || false,
+        );
+        const [codeTheme, setCodeTheme] = useState<CodeThemeName>(
+            (element.tileContent?.codeTheme as CodeThemeName) || "atom-dark",
+        );
+        const [codeHighlightedLines, setCodeHighlightedLines] = useState<
+            number[]
+        >(element.tileContent?.codeHighlightedLines || []);
+        const [codeFoldedRanges, setCodeFoldedRanges] = useState<
+            Array<{ start: number; end: number }>
+        >(element.tileContent?.codeFoldedRanges || []);
 
         const x = element.x || 0;
         const y = element.y || 0;
@@ -135,6 +162,26 @@ export const HtmlTileRenderer = memo(
         useEffect(() => {
             setMermaidScale(element.tileContent?.mermaidScale || 1);
         }, [element.tileContent?.mermaidScale]);
+
+        // Sync code state with element content
+        useEffect(() => {
+            setCodeScale(element.tileContent?.codeScale || 1);
+            setCodeWordWrap(element.tileContent?.codeWordWrap || false);
+            setCodeTheme(
+                (element.tileContent?.codeTheme as CodeThemeName) ||
+                    "atom-dark",
+            );
+            setCodeHighlightedLines(
+                element.tileContent?.codeHighlightedLines || [],
+            );
+            setCodeFoldedRanges(element.tileContent?.codeFoldedRanges || []);
+        }, [
+            element.tileContent?.codeScale,
+            element.tileContent?.codeWordWrap,
+            element.tileContent?.codeTheme,
+            element.tileContent?.codeHighlightedLines,
+            element.tileContent?.codeFoldedRanges,
+        ]);
 
         const getTileBackground = () => {
             switch (element.tileType) {
@@ -290,6 +337,117 @@ export const HtmlTileRenderer = memo(
             }
         }, [buildMermaidPng, tileTitle]);
 
+        // Code tile handlers
+        const handleCodeScaleChange = useCallback(
+            (newScale: number) => {
+                setCodeScale(newScale);
+                onUpdate?.({
+                    tileContent: {
+                        ...content,
+                        codeScale: newScale,
+                    },
+                });
+            },
+            [content, onUpdate],
+        );
+
+        const handleCodeWordWrapChange = useCallback(
+            (wrap: boolean) => {
+                setCodeWordWrap(wrap);
+                onUpdate?.({
+                    tileContent: {
+                        ...content,
+                        codeWordWrap: wrap,
+                    },
+                });
+            },
+            [content, onUpdate],
+        );
+
+        const handleCodeThemeChange = useCallback(
+            (theme: CodeThemeName) => {
+                setCodeTheme(theme);
+                onUpdate?.({
+                    tileContent: {
+                        ...content,
+                        codeTheme: theme,
+                    },
+                });
+            },
+            [content, onUpdate],
+        );
+
+        const handleCodeHighlightedLinesChange = useCallback(
+            (lines: number[]) => {
+                setCodeHighlightedLines(lines);
+                onUpdate?.({
+                    tileContent: {
+                        ...content,
+                        codeHighlightedLines: lines,
+                    },
+                });
+            },
+            [content, onUpdate],
+        );
+
+        const handleCodeFoldedRangesChange = useCallback(
+            (ranges: Array<{ start: number; end: number }>) => {
+                setCodeFoldedRanges(ranges);
+                onUpdate?.({
+                    tileContent: {
+                        ...content,
+                        codeFoldedRanges: ranges,
+                    },
+                });
+            },
+            [content, onUpdate],
+        );
+
+        const handleCodeCopy = useCallback(async () => {
+            try {
+                await navigator.clipboard.writeText(content?.code || "");
+            } catch (error) {
+                console.error("Failed to copy code:", error);
+            }
+        }, [content?.code]);
+
+        const handleCodeCopyImage = useCallback(async () => {
+            try {
+                await copyCodeAsImage({
+                    code: content?.code || "",
+                    language: content?.language || "javascript",
+                    theme: codeTheme,
+                    scale: codeScale,
+                });
+            } catch (error) {
+                console.error("Failed to copy code as image:", error);
+            }
+        }, [content?.code, content?.language, codeTheme, codeScale]);
+
+        const handleCodeDownload = useCallback(() => {
+            const safeName = tileTitle.trim() ? tileTitle.trim() : "code";
+            downloadCodeAsFile({
+                code: content?.code || "",
+                language: content?.language || "javascript",
+                filename: safeName,
+            });
+        }, [content?.code, content?.language, tileTitle]);
+
+        const handleCodeFormat = useCallback(async () => {
+            const { formatted, error } = await formatCode(
+                content?.code || "",
+                content?.language || "javascript",
+            );
+            if (!error && formatted !== content?.code) {
+                onUpdate?.({
+                    tileContent: {
+                        ...content,
+                        code: formatted,
+                    },
+                });
+            }
+        }, [content, onUpdate]);
+
         const renderTextTileBody = (
             markdown: string,
             field: "richText" | "noteText",
@@ -350,6 +508,11 @@ export const HtmlTileRenderer = memo(
                             <CodeRenderer
                                 code={content?.code || ""}
                                 language={content?.language || "javascript"}
+                                scale={codeScale}
+                                wordWrap={codeWordWrap}
+                                theme={codeTheme}
+                                highlightedLines={codeHighlightedLines}
+                                foldedRanges={codeFoldedRanges}
                                 onChange={(code) =>
                                     onUpdate?.({
                                         tileContent: { ...content, code },
@@ -359,6 +522,12 @@ export const HtmlTileRenderer = memo(
                                     onUpdate?.({
                                         tileContent: { ...content, language },
                                     })
+                                }
+                                onHighlightedLinesChange={
+                                    handleCodeHighlightedLinesChange
+                                }
+                                onFoldedRangesChange={
+                                    handleCodeFoldedRangesChange
                                 }
                                 onFinish={() => setIsEditing(false)}
                                 isEditing={isEditing}
@@ -718,6 +887,36 @@ export const HtmlTileRenderer = memo(
                                 onMouseDown={stopCanvas}
                                 onClick={stopCanvas}
                             >
+                                {element.tileType === "tile-code" &&
+                                    !isEditing && (
+                                        <CodeTileControls
+                                            scale={codeScale}
+                                            onScaleChange={
+                                                handleCodeScaleChange
+                                            }
+                                            wordWrap={codeWordWrap}
+                                            onWordWrapChange={
+                                                handleCodeWordWrapChange
+                                            }
+                                            theme={codeTheme}
+                                            onThemeChange={
+                                                handleCodeThemeChange
+                                            }
+                                            onEdit={() => setIsEditing(true)}
+                                            onExpand={() =>
+                                                onOpenCodeEditor?.(element.id)
+                                            }
+                                            onCopyCode={handleCodeCopy}
+                                            onCopyImage={handleCodeCopyImage}
+                                            onDownload={handleCodeDownload}
+                                            onFormat={handleCodeFormat}
+                                            canFormat={canFormatLanguage(
+                                                content?.language ||
+                                                    "javascript",
+                                            )}
+                                            className="bg-transparent p-0"
+                                        />
+                                    )}
                                 {element.tileType === "tile-mermaid" &&
                                     !isEditing && (
                                         <MermaidTileControls

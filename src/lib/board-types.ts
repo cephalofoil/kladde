@@ -122,6 +122,11 @@ export interface TileContent {
     // Code tile
     code?: string;
     language?: string;
+    codeScale?: number;
+    codeWordWrap?: boolean;
+    codeTheme?: string;
+    codeHighlightedLines?: number[];
+    codeFoldedRanges?: Array<{ start: number; end: number }>;
     // Mermaid tile
     chart?: string;
     mermaidScale?: number;

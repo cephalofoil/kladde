@@ -13,6 +13,7 @@ import { HistorySidebar } from "./history-sidebar";
 
 import { DocumentEditorPanel } from "./document-editor";
 import { MermaidEditorModal } from "./mermaid-editor-modal";
+import { CodeEditorModal } from "./code-editor-modal";
 import { BurgerMenu } from "./burger-menu";
 import { CanvasTitleBar } from "./canvas-title-bar";
 import { SaveStatusIndicator } from "./save-status-indicator";
@@ -306,6 +307,7 @@ export function Whiteboard({
     const [editingMermaidId, setEditingMermaidId] = useState<string | null>(
         null,
     );
+    const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
     const [pendingName, setPendingName] = useState<string | null>(null);
     const [highlightedElementIds, setHighlightedElementIds] = useState<
         string[]
@@ -4159,6 +4161,7 @@ export function Whiteboard({
                     showUndoRedo={!isReadOnly}
                     onOpenDocumentEditor={setEditingDocumentId}
                     onOpenMermaidEditor={setEditingMermaidId}
+                    onOpenCodeEditor={setEditingCodeId}
                     onPaste={handlePaste}
                     onCut={handleCut}
                     onCopy={handleCopySelected}
@@ -4321,6 +4324,24 @@ export function Whiteboard({
                             onClose={() => setEditingMermaidId(null)}
                             onUpdateMermaid={(updates) =>
                                 handleUpdateElement(editingMermaidId, updates)
+                            }
+                        />
+                    );
+                })()}
+
+            {/* Code Editor Modal */}
+            {editingCodeId &&
+                (() => {
+                    const codeElement = elements.find(
+                        (el) => el.id === editingCodeId,
+                    );
+                    if (!codeElement) return null;
+                    return (
+                        <CodeEditorModal
+                            codeElement={codeElement}
+                            onClose={() => setEditingCodeId(null)}
+                            onUpdateCode={(updates) =>
+                                handleUpdateElement(editingCodeId, updates)
                             }
                         />
                     );
