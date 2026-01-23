@@ -335,6 +335,7 @@ export function Whiteboard({
     const undoStackRef = useRef<BoardElement[][]>([]);
     const redoStackRef = useRef<BoardElement[][]>([]);
     const isUndoingRef = useRef(false);
+    const skipNextHistoryLogRef = useRef(false);
     const elementsRef = useRef<BoardElement[]>(elements);
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
@@ -820,11 +821,12 @@ export function Whiteboard({
         [collaboration],
     );
 
-    // Undo function - instant
+    // Undo function - instant, also removes last history entry
     const handleUndo = useCallback(() => {
         if (undoStackRef.current.length === 0) return;
 
         isUndoingRef.current = true;
+        skipNextHistoryLogRef.current = true;
 
         // Save current to redo
         const currentSnapshot = JSON.parse(JSON.stringify(elementsRef.current));
@@ -837,17 +839,25 @@ export function Whiteboard({
         applyState(previousState);
         updateUndoState();
 
+        // Also undo the last history entry (like git reset)
+        if (historyManagerRef.current && isOwner) {
+            historyManagerRef.current.undoLastEntry().then(() => {
+                setHistoryEntries([...historyManagerRef.current!.getEntries()]);
+            });
+        }
+
         // Reset flag immediately
         requestAnimationFrame(() => {
             isUndoingRef.current = false;
         });
-    }, [applyState, updateUndoState]);
+    }, [applyState, updateUndoState, isOwner]);
 
-    // Redo function - instant
+    // Redo function - instant, also restores history entry
     const handleRedo = useCallback(() => {
         if (redoStackRef.current.length === 0) return;
 
         isUndoingRef.current = true;
+        skipNextHistoryLogRef.current = true;
 
         // Save current to undo
         const currentSnapshot = JSON.parse(JSON.stringify(elementsRef.current));
@@ -860,11 +870,18 @@ export function Whiteboard({
         applyState(nextState);
         updateUndoState();
 
+        // Also redo the history entry (restore it back)
+        if (historyManagerRef.current && isOwner) {
+            historyManagerRef.current.redoEntry().then(() => {
+                setHistoryEntries([...historyManagerRef.current!.getEntries()]);
+            });
+        }
+
         // Reset flag immediately
         requestAnimationFrame(() => {
             isUndoingRef.current = false;
         });
-    }, [applyState, updateUndoState]);
+    }, [applyState, updateUndoState, isOwner]);
 
     const handleAddElement = useCallback(
         (element: BoardElement) => {
@@ -1551,11 +1568,19 @@ export function Whiteboard({
 
     // Log history entries when elements change (for owner only)
     // Skip logging during transform - will be logged on transform end
+    // Skip logging for undo/redo operations (like git, they don't create new history)
     useEffect(() => {
         if (!isOwner || !historyManagerRef.current) return;
 
         // Skip if we're in the middle of a transform (drag/resize/rotate)
         if (isTransformingRef.current) {
+            return;
+        }
+
+        // Skip if this change is from undo/redo (don't log undo/redo as new history entries)
+        if (skipNextHistoryLogRef.current) {
+            skipNextHistoryLogRef.current = false;
+            prevElementsRef.current = elements;
             return;
         }
 

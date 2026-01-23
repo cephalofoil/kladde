@@ -20,6 +20,16 @@ export interface HistoryUser {
 }
 
 /**
+ * Detailed information about a specific property change
+ */
+export interface PropertyChangeDetail {
+    property: string;
+    fromValue?: string;
+    toValue?: string;
+    description: string;
+}
+
+/**
  * Detailed change for a single element
  */
 export interface ElementChange {
@@ -31,6 +41,8 @@ export interface ElementChange {
     operation: "add" | "update" | "delete";
     /** Properties that changed (for updates) */
     changedProperties?: string[];
+    /** Detailed information about each property change */
+    propertyDetails?: PropertyChangeDetail[];
     /** Summary of what changed */
     changeSummary?: string;
 }

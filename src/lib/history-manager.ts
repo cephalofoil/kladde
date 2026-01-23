@@ -7,6 +7,7 @@ import type {
     HistoryOperationType,
     HistoryUser,
     ElementChange,
+    PropertyChangeDetail,
 } from "./history-types";
 
 const HISTORY_STORAGE_KEY_PREFIX = "kladde-history-";
@@ -158,19 +159,54 @@ function isTextOnlyChange(before: BoardElement, after: BoardElement): boolean {
 }
 
 /**
+ * Format a position value for display
+ */
+function formatPosition(x: number, y: number): string {
+    return `(${Math.round(x)}, ${Math.round(y)})`;
+}
+
+/**
+ * Format a size value for display
+ */
+function formatSize(width: number, height: number): string {
+    return `${Math.round(width)} × ${Math.round(height)}`;
+}
+
+/**
+ * Format a color value for display
+ */
+function formatColor(color: string | undefined): string {
+    if (!color || color === "transparent") return "transparent";
+    return color;
+}
+
+/**
+ * Format a numeric value with units
+ */
+function formatNumber(value: number, unit?: string): string {
+    const rounded = Math.round(value * 10) / 10;
+    return unit ? `${rounded}${unit}` : `${rounded}`;
+}
+
+/**
  * Detect what properties changed between two elements
  */
 function detectChangedProperties(
     before: BoardElement,
     after: BoardElement,
-): { properties: string[]; summary: string } {
+): { properties: string[]; summary: string; details: PropertyChangeDetail[] } {
     const changedProperties: string[] = [];
     const changedDescriptions: string[] = [];
+    const details: PropertyChangeDetail[] = [];
 
     const allKeys = new Set([
         ...Object.keys(before),
         ...Object.keys(after),
     ]) as Set<keyof BoardElement>;
+
+    // Track position and size changes separately for combined reporting
+    let positionChanged = false;
+    let sizeChanged = false;
 
     for (const key of allKeys) {
         if (IGNORED_PROPERTIES.has(key)) continue;
@@ -194,7 +230,160 @@ function detectChangedProperties(
             if (IMPORTANT_PROPERTIES[key]) {
                 changedDescriptions.push(IMPORTANT_PROPERTIES[key]);
             }
+
+            // Generate detailed change info based on property type
+            if (key === "x" || key === "y") {
+                positionChanged = true;
+            } else if (key === "width" || key === "height") {
+                sizeChanged = true;
+            } else if (key === "rotation") {
+                const fromRot = (before.rotation ?? 0) % 360;
+                const toRot = (after.rotation ?? 0) % 360;
+                details.push({
+                    property: "rotation",
+                    fromValue: formatNumber(fromRot, "°"),
+                    toValue: formatNumber(toRot, "°"),
+                    description: `Rotated from ${formatNumber(fromRot, "°")} to ${formatNumber(toRot, "°")}`,
+                });
+            } else if (key === "strokeColor") {
+                details.push({
+                    property: "stroke color",
+                    fromValue: formatColor(before.strokeColor),
+                    toValue: formatColor(after.strokeColor),
+                    description: `Stroke: ${formatColor(before.strokeColor)} → ${formatColor(after.strokeColor)}`,
+                });
+            } else if (key === "fillColor") {
+                details.push({
+                    property: "fill color",
+                    fromValue: formatColor(before.fillColor),
+                    toValue: formatColor(after.fillColor),
+                    description: `Fill: ${formatColor(before.fillColor)} → ${formatColor(after.fillColor)}`,
+                });
+            } else if (key === "strokeWidth") {
+                details.push({
+                    property: "stroke width",
+                    fromValue: formatNumber(before.strokeWidth ?? 2, "px"),
+                    toValue: formatNumber(after.strokeWidth ?? 2, "px"),
+                    description: `Stroke width: ${formatNumber(before.strokeWidth ?? 2, "px")} → ${formatNumber(after.strokeWidth ?? 2, "px")}`,
+                });
+            } else if (key === "opacity") {
+                details.push({
+                    property: "opacity",
+                    fromValue: formatNumber(before.opacity ?? 100, "%"),
+                    toValue: formatNumber(after.opacity ?? 100, "%"),
+                    description: `Opacity: ${formatNumber(before.opacity ?? 100, "%")} → ${formatNumber(after.opacity ?? 100, "%")}`,
+                });
+            } else if (key === "fontSize") {
+                details.push({
+                    property: "font size",
+                    fromValue: formatNumber(before.fontSize ?? 16, "px"),
+                    toValue: formatNumber(after.fontSize ?? 16, "px"),
+                    description: `Font size: ${formatNumber(before.fontSize ?? 16, "px")} → ${formatNumber(after.fontSize ?? 16, "px")}`,
+                });
+            } else if (key === "fontFamily") {
+                const fromFont = (before.fontFamily ?? "Inter").replace(
+                    /var\(--font-|\)/g,
+                    "",
+                );
+                const toFont = (after.fontFamily ?? "Inter").replace(
+                    /var\(--font-|\)/g,
+                    "",
+                );
+                details.push({
+                    property: "font",
+                    fromValue: fromFont,
+                    toValue: toFont,
+                    description: `Font: ${fromFont} → ${toFont}`,
+                });
+            } else if (key === "hidden") {
+                details.push({
+                    property: "visibility",
+                    fromValue: before.hidden ? "hidden" : "visible",
+                    toValue: after.hidden ? "hidden" : "visible",
+                    description: after.hidden ? "Hidden" : "Made visible",
+                });
+            } else if (key === "locked") {
+                details.push({
+                    property: "lock state",
+                    fromValue: before.locked ? "locked" : "unlocked",
+                    toValue: after.locked ? "locked" : "unlocked",
+                    description: after.locked ? "Locked" : "Unlocked",
+                });
+            } else if (key === "zIndex") {
+                const fromZ = before.zIndex ?? 0;
+                const toZ = after.zIndex ?? 0;
+                const direction = toZ > fromZ ? "forward" : "backward";
+                details.push({
+                    property: "layer order",
+                    fromValue: String(fromZ),
+                    toValue: String(toZ),
+                    description: `Moved ${direction} in layer order`,
+                });
+            } else if (key === "tileContent") {
+                // Check for noteColor changes inside tileContent
+                const content = after.tileContent as
+                    | { noteColor?: string }
+                    | undefined;
+                const beforeContent = before.tileContent as
+                    | { noteColor?: string }
+                    | undefined;
+                if (beforeContent?.noteColor !== content?.noteColor) {
+                    details.push({
+                        property: "note color",
+                        fromValue: beforeContent?.noteColor ?? "default",
+                        toValue: content?.noteColor ?? "default",
+                        description: `Note color changed`,
+                    });
+                }
+            } else if (
+                key === "text" ||
+                key === "label" ||
+                key === "tileTitle"
+            ) {
+                details.push({
+                    property: readableName,
+                    description: `${readableName.charAt(0).toUpperCase() + readableName.slice(1)} edited`,
+                });
+            } else if (key === "cornerRadius") {
+                details.push({
+                    property: "corner radius",
+                    fromValue: formatNumber(before.cornerRadius ?? 0, "px"),
+                    toValue: formatNumber(after.cornerRadius ?? 0, "px"),
+                    description: `Corner radius: ${formatNumber(before.cornerRadius ?? 0, "px")} → ${formatNumber(after.cornerRadius ?? 0, "px")}`,
+                });
+            } else if (key === "textAlign") {
+                details.push({
+                    property: "text alignment",
+                    fromValue: before.textAlign ?? "left",
+                    toValue: after.textAlign ?? "left",
+                    description: `Aligned ${after.textAlign ?? "left"}`,
+                });
+            }
         }
+    }
+
+    // Add combined position change detail
+    if (positionChanged) {
+        const fromPos = formatPosition(before.x ?? 0, before.y ?? 0);
+        const toPos = formatPosition(after.x ?? 0, after.y ?? 0);
+        details.unshift({
+            property: "position",
+            fromValue: fromPos,
+            toValue: toPos,
+            description: `Moved from ${fromPos} to ${toPos}`,
+        });
+    }
+
+    // Add combined size change detail
+    if (sizeChanged) {
+        const fromSize = formatSize(before.width ?? 0, before.height ?? 0);
+        const toSize = formatSize(after.width ?? 0, after.height ?? 0);
+        details.unshift({
+            property: "size",
+            fromValue: fromSize,
+            toValue: toSize,
+            description: `Resized from ${fromSize} to ${toSize}`,
+        });
     }
 
     // Generate summary
@@ -212,7 +401,7 @@ function detectChangedProperties(
         summary = `Modified ${uniqueProps.length} properties`;
     }
 
-    return { properties: uniqueProps, summary };
+    return { properties: uniqueProps, summary, details };
 }
 
 /**
@@ -235,6 +424,7 @@ export class HistoryManager {
     private isOwner: boolean;
     private currentUser: HistoryUser;
     private pendingTextChanges: Map<string, PendingTextChange> = new Map();
+    private redoStack: HistoryEntry[] = [];
 
     constructor(
         boardId: string,
@@ -361,7 +551,7 @@ export class HistoryManager {
                 };
             }
 
-            const { properties, summary } = detectChangedProperties(
+            const { properties, summary, details } = detectChangedProperties(
                 before,
                 after,
             );
@@ -373,6 +563,7 @@ export class HistoryManager {
                 elementLabel: getElementLabel(after),
                 operation: "update" as const,
                 changedProperties: properties,
+                propertyDetails: details,
                 changeSummary:
                     summary || `Updated ${getElementTypeName(after)}`,
             };
@@ -428,6 +619,9 @@ export class HistoryManager {
         userOverride?: HistoryUser,
     ): Promise<void> {
         if (!this.history || !this.isOwner) return;
+
+        // Clear redo stack when a new action is performed (like git)
+        this.redoStack = [];
 
         const entry: HistoryEntry = {
             id: uuid(),
@@ -644,11 +838,77 @@ export class HistoryManager {
     }
 
     /**
+     * Undo the last history entry - removes it from history and returns it
+     * Returns the entry that was undone, or null if nothing to undo
+     */
+    async undoLastEntry(): Promise<HistoryEntry | null> {
+        if (
+            !this.isOwner ||
+            !this.history ||
+            this.history.entries.length === 0
+        ) {
+            return null;
+        }
+
+        // Pop the last entry
+        const entry = this.history.entries.pop();
+        if (!entry) return null;
+
+        // Push to redo stack
+        this.redoStack.push(entry);
+
+        await this.save();
+        return entry;
+    }
+
+    /**
+     * Redo a previously undone history entry - adds it back to history
+     * Returns the entry that was redone, or null if nothing to redo
+     */
+    async redoEntry(): Promise<HistoryEntry | null> {
+        if (!this.isOwner || !this.history || this.redoStack.length === 0) {
+            return null;
+        }
+
+        // Pop from redo stack
+        const entry = this.redoStack.pop();
+        if (!entry) return null;
+
+        // Add back to history
+        this.history.entries.push(entry);
+
+        await this.save();
+        return entry;
+    }
+
+    /**
+     * Clear the redo stack (called when a new action is performed)
+     */
+    clearRedoStack(): void {
+        this.redoStack = [];
+    }
+
+    /**
+     * Check if there are entries that can be undone
+     */
+    canUndoHistory(): boolean {
+        return (this.history?.entries.length ?? 0) > 0;
+    }
+
+    /**
+     * Check if there are entries that can be redone
+     */
+    canRedoHistory(): boolean {
+        return this.redoStack.length > 0;
+    }
+
+    /**
      * Clear all history for this board
      */
     async clearHistory(): Promise<void> {
         if (!this.isOwner || !this.history) return;
         this.history.entries = [];
+        this.redoStack = [];
         await this.save();
     }
 

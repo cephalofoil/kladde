@@ -30,7 +30,11 @@ import {
     MousePointer2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { HistoryEntry, ElementChange } from "@/lib/history-types";
+import type {
+    HistoryEntry,
+    ElementChange,
+    PropertyChangeDetail,
+} from "@/lib/history-types";
 
 interface HistorySidebarProps {
     isOpen: boolean;
@@ -320,6 +324,58 @@ interface TimeChunkGroup {
     allElementIds: string[];
 }
 
+function PropertyDetail({ detail }: { detail: PropertyChangeDetail }) {
+    // Check if it's a color property to show color swatches
+    const isColorProperty = detail.property.includes("color");
+
+    if (isColorProperty && detail.fromValue && detail.toValue) {
+        return (
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span className="capitalize">{detail.property}:</span>
+                <span
+                    className="w-3 h-3 rounded border border-border/50"
+                    style={{
+                        backgroundColor:
+                            detail.fromValue === "transparent"
+                                ? undefined
+                                : detail.fromValue,
+                    }}
+                    title={detail.fromValue}
+                />
+                <span>→</span>
+                <span
+                    className="w-3 h-3 rounded border border-border/50"
+                    style={{
+                        backgroundColor:
+                            detail.toValue === "transparent"
+                                ? undefined
+                                : detail.toValue,
+                    }}
+                    title={detail.toValue}
+                />
+            </div>
+        );
+    }
+
+    // For other properties, show the description or from→to values
+    if (detail.fromValue && detail.toValue) {
+        return (
+            <div className="text-[10px] text-muted-foreground">
+                <span className="capitalize">{detail.property}:</span>{" "}
+                <span className="text-foreground/70">{detail.fromValue}</span>
+                <span> → </span>
+                <span className="text-foreground/70">{detail.toValue}</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="text-[10px] text-muted-foreground">
+            {detail.description}
+        </div>
+    );
+}
+
 function ChangeDetail({
     change,
     isCompact,
@@ -352,7 +408,7 @@ function ChangeDetail({
     }
 
     return (
-        <div className="flex items-start gap-2 py-1 px-2 rounded-md bg-muted/30">
+        <div className="flex items-start gap-2 py-1.5 px-2 rounded-md bg-muted/30">
             <span
                 className={cn(
                     "w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5",
@@ -376,31 +432,53 @@ function ChangeDetail({
                         </span>
                     )}
                 </div>
-                {change.changeSummary && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        {change.changeSummary}
-                    </p>
-                )}
-                {change.changedProperties &&
-                    change.changedProperties.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            {change.changedProperties
-                                .slice(0, 4)
-                                .map((prop) => (
-                                    <span
-                                        key={prop}
-                                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
-                                    >
-                                        {prop}
-                                    </span>
-                                ))}
-                            {change.changedProperties.length > 4 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                    +{change.changedProperties.length - 4} more
-                                </span>
+                {/* Show detailed property changes if available */}
+                {change.propertyDetails && change.propertyDetails.length > 0 ? (
+                    <div className="mt-1.5 space-y-0.5">
+                        {change.propertyDetails
+                            .slice(0, 5)
+                            .map((detail, idx) => (
+                                <PropertyDetail key={idx} detail={detail} />
+                            ))}
+                        {change.propertyDetails.length > 5 && (
+                            <div className="text-[10px] text-muted-foreground/70">
+                                +{change.propertyDetails.length - 5} more
+                                changes
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        {change.changeSummary && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {change.changeSummary}
+                            </p>
+                        )}
+                        {change.changedProperties &&
+                            change.changedProperties.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {change.changedProperties
+                                        .slice(0, 4)
+                                        .map((prop) => (
+                                            <span
+                                                key={prop}
+                                                className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                                            >
+                                                {prop}
+                                            </span>
+                                        ))}
+                                    {change.changedProperties.length > 4 && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                            +
+                                            {change.changedProperties.length -
+                                                4}{" "}
+                                            more
+                                        </span>
+                                    )}
+                                </div>
                             )}
-                        </div>
-                    )}
+                    </>
+                )}
             </div>
         </div>
     );
