@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { BoardElement } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
 import { MoreHorizontal } from "lucide-react";
@@ -43,6 +43,7 @@ export function TileRenderer({
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const tileRef = useRef<HTMLDivElement>(null);
 
     // Mermaid-specific state
     const [mermaidScale, setMermaidScale] = useState(
@@ -124,6 +125,26 @@ export function TileRenderer({
             return () => window.removeEventListener("keydown", handleKeyDown);
         }
     }, [isSelected]);
+
+    // Click outside to exit edit mode for code tiles
+    useEffect(() => {
+        if (!isEditing || element.tileType !== "tile-code") return;
+
+        const handleMouseDown = (e: MouseEvent) => {
+            // Check if click is outside the tile
+            if (
+                tileRef.current &&
+                !tileRef.current.contains(e.target as Node)
+            ) {
+                setIsEditing(false);
+            }
+        };
+
+        // Use capture phase to handle the click before it's processed by other handlers
+        document.addEventListener("mousedown", handleMouseDown, true);
+        return () =>
+            document.removeEventListener("mousedown", handleMouseDown, true);
+    }, [isEditing, element.tileType]);
 
     // Mermaid handlers
     const handleMermaidScaleChange = useCallback(
@@ -488,6 +509,7 @@ export function TileRenderer({
                 }}
             >
                 <div
+                    ref={tileRef}
                     className={cn(
                         "relative w-full h-full rounded-lg shadow-lg border-2 transition-all select-none overflow-hidden",
                         "border-gray-200 dark:border-neutral-700",
