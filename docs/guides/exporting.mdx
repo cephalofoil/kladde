@@ -1,0 +1,20 @@
+# Exporting Boards
+
+Kladde can export boards into shareable formats for reviews or archiving.
+
+## Export types
+
+- PDF snapshots
+- Image assets
+- Structured data exports
+
+## Implementation notes
+
+Export logic is centralized in `src/lib/document-export.tsx`. It reads the board
+state, renders output, and keeps the active board intact.
+
+## Common workflow
+
+1. Open the board you want to export.
+2. Choose an export type from the UI.
+3. Review the preview and save the output file.

@@ -1,0 +1,30 @@
+# Architecture
+
+Kladde is a Next.js app using React, Zustand, and shared libraries for canvas
+rendering, collaboration, and exporting.
+
+## Runtime layers
+
+- **UI layer**: components in `src/components` compose the interface.
+- **State layer**: Zustand stores in `src/store` manage board state, sync, and
+  persistence.
+- **Utilities**: domain logic like export, storage, and collaboration live in
+  `src/lib`.
+
+## Data flow
+
+1. A route loads a board page.
+2. Store hooks hydrate board state.
+3. UI components render tiles from state.
+4. Updates funnel back into the store and persistence utilities.
+
+## Collaboration
+
+Real-time updates are handled in `src/lib/collaboration.ts` and supporting
+infrastructure in `party/` for PartyKit services.
+
+## Export pipeline
+
+Exports (PDF, image, or data) are handled via `src/lib/document-export.tsx`.
+The export layer reads the current board state and renders output without
+mutating the active board.

@@ -204,12 +204,20 @@
     }
     html,
     body {
-        overflow: hidden;
         height: 100%;
     }
     body {
         @apply bg-background text-foreground;
         font-family: var(--font-sans);
+    }
+
+    body:not(.nextra-body) {
+        overflow: hidden;
+    }
+
+    body.nextra-body {
+        height: auto;
+        overflow: auto;
     }
 
     /* Headings use Switzer font */
@@ -231,6 +239,47 @@
     ::-moz-selection {
         background-color: color-mix(in oklch, var(--accent) 10%, transparent);
         color: var(--selection-text);
+    }
+}
+
+@layer components {
+    .nextra-content {
+        @apply text-[1.02rem] leading-relaxed text-foreground;
+    }
+
+    .nextra-content h1,
+    .nextra-content h2,
+    .nextra-content h3,
+    .nextra-content h4 {
+        @apply font-heading text-foreground;
+    }
+
+    .nextra-content a {
+        @apply text-primary underline decoration-primary/40 underline-offset-4 transition-colors;
+    }
+
+    .nextra-content a:hover {
+        @apply text-primary/80 decoration-primary/70;
+    }
+
+    .nextra-content code {
+        @apply rounded bg-muted px-1.5 py-0.5 text-[0.95em] text-foreground;
+    }
+
+    .nextra-content pre {
+        @apply border border-border bg-card;
+    }
+
+    .nextra-content blockquote {
+        @apply border-l-4 border-primary/60 pl-4 text-muted-foreground;
+    }
+
+    .nextra-content table {
+        @apply w-full border-collapse text-sm;
+    }
+
+    .nextra-content th {
+        @apply bg-secondary text-foreground;
     }
 }
 

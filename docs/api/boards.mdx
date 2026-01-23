@@ -1,0 +1,18 @@
+# Boards API
+
+This page documents the primary board-related data structures and utilities.
+
+## Board types
+
+Board types live in `src/lib/board-types.ts` and `src/lib/store-types.ts`.
+They define the tile schema, metadata, and serialization format.
+
+## Store APIs
+
+Board state is managed in `src/store/board-store.ts` and related sync stores.
+Use these for creating, updating, or deleting boards.
+
+## Export helpers
+
+`src/lib/document-export.tsx` consumes board data to generate output formats.
+When adding new export types, follow the existing helper patterns in that file.

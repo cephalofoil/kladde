@@ -1,0 +1,35 @@
+# Getting Started
+
+This guide introduces the main moving parts of Kladde so you can navigate the
+codebase and understand the user experience quickly.
+
+## Core concepts
+
+### Boards
+
+Boards are the primary workspace. They contain tiles like drawings, text blocks,
+and files. Board state is stored in `src/store` and serialized via utilities in
+`src/lib`.
+
+### Workstreams
+
+Workstreams group related boards. The sidebar surfaces recent and favorite
+boards for faster switching.
+
+### Tiles
+
+Tiles are the modular units inside a board. They power text, code blocks,
+diagrams, and sketches. Helpers for tile behavior live in `src/lib/tile-utils.ts`.
+
+## Key flows
+
+1. A user opens a board via `src/app` routes.
+2. Board data is loaded through the store in `src/store`.
+3. Tiles render through components in `src/components`.
+4. Changes persist locally and can sync through collaboration utilities.
+
+## Helpful entry points
+
+- `src/app/page.tsx` for the primary landing experience.
+- `src/components/header.tsx` for navigation and board switching.
+- `src/lib/document-export.tsx` for exporting boards.

@@ -1,0 +1,21 @@
+# Collaboration
+
+Kladde supports real-time collaboration so multiple people can work on the same
+board simultaneously.
+
+## How it works
+
+- Board state updates are broadcast through PartyKit.
+- `src/lib/collaboration.ts` coordinates awareness and document syncing.
+- The UI reflects live cursors and edits as updates arrive.
+
+## Relevant files
+
+- `src/lib/collaboration.ts`
+- `party/index.ts`
+- `src/store/board-sync-store.ts`
+
+## Tips
+
+- Validate connection events in PartyKit logs when debugging.
+- Use smaller tiles for high-frequency updates to keep sync smooth.
