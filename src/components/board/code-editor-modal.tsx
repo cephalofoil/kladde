@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import {
     X,
     Search,
@@ -63,6 +63,8 @@ export function CodeEditorModal({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const editorContainerRef = useRef<HTMLDivElement>(null);
+    const codeDisplayRef = useRef<HTMLDivElement>(null);
+    const codeContentRef = useRef<HTMLDivElement>(null);
 
     // Copy state
     const [copied, setCopied] = useState(false);
@@ -227,7 +229,40 @@ export function CodeEditorModal({
     };
 
     const themeConfig = getThemeByName(theme);
+    const normalizedThemeStyle = useMemo(() => {
+        const entries = Object.entries(themeConfig.style).map(
+            ([key, value]) => [
+                key,
+                {
+                    ...value,
+                    fontWeight: 400,
+                    fontStyle: "normal",
+                } as React.CSSProperties,
+            ],
+        );
+        return Object.fromEntries(entries);
+    }, [themeConfig.style]);
     const lines = code.split("\n");
+    const editorTypographyStyle = {
+        fontFamily: "var(--font-mono)",
+        fontSize: "14px",
+        lineHeight: "1.6",
+        letterSpacing: "0",
+        fontVariantLigatures: "none",
+        fontWeight: 400,
+        tabSize: 2,
+    } as const;
+
+    const handleEditorScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+        const target = e.currentTarget;
+        if (codeContentRef.current) {
+            codeContentRef.current.style.transform = `translate(${-target.scrollLeft}px, ${-target.scrollTop}px)`;
+        }
+        if (codeDisplayRef.current) {
+            codeDisplayRef.current.scrollTop = target.scrollTop;
+            codeDisplayRef.current.scrollLeft = target.scrollLeft;
+        }
+    };
 
     return (
         <div
@@ -236,7 +271,7 @@ export function CodeEditorModal({
         >
             <div
                 className={cn(
-                    "w-[92%] max-w-[1200px] min-w-[600px] h-[85vh]",
+                    "w-[92%] max-w-[1600px] min-w-[700px] h-full",
                     "rounded-2xl shadow-2xl flex flex-col overflow-hidden",
                     "transition-all duration-300 ease-in-out",
                 )}
@@ -488,43 +523,61 @@ export function CodeEditorModal({
                     className="flex-1 overflow-auto relative"
                 >
                     {/* Syntax Highlighted Display */}
-                    <div className="absolute inset-0 pointer-events-none">
-                        <SyntaxHighlighter
-                            language={language}
-                            style={themeConfig.style}
-                            showLineNumbers
-                            wrapLines
-                            lineProps={(lineNumber) => ({
-                                style: {
-                                    display: "block",
-                                    backgroundColor: highlightedLines.includes(
-                                        lineNumber,
-                                    )
-                                        ? "rgba(255, 255, 0, 0.15)"
-                                        : searchResults.includes(lineNumber)
-                                          ? "rgba(255, 165, 0, 0.1)"
-                                          : undefined,
-                                },
-                                onClick: () => handleLineClick(lineNumber),
-                            })}
-                            customStyle={{
-                                margin: 0,
-                                padding: "16px",
-                                paddingLeft: "60px",
-                                fontSize: "14px",
-                                lineHeight: "1.6",
-                                minHeight: "100%",
-                                background: "transparent",
-                            }}
-                            lineNumberStyle={{
-                                minWidth: "3em",
-                                paddingRight: "1em",
-                                color: themeConfig.previewColors.comment,
-                                userSelect: "none",
-                            }}
+                    <div
+                        ref={codeDisplayRef}
+                        className="absolute inset-0 pointer-events-none overflow-hidden"
+                    >
+                        <div
+                            ref={codeContentRef}
+                            className="absolute inset-0 will-change-transform"
                         >
-                            {code || " "}
-                        </SyntaxHighlighter>
+                            <SyntaxHighlighter
+                                language={language}
+                                style={normalizedThemeStyle}
+                                showLineNumbers
+                                wrapLines
+                                lineProps={(lineNumber) => ({
+                                    style: {
+                                        display: "block",
+                                        backgroundColor:
+                                            highlightedLines.includes(
+                                                lineNumber,
+                                            )
+                                                ? "rgba(255, 255, 0, 0.15)"
+                                                : searchResults.includes(
+                                                        lineNumber,
+                                                    )
+                                                  ? "rgba(255, 165, 0, 0.1)"
+                                                  : undefined,
+                                    },
+                                    onClick: () => handleLineClick(lineNumber),
+                                })}
+                                customStyle={{
+                                    margin: 0,
+                                    padding: "16px",
+                                    paddingLeft: "60px",
+                                    minHeight: "100%",
+                                    background: "transparent",
+                                    ...editorTypographyStyle,
+                                }}
+                                codeTagProps={{
+                                    style: editorTypographyStyle,
+                                }}
+                                lineNumberStyle={{
+                                    minWidth: "3em",
+                                    paddingRight: "1em",
+                                    color: themeConfig.previewColors.comment,
+                                    userSelect: "none",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "14px",
+                                    lineHeight: "1.6",
+                                    fontWeight: 400,
+                                    fontStyle: "normal",
+                                }}
+                            >
+                                {code || " "}
+                            </SyntaxHighlighter>
+                        </div>
                     </div>
 
                     {/* Editable Textarea Overlay */}
@@ -533,12 +586,13 @@ export function CodeEditorModal({
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
                         onKeyDown={handleKeyDown}
+                        onScroll={handleEditorScroll}
+                        wrap="off"
                         className="absolute inset-0 w-full h-full font-mono text-transparent caret-white bg-transparent outline-none resize-none"
                         style={{
                             padding: "16px",
                             paddingLeft: "60px",
-                            fontSize: "14px",
-                            lineHeight: "1.6",
+                            ...editorTypographyStyle,
                             caretColor: themeConfig.isDark ? "#fff" : "#000",
                         }}
                         spellCheck={false}

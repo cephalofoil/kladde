@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 import { Check, Copy, ChevronRight, ChevronDown } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -28,8 +28,51 @@ interface CodeRendererProps {
     onFinish?: () => void;
     isEditing?: boolean;
     readOnly?: boolean;
+    isLowFidelity?: boolean;
     className?: string;
 }
+
+const areNumberArraysEqual = (a: number[], b: number[]) => {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    return a.every((value, index) => value === b[index]);
+};
+
+const areFoldedRangesEqual = (a: FoldRange[], b: FoldRange[]) => {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    return a.every(
+        (range, index) =>
+            range.start === b[index]?.start && range.end === b[index]?.end,
+    );
+};
+
+const areCodeRendererPropsEqual = (
+    prev: CodeRendererProps,
+    next: CodeRendererProps,
+) => {
+    return (
+        prev.code === next.code &&
+        prev.language === next.language &&
+        prev.scale === next.scale &&
+        prev.wordWrap === next.wordWrap &&
+        prev.theme === next.theme &&
+        prev.isEditing === next.isEditing &&
+        prev.readOnly === next.readOnly &&
+        prev.isLowFidelity === next.isLowFidelity &&
+        prev.className === next.className &&
+        prev.onChange === next.onChange &&
+        prev.onLanguageChange === next.onLanguageChange &&
+        prev.onHighlightedLinesChange === next.onHighlightedLinesChange &&
+        prev.onFoldedRangesChange === next.onFoldedRangesChange &&
+        prev.onFinish === next.onFinish &&
+        areNumberArraysEqual(
+            prev.highlightedLines ?? [],
+            next.highlightedLines ?? [],
+        ) &&
+        areFoldedRangesEqual(prev.foldedRanges ?? [], next.foldedRanges ?? [])
+    );
+};
 
 // Detect foldable regions in code (functions, classes, blocks)
 function detectFoldableRegions(code: string): FoldRange[] {
@@ -75,7 +118,7 @@ function getFoldableAtLine(
     return foldableRegions.find((r) => r.start === lineNumber);
 }
 
-export function CodeRenderer({
+export const CodeRenderer = memo(function CodeRenderer({
     code,
     language = "javascript",
     scale = 1,
@@ -90,6 +133,7 @@ export function CodeRenderer({
     onFinish,
     isEditing = false,
     readOnly = false,
+    isLowFidelity = false,
     className,
 }: CodeRendererProps) {
     const [localCode, setLocalCode] = useState(code);
@@ -110,12 +154,13 @@ export function CodeRenderer({
 
     // Detect foldable regions
     const foldableRegions = useMemo(
-        () => detectFoldableRegions(localCode),
-        [localCode],
+        () => (isLowFidelity ? [] : detectFoldableRegions(localCode)),
+        [isLowFidelity, localCode],
     );
 
     // Auto-detect language from code
     const detectedLanguage = useMemo(() => {
+        if (isLowFidelity) return localLanguage;
         if (!localCode || localCode.trim().length === 0) {
             return localLanguage;
         }
@@ -148,7 +193,7 @@ export function CodeRenderer({
         } catch {
             return localLanguage;
         }
-    }, [localCode, localLanguage]);
+    }, [isLowFidelity, localCode, localLanguage]);
 
     const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newValue = e.target.value;
@@ -225,7 +270,7 @@ export function CodeRenderer({
 
     // Process code for folding
     const processedCode = useMemo(() => {
-        if (foldedRanges.length === 0) return localCode;
+        if (isLowFidelity || foldedRanges.length === 0) return localCode;
 
         const lines = localCode.split("\n");
         const visibleLines: string[] = [];
@@ -246,7 +291,44 @@ export function CodeRenderer({
         });
 
         return visibleLines.join("\n");
-    }, [localCode, foldedRanges]);
+    }, [isLowFidelity, localCode, foldedRanges]);
+
+    if (isLowFidelity && !isEditing && readOnly) {
+        return (
+            <div
+                className={cn(
+                    "w-full h-full flex flex-col overflow-hidden rounded-b-lg",
+                    className,
+                )}
+                style={{
+                    backgroundColor: themeConfig.previewColors.background,
+                }}
+            >
+                <div
+                    className="flex items-center justify-between px-2.5 py-1.5"
+                    style={{
+                        backgroundColor: themeConfig.previewColors.background,
+                    }}
+                >
+                    <span
+                        className="text-[10px] font-mono uppercase tracking-wider select-none pointer-events-none"
+                        style={{ color: themeConfig.previewColors.comment }}
+                    >
+                        {LANGUAGES.find((l) => l.value === language)?.label ||
+                            "Code"}
+                    </span>
+                </div>
+                <pre
+                    className="flex-1 font-mono text-xs whitespace-pre overflow-hidden p-3"
+                    style={{
+                        color: themeConfig.isDark ? "#e2e8f0" : "#1e1e1e",
+                    }}
+                >
+                    {code || "// No code"}
+                </pre>
+            </div>
+        );
+    }
 
     // Edit mode
     if (isEditing || !readOnly) {
@@ -452,4 +534,4 @@ export function CodeRenderer({
             )}
         </div>
     );
-}
+}, areCodeRendererPropsEqual);

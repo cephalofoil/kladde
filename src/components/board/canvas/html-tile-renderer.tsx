@@ -82,6 +82,7 @@ interface HtmlTileRendererProps {
     element: BoardElement;
     isSelected: boolean;
     isTextEditing: boolean;
+    isCanvasTransient?: boolean;
     onRequestTextEdit: () => void;
     onUpdate?: (updates: Partial<BoardElement>) => void;
     onDelete?: () => void;
@@ -95,6 +96,7 @@ export const HtmlTileRenderer = memo(
         element,
         isSelected,
         isTextEditing,
+        isCanvasTransient = false,
         onRequestTextEdit,
         onUpdate,
         onDelete,
@@ -448,6 +450,24 @@ export const HtmlTileRenderer = memo(
             }
         }, [content, onUpdate]);
 
+        const handleCodeChange = useCallback(
+            (code: string) => {
+                onUpdate?.({
+                    tileContent: { ...content, code },
+                });
+            },
+            [content, onUpdate],
+        );
+
+        const handleCodeLanguageChange = useCallback(
+            (language: string) => {
+                onUpdate?.({
+                    tileContent: { ...content, language },
+                });
+            },
+            [content, onUpdate],
+        );
+
         const renderTextTileBody = (
             markdown: string,
             field: "richText" | "noteText",
@@ -513,16 +533,9 @@ export const HtmlTileRenderer = memo(
                                 theme={codeTheme}
                                 highlightedLines={codeHighlightedLines}
                                 foldedRanges={codeFoldedRanges}
-                                onChange={(code) =>
-                                    onUpdate?.({
-                                        tileContent: { ...content, code },
-                                    })
-                                }
-                                onLanguageChange={(language) =>
-                                    onUpdate?.({
-                                        tileContent: { ...content, language },
-                                    })
-                                }
+                                isLowFidelity={isCanvasTransient}
+                                onChange={handleCodeChange}
+                                onLanguageChange={handleCodeLanguageChange}
                                 onHighlightedLinesChange={
                                     handleCodeHighlightedLinesChange
                                 }

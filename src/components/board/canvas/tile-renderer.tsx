@@ -139,6 +139,24 @@ export function TileRenderer({
         [element.tileContent, onUpdate],
     );
 
+    const handleCodeChange = useCallback(
+        (code: string) => {
+            onUpdate?.({
+                tileContent: { ...element.tileContent, code },
+            });
+        },
+        [element.tileContent, onUpdate],
+    );
+
+    const handleCodeLanguageChange = useCallback(
+        (language: string) => {
+            onUpdate?.({
+                tileContent: { ...element.tileContent, language },
+            });
+        },
+        [element.tileContent, onUpdate],
+    );
+
     const stopHeaderActions = (e: React.MouseEvent) => {
         e.stopPropagation();
     };
@@ -222,16 +240,8 @@ export function TileRenderer({
                             }
                             highlightedLines={content?.codeHighlightedLines}
                             foldedRanges={content?.codeFoldedRanges}
-                            onChange={(code) =>
-                                onUpdate?.({
-                                    tileContent: { ...content, code },
-                                })
-                            }
-                            onLanguageChange={(language) =>
-                                onUpdate?.({
-                                    tileContent: { ...content, language },
-                                })
-                            }
+                            onChange={handleCodeChange}
+                            onLanguageChange={handleCodeLanguageChange}
                             onFinish={() => setIsEditing(false)}
                             isEditing={isEditing}
                             readOnly={!isEditing}
