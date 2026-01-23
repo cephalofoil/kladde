@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
@@ -125,12 +125,13 @@ export function TornNoteTileRenderer({
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [localContent, setLocalContent] = useState(content);
-    const [autoFontSize, setAutoFontSize] = useState(24);
-    const [verticalPadding, setVerticalPadding] = useState(18);
+    const [layout, setLayout] = useState({
+        fontSize: 24,
+        paddingTop: 24,
+        paddingBottom: 40,
+    });
     const resolvedFontFamily = fontFamily || "var(--font-inter)";
     const resolvedTextAlign = textAlign || "center";
-    // Use the single torn path
-    const tornPathIndex = 0;
 
     useEffect(() => {
         setLocalContent(content);
@@ -141,24 +142,29 @@ export function TornNoteTileRenderer({
         return text.replace(/\r\n/g, "\n");
     }, [localContent]);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!containerRef.current) return;
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (!entry) return;
-            const { width, height } = entry.contentRect;
-            if (!width || !height) return;
+        let rafId: number | null = null;
+
+        const computeLayout = (width: number, height: number) => {
+            if (!width || !height) return null;
             const paddingX = 24;
-            const minPadding = 14;
+            const minPaddingTop = 24; // Extra space for paperclip at top
+            const minPaddingBottom = 40; // Extra space for torn edge at bottom
             const availableWidth = Math.max(0, width - paddingX * 2);
-            const availableHeight = Math.max(0, height - minPadding * 2);
-            if (!availableWidth || !availableHeight) return;
+            const availableHeight = Math.max(
+                0,
+                height - minPaddingTop - minPaddingBottom,
+            );
+            if (!availableWidth || !availableHeight) return null;
+
             const minSize = 12;
             const maxSize = Math.max(
                 minSize,
                 Math.min(72, Math.floor(availableHeight)),
             );
             const textToMeasure = plainText || " ";
+
             let low = minSize;
             let high = maxSize;
             let best = minSize;
@@ -180,7 +186,7 @@ export function TornNoteTileRenderer({
                     high = mid - 1;
                 }
             }
-            setAutoFontSize(best);
+
             const measuredHeight = measureWrappedTextHeightPx({
                 text: textToMeasure,
                 width: availableWidth,
@@ -190,17 +196,33 @@ export function TornNoteTileRenderer({
                 letterSpacing: 0,
                 textAlign: resolvedTextAlign,
             });
-            const nextPadding = Math.max(
-                minPadding,
-                Math.floor((height - measuredHeight) / 2),
-            );
-            setVerticalPadding(nextPadding);
+
+            const extraSpace = Math.max(0, availableHeight - measuredHeight);
+            const paddingTop = minPaddingTop + Math.floor(extraSpace / 2);
+            const paddingBottom = minPaddingBottom + Math.floor(extraSpace / 2);
+            return { fontSize: best, paddingTop, paddingBottom };
+        };
+
+        const observer = new ResizeObserver((entries) => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => {
+                const entry = entries[0];
+                if (!entry) return;
+                const { width, height } = entry.contentRect;
+                const result = computeLayout(width, height);
+                if (result) {
+                    setLayout(result);
+                }
+            });
         });
         observer.observe(containerRef.current);
-        return () => observer.disconnect();
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            observer.disconnect();
+        };
     }, [plainText, resolvedFontFamily, resolvedTextAlign]);
 
-    const tornPath = TORN_PATHS[tornPathIndex];
+    const tornPath = TORN_PATHS[0];
     const colorStyle = colorStyles["natural-tan"];
 
     return (
@@ -302,7 +324,7 @@ export function TornNoteTileRenderer({
                         readOnly={readOnly || (isSelected && !isEditing)}
                         placeholder="Quick note..."
                         className={cn(
-                            "w-full h-full pl-6 pr-10 bg-transparent border-none outline-none resize-none",
+                            "w-full h-full px-6 bg-transparent border-none outline-none resize-none overflow-hidden",
                             "font-bold text-[#2a2a2a] leading-tight tracking-tight",
                             "placeholder:text-[#6b6b6b]/40 placeholder:text-base focus:placeholder:opacity-0",
                             readOnly ? "cursor-default" : "cursor-text",
@@ -311,10 +333,10 @@ export function TornNoteTileRenderer({
                             fontFamily: resolvedFontFamily,
                             textAlign: resolvedTextAlign,
                             WebkitFontSmoothing: "antialiased",
-                            fontSize: `${autoFontSize}px`,
+                            fontSize: `${layout.fontSize}px`,
                             lineHeight: "1.2",
-                            paddingTop: `${verticalPadding}px`,
-                            paddingBottom: `${verticalPadding}px`,
+                            paddingTop: `${layout.paddingTop}px`,
+                            paddingBottom: `${layout.paddingBottom}px`,
                         }}
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => {

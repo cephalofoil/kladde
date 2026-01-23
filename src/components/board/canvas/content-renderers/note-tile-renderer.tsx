@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
@@ -100,8 +100,11 @@ export function NoteTileRenderer({
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [localContent, setLocalContent] = useState(content);
-    const [autoFontSize, setAutoFontSize] = useState(24);
-    const [verticalPadding, setVerticalPadding] = useState(16);
+    const [layout, setLayout] = useState({
+        fontSize: 24,
+        paddingTop: 20,
+        paddingBottom: 16,
+    });
     const resolvedColor = color === "natural-tan" ? "butter" : color;
     const resolvedFontFamily = fontFamily || "var(--font-inter)";
     const resolvedTextAlign = textAlign || "center";
@@ -115,24 +118,29 @@ export function NoteTileRenderer({
         return text.replace(/\r\n/g, "\n");
     }, [localContent]);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!containerRef.current) return;
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (!entry) return;
-            const { width, height } = entry.contentRect;
-            if (!width || !height) return;
+        let rafId: number | null = null;
+
+        const computeLayout = (width: number, height: number) => {
+            if (!width || !height) return null;
             const paddingX = 20;
-            const minPadding = 12;
+            const minPaddingTop = 20; // Extra space for tape at top
+            const minPaddingBottom = 16;
             const availableWidth = Math.max(0, width - paddingX * 2);
-            const availableHeight = Math.max(0, height - minPadding * 2);
-            if (!availableWidth || !availableHeight) return;
+            const availableHeight = Math.max(
+                0,
+                height - minPaddingTop - minPaddingBottom,
+            );
+            if (!availableWidth || !availableHeight) return null;
+
             const minSize = 12;
             const maxSize = Math.max(
                 minSize,
                 Math.min(72, Math.floor(availableHeight)),
             );
             const textToMeasure = plainText || " ";
+
             let low = minSize;
             let high = maxSize;
             let best = minSize;
@@ -154,7 +162,7 @@ export function NoteTileRenderer({
                     high = mid - 1;
                 }
             }
-            setAutoFontSize(best);
+
             const measuredHeight = measureWrappedTextHeightPx({
                 text: textToMeasure,
                 width: availableWidth,
@@ -164,14 +172,30 @@ export function NoteTileRenderer({
                 letterSpacing: 0,
                 textAlign: resolvedTextAlign,
             });
-            const nextPadding = Math.max(
-                minPadding,
-                Math.floor((height - measuredHeight) / 2),
-            );
-            setVerticalPadding(nextPadding);
+
+            const extraSpace = Math.max(0, availableHeight - measuredHeight);
+            const paddingTop = minPaddingTop + Math.floor(extraSpace / 2);
+            const paddingBottom = minPaddingBottom + Math.floor(extraSpace / 2);
+            return { fontSize: best, paddingTop, paddingBottom };
+        };
+
+        const observer = new ResizeObserver((entries) => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => {
+                const entry = entries[0];
+                if (!entry) return;
+                const { width, height } = entry.contentRect;
+                const result = computeLayout(width, height);
+                if (result) {
+                    setLayout(result);
+                }
+            });
         });
         observer.observe(containerRef.current);
-        return () => observer.disconnect();
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            observer.disconnect();
+        };
     }, [plainText, resolvedFontFamily, resolvedTextAlign]);
 
     // Tape style matching the reference exactly
@@ -294,7 +318,7 @@ export function NoteTileRenderer({
                         readOnly={readOnly || (isSelected && !isEditing)}
                         placeholder="Type your note..."
                         className={cn(
-                            "w-full h-full px-5 bg-transparent border-none outline-none resize-none",
+                            "w-full h-full px-5 bg-transparent border-none outline-none resize-none overflow-hidden",
                             "font-bold text-note-text leading-tight tracking-tight",
                             "placeholder:text-note-text/25 placeholder:text-base focus:placeholder:opacity-0",
                             readOnly ? "cursor-default" : "cursor-text",
@@ -302,10 +326,10 @@ export function NoteTileRenderer({
                         style={{
                             fontFamily: resolvedFontFamily,
                             textAlign: resolvedTextAlign,
-                            fontSize: `${autoFontSize}px`,
+                            fontSize: `${layout.fontSize}px`,
                             lineHeight: "1.2",
-                            paddingTop: `${verticalPadding}px`,
-                            paddingBottom: `${verticalPadding}px`,
+                            paddingTop: `${layout.paddingTop}px`,
+                            paddingBottom: `${layout.paddingBottom}px`,
                         }}
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => {
