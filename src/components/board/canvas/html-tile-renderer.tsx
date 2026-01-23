@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, memo } from "react";
+import { useCallback, useEffect, useMemo, useState, memo, useRef } from "react";
 import type { BoardElement } from "@/lib/board-types";
 import { cn } from "@/lib/utils";
 import { GripVertical, MoreHorizontal } from "lucide-react";
@@ -105,6 +105,7 @@ export const HtmlTileRenderer = memo(
         const [isEditingTitle, setIsEditingTitle] = useState(false);
         const [isEditing, setIsEditing] = useState(false);
         const [showColorPicker, setShowColorPicker] = useState(false);
+        const tileRef = useRef<HTMLDivElement>(null);
 
         // Mermaid-specific state
         const [mermaidScale, setMermaidScale] = useState(
@@ -266,6 +267,26 @@ export const HtmlTileRenderer = memo(
                     window.removeEventListener("keydown", handleKeyDown);
             }
         }, [isSelected]);
+
+        useEffect(() => {
+            if (!isEditing) return;
+            const handleOutsideClick = (event: MouseEvent) => {
+                const target = event.target as Node | null;
+                if (!tileRef.current || !target) return;
+                if (tileRef.current.contains(target)) return;
+                setIsEditing(false);
+            };
+            document.addEventListener("mousedown", handleOutsideClick);
+            return () => {
+                document.removeEventListener("mousedown", handleOutsideClick);
+            };
+        }, [isEditing]);
+
+        useEffect(() => {
+            if (isEditing && !isSelected) {
+                onRequestTextEdit();
+            }
+        }, [isEditing, isSelected, onRequestTextEdit]);
 
         const stopCanvas = useCallback((e: React.SyntheticEvent) => {
             e.stopPropagation();
@@ -530,7 +551,10 @@ export const HtmlTileRenderer = memo(
                                 }
                             }}
                             onClickCapture={(e) => {
-                                stopCanvas(e);
+                                onRequestTextEdit();
+                                if (isSelected) {
+                                    stopCanvas(e);
+                                }
                                 if (!isEditing) {
                                     setIsEditing(true);
                                 }
@@ -833,6 +857,7 @@ export const HtmlTileRenderer = memo(
 
         return (
             <div
+                ref={tileRef}
                 className="absolute"
                 style={tileStyle}
                 data-element-id={element.id}
@@ -911,35 +936,29 @@ export const HtmlTileRenderer = memo(
                                 onMouseDown={stopCanvas}
                                 onClick={stopCanvas}
                             >
-                                {element.tileType === "tile-code" &&
-                                    !isEditing && (
-                                        <CodeTileControls
-                                            scale={codeScale}
-                                            onScaleChange={
-                                                handleCodeScaleChange
-                                            }
-                                            wordWrap={codeWordWrap}
-                                            onWordWrapChange={
-                                                handleCodeWordWrapChange
-                                            }
-                                            theme={codeTheme}
-                                            onThemeChange={
-                                                handleCodeThemeChange
-                                            }
-                                            onExpand={() =>
-                                                onOpenCodeEditor?.(element.id)
-                                            }
-                                            onCopyCode={handleCodeCopy}
-                                            onCopyImage={handleCodeCopyImage}
-                                            onDownload={handleCodeDownload}
-                                            onFormat={handleCodeFormat}
-                                            canFormat={canFormatLanguage(
-                                                content?.language ||
-                                                    "javascript",
-                                            )}
-                                            className="bg-transparent p-0"
-                                        />
-                                    )}
+                                {element.tileType === "tile-code" && (
+                                    <CodeTileControls
+                                        scale={codeScale}
+                                        onScaleChange={handleCodeScaleChange}
+                                        wordWrap={codeWordWrap}
+                                        onWordWrapChange={
+                                            handleCodeWordWrapChange
+                                        }
+                                        theme={codeTheme}
+                                        onThemeChange={handleCodeThemeChange}
+                                        onExpand={() =>
+                                            onOpenCodeEditor?.(element.id)
+                                        }
+                                        onCopyCode={handleCodeCopy}
+                                        onCopyImage={handleCodeCopyImage}
+                                        onDownload={handleCodeDownload}
+                                        onFormat={handleCodeFormat}
+                                        canFormat={canFormatLanguage(
+                                            content?.language || "javascript",
+                                        )}
+                                        className="bg-transparent p-0"
+                                    />
+                                )}
                                 {element.tileType === "tile-mermaid" &&
                                     !isEditing && (
                                         <MermaidTileControls

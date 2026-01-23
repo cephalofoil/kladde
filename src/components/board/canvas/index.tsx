@@ -605,6 +605,11 @@ export function Canvas({
         if (!container) return;
 
         const handleWheel = (e: WheelEvent) => {
+            const target = e.target as HTMLElement | null;
+            const editor = target?.closest?.("[data-code-editor='true']");
+            if (editor?.getAttribute("data-tile-selected") === "true") {
+                return;
+            }
             // Prevent browser back/forward navigation on horizontal scroll
             if (Math.abs(e.deltaX) > 0) {
                 e.preventDefault();

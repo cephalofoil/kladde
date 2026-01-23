@@ -156,6 +156,8 @@ export const CodeRenderer = memo(function CodeRenderer({
 
                 <div
                     className="flex-1"
+                    data-code-editor="true"
+                    data-tile-selected={isSelected ? "true" : "false"}
                     onWheelCapture={(e) => {
                         if (isSelected) e.stopPropagation();
                     }}
@@ -225,6 +227,8 @@ export const CodeRenderer = memo(function CodeRenderer({
             {/* Code Display with Syntax Highlighting */}
             <div
                 className="flex-1 overflow-hidden rounded-b-lg relative"
+                data-code-editor="true"
+                data-tile-selected={isSelected ? "true" : "false"}
                 onWheelCapture={(e) => {
                     if (isSelected) e.stopPropagation();
                 }}
