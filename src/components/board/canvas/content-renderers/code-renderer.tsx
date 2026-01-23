@@ -27,6 +27,7 @@ interface CodeRendererProps {
     onFinish?: () => void;
     isEditing?: boolean;
     readOnly?: boolean;
+    isSelected?: boolean;
     className?: string;
 }
 
@@ -57,6 +58,7 @@ const areCodeRendererPropsEqual = (
         prev.theme === next.theme &&
         prev.isEditing === next.isEditing &&
         prev.readOnly === next.readOnly &&
+        prev.isSelected === next.isSelected &&
         prev.className === next.className &&
         prev.onChange === next.onChange &&
         prev.onLanguageChange === next.onLanguageChange &&
@@ -86,6 +88,7 @@ export const CodeRenderer = memo(function CodeRenderer({
     onFinish,
     isEditing = false,
     readOnly = false,
+    isSelected = false,
     className,
 }: CodeRendererProps) {
     const [localCode, setLocalCode] = useState(code);
@@ -153,7 +156,9 @@ export const CodeRenderer = memo(function CodeRenderer({
 
                 <div
                     className="flex-1"
-                    onWheelCapture={(e) => e.stopPropagation()}
+                    onWheelCapture={(e) => {
+                        if (isSelected) e.stopPropagation();
+                    }}
                 >
                     <CodeMirrorEditor
                         value={localCode}
@@ -171,7 +176,7 @@ export const CodeRenderer = memo(function CodeRenderer({
                         onLineToggle={handleLineToggle}
                         onEscape={onFinish}
                         placeholderText="// Type your code here..."
-                        className="h-full"
+                        className="h-full cursor-text"
                     />
                 </div>
             </div>
@@ -220,7 +225,9 @@ export const CodeRenderer = memo(function CodeRenderer({
             {/* Code Display with Syntax Highlighting */}
             <div
                 className="flex-1 overflow-hidden rounded-b-lg relative"
-                onWheelCapture={(e) => e.stopPropagation()}
+                onWheelCapture={(e) => {
+                    if (isSelected) e.stopPropagation();
+                }}
             >
                 <CodeMirrorEditor
                     value={localCode || "// No code"}

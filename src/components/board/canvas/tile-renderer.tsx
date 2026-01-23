@@ -229,7 +229,12 @@ export function TileRenderer({
 
             case "tile-code":
                 return (
-                    <div className="absolute left-0 right-0 bottom-0 top-12 pointer-events-auto rounded-b-lg overflow-hidden">
+                    <div
+                        className="absolute left-0 right-0 bottom-0 top-12 pointer-events-auto rounded-b-lg overflow-hidden"
+                        onClick={() => {
+                            if (!isEditing) setIsEditing(true);
+                        }}
+                    >
                         <CodeRenderer
                             code={content?.code || ""}
                             language={content?.language || "javascript"}
@@ -240,6 +245,7 @@ export function TileRenderer({
                             }
                             highlightedLines={content?.codeHighlightedLines}
                             foldedRanges={content?.codeFoldedRanges}
+                            isSelected={isSelected}
                             onChange={handleCodeChange}
                             onLanguageChange={handleCodeLanguageChange}
                             onFinish={() => setIsEditing(false)}

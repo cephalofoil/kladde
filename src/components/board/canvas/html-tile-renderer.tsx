@@ -522,7 +522,20 @@ export const HtmlTileRenderer = memo(
                     return null; // Note tiles render their own content in the special branch below
                 case "tile-code":
                     return (
-                        <div className="absolute left-0 right-0 bottom-0 top-12 rounded-b-lg overflow-hidden pointer-events-auto">
+                        <div
+                            className="absolute left-0 right-0 bottom-0 top-12 rounded-b-lg overflow-hidden pointer-events-auto"
+                            onMouseDownCapture={(e) => {
+                                if (isSelected) {
+                                    stopCanvas(e);
+                                }
+                            }}
+                            onClickCapture={(e) => {
+                                stopCanvas(e);
+                                if (!isEditing) {
+                                    setIsEditing(true);
+                                }
+                            }}
+                        >
                             <CodeRenderer
                                 code={content?.code || ""}
                                 language={content?.language || "javascript"}
@@ -531,6 +544,7 @@ export const HtmlTileRenderer = memo(
                                 theme={codeTheme}
                                 highlightedLines={codeHighlightedLines}
                                 foldedRanges={codeFoldedRanges}
+                                isSelected={isSelected}
                                 onChange={handleCodeChange}
                                 onLanguageChange={handleCodeLanguageChange}
                                 onHighlightedLinesChange={
@@ -912,7 +926,6 @@ export const HtmlTileRenderer = memo(
                                             onThemeChange={
                                                 handleCodeThemeChange
                                             }
-                                            onEdit={() => setIsEditing(true)}
                                             onExpand={() =>
                                                 onOpenCodeEditor?.(element.id)
                                             }
@@ -977,10 +990,8 @@ export const HtmlTileRenderer = memo(
                                             >
                                                 Rename
                                             </DropdownMenuItem>
-                                            {(element.tileType ===
-                                                "tile-code" ||
-                                                element.tileType ===
-                                                    "tile-mermaid") && (
+                                            {element.tileType ===
+                                                "tile-mermaid" && (
                                                 <DropdownMenuItem
                                                     onClick={() =>
                                                         setIsEditing(true)

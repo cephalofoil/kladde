@@ -10,7 +10,6 @@ import {
     WrapText,
     Sparkles,
     Palette,
-    Edit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,7 +28,6 @@ interface CodeTileControlsProps {
     onWordWrapChange: (wrap: boolean) => void;
     theme: CodeThemeName;
     onThemeChange: (theme: CodeThemeName) => void;
-    onEdit: () => void;
     onExpand?: () => void;
     onCopyCode?: () => void;
     onCopyImage?: () => void;
@@ -46,7 +44,6 @@ export function CodeTileControls({
     onWordWrapChange,
     theme,
     onThemeChange,
-    onEdit,
     onExpand,
     onCopyCode,
     onCopyImage,
@@ -171,15 +168,6 @@ export function CodeTileControls({
             </DropdownMenu>
 
             <div className="w-px h-4 bg-border mx-1" />
-
-            {/* Edit Button */}
-            <button
-                onClick={onEdit}
-                className="p-1.5 hover:bg-muted rounded transition-colors"
-                title="Edit Code"
-            >
-                <Edit className="h-4 w-4 text-muted-foreground" />
-            </button>
 
             {/* Format Button */}
             {canFormat && onFormat && (
