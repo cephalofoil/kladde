@@ -45,6 +45,11 @@ import {
     ChevronDown,
     MoreHorizontal,
     Plus,
+    Diamond,
+    StickyNote,
+    Frame,
+    Image,
+    MousePointer2,
 } from "lucide-react";
 import {
     Tool,
@@ -630,6 +635,43 @@ export function ToolSidebar({
     };
 
     const hasSelectedElements = selectedElements.length > 0;
+
+    // Get icon for a single selected element
+    const getElementIcon = (el: BoardElement) => {
+        if (el.type === "pen") {
+            return el.penMode === "highlighter" ? (
+                <Highlighter className="w-4 h-4 text-foreground" />
+            ) : (
+                <Pencil className="w-4 h-4 text-foreground" />
+            );
+        }
+        if (el.type === "line")
+            return <Minus className="w-4 h-4 text-foreground" />;
+        if (el.type === "arrow")
+            return <ArrowRight className="w-4 h-4 text-foreground" />;
+        if (el.type === "rectangle")
+            return <Square className="w-4 h-4 text-foreground" />;
+        if (el.type === "ellipse")
+            return <Circle className="w-4 h-4 text-foreground" />;
+        if (el.type === "diamond")
+            return <Diamond className="w-4 h-4 text-foreground" />;
+        if (el.type === "text")
+            return <Type className="w-4 h-4 text-foreground" />;
+        if (el.type === "frame")
+            return <Frame className="w-4 h-4 text-foreground" />;
+        if (el.type === "tile") {
+            if (el.tileType === "tile-code")
+                return <Code className="w-4 h-4 text-foreground" />;
+            if (el.tileType === "tile-note")
+                return <StickyNote className="w-4 h-4 text-foreground" />;
+            if (el.tileType === "tile-image")
+                return <Image className="w-4 h-4 text-foreground" />;
+            if (el.tileType === "tile-text")
+                return <Type className="w-4 h-4 text-foreground" />;
+            return <Square className="w-4 h-4 text-foreground" />;
+        }
+        return <MousePointer2 className="w-4 h-4 text-foreground" />;
+    };
 
     // Reorder colors based on theme: black first in light mode, white first in dark mode
     const currentTheme = resolvedTheme || theme;
@@ -2084,30 +2126,44 @@ export function ToolSidebar({
                 >
                     {/* Header */}
                     <div className="flex items-center gap-2 pb-2 border-b border-border">
-                        {selectedTool === "pen" && (
-                            <Pencil className="w-4 h-4 text-foreground" />
-                        )}
-                        {selectedTool === "highlighter" && (
-                            <Highlighter className="w-4 h-4 text-foreground" />
-                        )}
-                        {selectedTool === "line" && (
-                            <Minus className="w-4 h-4 text-foreground" />
-                        )}
-                        {selectedTool === "arrow" && (
-                            <ArrowRight className="w-4 h-4 text-foreground" />
-                        )}
-                        {selectedTool === "rectangle" && (
-                            <Square className="w-4 h-4 text-foreground" />
-                        )}
-                        {selectedTool === "ellipse" && (
-                            <Circle className="w-4 h-4 text-foreground" />
-                        )}
-                        {selectedTool === "text" && (
-                            <Type className="w-4 h-4 text-foreground" />
+                        {hasSelectedElements ? (
+                            selectedElements.length === 1 ? (
+                                getElementIcon(selectedElements[0])
+                            ) : (
+                                <span className="w-4 h-4 flex items-center justify-center text-xs font-bold text-foreground">
+                                    {selectedElements.length}
+                                </span>
+                            )
+                        ) : (
+                            <>
+                                {selectedTool === "pen" && (
+                                    <Pencil className="w-4 h-4 text-foreground" />
+                                )}
+                                {selectedTool === "highlighter" && (
+                                    <Highlighter className="w-4 h-4 text-foreground" />
+                                )}
+                                {selectedTool === "line" && (
+                                    <Minus className="w-4 h-4 text-foreground" />
+                                )}
+                                {selectedTool === "arrow" && (
+                                    <ArrowRight className="w-4 h-4 text-foreground" />
+                                )}
+                                {selectedTool === "rectangle" && (
+                                    <Square className="w-4 h-4 text-foreground" />
+                                )}
+                                {selectedTool === "ellipse" && (
+                                    <Circle className="w-4 h-4 text-foreground" />
+                                )}
+                                {selectedTool === "text" && (
+                                    <Type className="w-4 h-4 text-foreground" />
+                                )}
+                            </>
                         )}
                         <span className="text-sm font-semibold text-foreground capitalize">
                             {hasSelectedElements
-                                ? `${selectedElements.length} Selected`
+                                ? selectedElements.length === 1
+                                    ? "Selected"
+                                    : `${selectedElements.length} Selected`
                                 : `${selectedTool} Properties`}
                         </span>
                     </div>
