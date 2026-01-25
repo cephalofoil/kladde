@@ -479,13 +479,13 @@ function RenderTileContent({
 
           return (
             <View style={styles.imageContainer}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image has no alt prop */}
               <Image
                 src={preRenderedContent[section.tileId].mermaidDataUrl}
                 style={{
                   width: displayWidth,
                   height: displayHeight,
                 }}
-                alt=""
               />
             </View>
           );
@@ -493,7 +493,8 @@ function RenderTileContent({
 
         {type === "tile-image" && content.imageSrc && (
           <View style={styles.imageContainer}>
-            <Image style={styles.diagramImage} src={content.imageSrc} alt="" />
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image has no alt prop */}
+            <Image style={styles.diagramImage} src={content.imageSrc} />
           </View>
         )}
       </View>
@@ -601,10 +602,10 @@ function RenderSection({
           </View>
           <View style={styles.tileBody}>
             <View style={styles.frameImageContainer}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image has no alt prop */}
               <Image
                 src={frameImage.dataUrl}
                 style={{ width: displayWidth, height: displayHeight }}
-                alt=""
               />
             </View>
           </View>

@@ -5,6 +5,8 @@ import { getThemeByName } from "@/lib/code-themes";
 
 interface RenderCodeImageOptions {
     code: string;
+    /** Language for syntax highlighting (not yet implemented) */
+    language?: string;
     theme?: string;
     scale?: number;
     pixelRatio?: number;
@@ -19,6 +21,7 @@ interface RenderCodeImageOptions {
  */
 export async function renderCodeToImageBlob({
     code,
+    language,
     theme = "atom-dark",
     scale = 1,
     pixelRatio = 2,
@@ -27,6 +30,7 @@ export async function renderCodeToImageBlob({
     lineHeight = 1.5,
     showLineNumbers = true,
 }: RenderCodeImageOptions): Promise<Blob | null> {
+    void language; // TODO: Implement syntax highlighting
     if (!code.trim()) return null;
 
     try {

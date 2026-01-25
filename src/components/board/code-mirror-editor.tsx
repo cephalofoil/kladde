@@ -27,6 +27,10 @@ interface CodeMirrorEditorProps {
     wordWrap?: boolean;
     scale?: number;
     fontSize?: number;
+    /** Lines to highlight (1-indexed). Visual highlighting not yet implemented. */
+    highlightedLines?: number[];
+    /** Lines matching search (1-indexed). Visual highlighting not yet implemented. */
+    searchLines?: number[];
     placeholderText?: string;
     onChange?: (value: string) => void;
     onLineToggle?: (lineNumber: number) => void;
@@ -62,12 +66,16 @@ export function CodeMirrorEditor({
     wordWrap = false,
     scale = 1,
     fontSize = 12,
+    highlightedLines,
+    searchLines,
     placeholderText,
     onChange,
     onLineToggle,
     onEscape,
     className,
 }: CodeMirrorEditorProps) {
+    void highlightedLines; // TODO: Implement line highlighting decoration
+    void searchLines; // TODO: Implement search line highlighting
     const languageExtension = useMemo(
         () => getCodeMirrorLanguage(language),
         [language],
