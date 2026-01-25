@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Download, Copy, HelpCircle } from "lucide-react";
 import type { BoardElement, Point } from "@/lib/board-types";
 import { getArrowheadPoints, normalizeArrowhead } from "@/lib/arrowheads";
+import { drawTileToCanvas } from "@/lib/frame-image";
 import {
     Dialog,
     DialogContent,
@@ -1022,19 +1023,28 @@ function ExportImageModalContent({
         const date = new Date().toISOString().split("T")[0];
         return `kladde-${date}`;
     });
-    const frameOptions = elements.filter((el) => el.type === "frame");
+    const frameOptions = useMemo(
+        () =>
+            elements
+                .filter((el) => el.type === "frame")
+                .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)),
+        [elements],
+    );
     const initialFrameState = useMemo(() => {
         if (frameOptions.length === 0) {
             return { exportScope: "scene" as ExportScope, activeFrameId: null };
         }
-        if (selectedFrameId && frameOptions.some((f) => f.id === selectedFrameId)) {
+        if (
+            selectedFrameId &&
+            frameOptions.some((f) => f.id === selectedFrameId)
+        ) {
             return {
                 exportScope: "frame" as ExportScope,
                 activeFrameId: selectedFrameId,
             };
         }
         return {
-            exportScope: "frame" as ExportScope,
+            exportScope: "scene" as ExportScope,
             activeFrameId: frameOptions[0]?.id ?? null,
         };
     }, [frameOptions, selectedFrameId]);
@@ -1210,6 +1220,35 @@ function ExportImageModalContent({
                 ctx.fillStyle = el.strokeColor;
                 ctx.font = `${fontSize}px sans-serif`;
                 ctx.fillText(el.text || "", el.x ?? 0, (el.y ?? 0) + fontSize);
+            } else if (el.type === "tile") {
+                drawTileToCanvas(ctx, el);
+            } else if (el.type === "diamond") {
+                const x = el.x ?? 0;
+                const y = el.y ?? 0;
+                const width = el.width ?? 0;
+                const height = el.height ?? 0;
+                ctx.strokeStyle = el.strokeColor;
+                ctx.lineWidth = el.strokeWidth;
+                ctx.fillStyle = el.fillColor || "transparent";
+                ctx.beginPath();
+                ctx.moveTo(x + width / 2, y);
+                ctx.lineTo(x + width, y + height / 2);
+                ctx.lineTo(x + width / 2, y + height);
+                ctx.lineTo(x, y + height / 2);
+                ctx.closePath();
+                if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
+                ctx.stroke();
+            } else if (el.type === "pen" && el.points.length > 0) {
+                ctx.strokeStyle = el.strokeColor;
+                ctx.lineWidth = el.strokeWidth;
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                ctx.beginPath();
+                el.points.forEach((p, i) => {
+                    if (i === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                });
+                ctx.stroke();
             }
 
             ctx.restore();
@@ -1409,6 +1448,24 @@ function ExportImageModalContent({
                 } else {
                     ctx.fillText(el.text || "", el.x ?? 0, el.y ?? 0);
                 }
+            } else if (el.type === "tile") {
+                drawTileToCanvas(ctx, el);
+            } else if (el.type === "diamond") {
+                const x = el.x ?? 0;
+                const y = el.y ?? 0;
+                const width = el.width ?? 0;
+                const height = el.height ?? 0;
+                ctx.strokeStyle = el.strokeColor;
+                ctx.lineWidth = el.strokeWidth;
+                ctx.fillStyle = el.fillColor || "transparent";
+                ctx.beginPath();
+                ctx.moveTo(x + width / 2, y);
+                ctx.lineTo(x + width, y + height / 2);
+                ctx.lineTo(x + width / 2, y + height);
+                ctx.lineTo(x, y + height / 2);
+                ctx.closePath();
+                if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
+                ctx.stroke();
             }
 
             ctx.restore();
@@ -1502,6 +1559,26 @@ function ExportImageModalContent({
             } else if (el.type === "text") {
                 const fontSize = (el.strokeWidth || 1) * 4 + 12;
                 content = `<text x="${el.x}" y="${(el.y ?? 0) + fontSize}" fill="${el.strokeColor}" font-size="${fontSize}" font-family="sans-serif" opacity="${opacity}">${el.text || ""}</text>`;
+            } else if (el.type === "tile") {
+                const x = el.x ?? 0;
+                const y = el.y ?? 0;
+                const width = el.width ?? 0;
+                const height = el.height ?? 0;
+                const cornerRadius = Math.min(10, Math.min(width, height) / 6);
+                const headerHeight = Math.min(24, height * 0.25);
+                const title = el.tileTitle || "Untitled";
+                content = `<g opacity="${opacity}">
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#ffffff" stroke="rgba(17, 24, 39, 0.15)" stroke-width="1" rx="${cornerRadius}"/>
+      <rect x="${x}" y="${y}" width="${width}" height="${headerHeight}" fill="#3b82f6"/>
+      <text x="${x + 6}" y="${y + headerHeight / 2}" fill="#ffffff" font-size="10" font-weight="600" font-family="sans-serif" dominant-baseline="middle">${title}</text>
+    </g>`;
+            } else if (el.type === "diamond") {
+                const x = el.x ?? 0;
+                const y = el.y ?? 0;
+                const width = el.width ?? 0;
+                const height = el.height ?? 0;
+                const points = `${x + width / 2},${y} ${x + width},${y + height / 2} ${x + width / 2},${y + height} ${x},${y + height / 2}`;
+                content = `<polygon points="${points}" stroke="${el.strokeColor}" stroke-width="${el.strokeWidth}" fill="${el.fillColor || "none"}" opacity="${opacity}"/>`;
             }
 
             if (!content) return;
@@ -1650,6 +1727,24 @@ function ExportImageModalContent({
                 } else {
                     ctx.fillText(el.text || "", el.x ?? 0, el.y ?? 0);
                 }
+            } else if (el.type === "tile") {
+                drawTileToCanvas(ctx, el);
+            } else if (el.type === "diamond") {
+                const x = el.x ?? 0;
+                const y = el.y ?? 0;
+                const width = el.width ?? 0;
+                const height = el.height ?? 0;
+                ctx.strokeStyle = el.strokeColor;
+                ctx.lineWidth = el.strokeWidth;
+                ctx.fillStyle = el.fillColor || "transparent";
+                ctx.beginPath();
+                ctx.moveTo(x + width / 2, y);
+                ctx.lineTo(x + width, y + height / 2);
+                ctx.lineTo(x + width / 2, y + height);
+                ctx.lineTo(x, y + height / 2);
+                ctx.closePath();
+                if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
+                ctx.stroke();
             }
 
             ctx.restore();
@@ -1738,7 +1833,7 @@ function ExportImageModalContent({
                                         <SelectTrigger className="h-9 text-sm">
                                             <SelectValue placeholder="Select frame" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent position="item-aligned">
                                             {frameOptions.map(
                                                 (frame, index) => (
                                                     <SelectItem

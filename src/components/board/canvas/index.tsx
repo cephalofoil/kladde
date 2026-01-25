@@ -52,7 +52,10 @@ import {
     Trash2,
     X,
     SmilePlus,
+    Download,
+    Copy,
 } from "lucide-react";
+import { renderFrameToBlob } from "@/lib/frame-image";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -2423,6 +2426,85 @@ export function Canvas({
                                         >
                                             {labelText}
                                         </span>
+                                        {/* Quick frame export buttons */}
+                                        {isSelected && !isEditing && (
+                                            <>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground/80 bg-card/90 backdrop-blur-md hover:bg-muted/60 hover:text-foreground transition-colors"
+                                                            onPointerDown={(e) => e.stopPropagation()}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                try {
+                                                                    const blob = await renderFrameToBlob({
+                                                                        frameId: el.id,
+                                                                        elements,
+                                                                        scale: 2,
+                                                                        includeBackground: true,
+                                                                    });
+                                                                    if (blob) {
+                                                                        await navigator.clipboard.write([
+                                                                            new ClipboardItem({ "image/png": blob }),
+                                                                        ]);
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.error("Failed to copy frame:", err);
+                                                                }
+                                                            }}
+                                                            aria-label="Copy frame as image"
+                                                        >
+                                                            <Copy className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" sideOffset={4}>
+                                                        Copy as image
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground/80 bg-card/90 backdrop-blur-md hover:bg-muted/60 hover:text-foreground transition-colors"
+                                                            onPointerDown={(e) => e.stopPropagation()}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                try {
+                                                                    const blob = await renderFrameToBlob({
+                                                                        frameId: el.id,
+                                                                        elements,
+                                                                        scale: 2,
+                                                                        includeBackground: true,
+                                                                    });
+                                                                    if (blob) {
+                                                                        const url = URL.createObjectURL(blob);
+                                                                        const link = document.createElement("a");
+                                                                        const safeName = labelText.trim() || "frame";
+                                                                        link.href = url;
+                                                                        link.download = `${safeName}.png`;
+                                                                        document.body.appendChild(link);
+                                                                        link.click();
+                                                                        document.body.removeChild(link);
+                                                                        URL.revokeObjectURL(url);
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.error("Failed to download frame:", err);
+                                                                }
+                                                            }}
+                                                            aria-label="Download frame as image"
+                                                        >
+                                                            <Download className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" sideOffset={4}>
+                                                        Download as PNG
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             );

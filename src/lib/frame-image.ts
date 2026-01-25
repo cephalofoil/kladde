@@ -644,7 +644,7 @@ function getTilePreviewText(tile: BoardElement) {
   return "";
 }
 
-function drawTileToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
+export function drawTileToCanvas(ctx: CanvasRenderingContext2D, el: BoardElement) {
   if (el.type !== "tile") return;
   const x = el.x ?? 0;
   const y = el.y ?? 0;
@@ -874,4 +874,182 @@ export function renderFrameImageDataUrl(
     sourceHeight: bounds.height,
     scale: renderScale,
   };
+}
+
+export interface RenderFrameToBlobOptions {
+  frameId: string;
+  elements: BoardElement[];
+  scale?: number;
+  includeBackground?: boolean;
+}
+
+export async function renderFrameToBlob(
+  options: RenderFrameToBlobOptions,
+): Promise<Blob | null> {
+  if (typeof document === "undefined") return null;
+  const frame = options.elements.find(
+    (el) => el.type === "frame" && el.id === options.frameId,
+  );
+  if (!frame) return null;
+
+  const bounds = getFrameBounds(frame);
+  if (!bounds.width || !bounds.height) return null;
+
+  const renderScale = options.scale && options.scale > 0 ? options.scale : 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(bounds.width * renderScale));
+  canvas.height = Math.max(1, Math.floor(bounds.height * renderScale));
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (options.includeBackground) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  ctx.save();
+  ctx.scale(renderScale, renderScale);
+  ctx.translate(-bounds.x, -bounds.y);
+
+  const renderElements = getFrameElements(options.elements, options.frameId);
+  const orderedElements = [...renderElements].sort(
+    (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+  );
+
+  orderedElements.forEach((el) => {
+    ctx.save();
+    ctx.globalAlpha = (el.opacity ?? 100) / 100;
+
+    const rot = getRotationTransform(el);
+    if (rot) {
+      ctx.translate(rot.cx, rot.cy);
+      ctx.rotate(degToRad(rot.rotationDeg));
+      ctx.translate(-rot.cx, -rot.cy);
+    }
+
+    if (el.type === "frame") {
+      drawFrameToCanvas(ctx, el);
+    } else if (el.type === "rectangle") {
+      ctx.strokeStyle = el.strokeColor;
+      ctx.lineWidth = el.strokeWidth;
+      ctx.fillStyle = el.fillColor || "transparent";
+      ctx.beginPath();
+      drawRoundedRect(
+        ctx,
+        el.x ?? 0,
+        el.y ?? 0,
+        el.width ?? 0,
+        el.height ?? 0,
+        el.cornerRadius ?? 0,
+      );
+      if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
+      ctx.stroke();
+    } else if (el.type === "diamond") {
+      const x = el.x ?? 0;
+      const y = el.y ?? 0;
+      const width = el.width ?? 0;
+      const height = el.height ?? 0;
+      ctx.strokeStyle = el.strokeColor;
+      ctx.lineWidth = el.strokeWidth;
+      ctx.fillStyle = el.fillColor || "transparent";
+      ctx.beginPath();
+      ctx.moveTo(x + width / 2, y);
+      ctx.lineTo(x + width, y + height / 2);
+      ctx.lineTo(x + width / 2, y + height);
+      ctx.lineTo(x, y + height / 2);
+      ctx.closePath();
+      if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
+      ctx.stroke();
+    } else if (el.type === "ellipse") {
+      ctx.strokeStyle = el.strokeColor;
+      ctx.lineWidth = el.strokeWidth;
+      ctx.fillStyle = el.fillColor || "transparent";
+      ctx.beginPath();
+      ctx.ellipse(
+        (el.x ?? 0) + (el.width ?? 0) / 2,
+        (el.y ?? 0) + (el.height ?? 0) / 2,
+        (el.width ?? 0) / 2,
+        (el.height ?? 0) / 2,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      if (el.fillColor && el.fillColor !== "transparent") ctx.fill();
+      ctx.stroke();
+    } else if (
+      (el.type === "line" || el.type === "arrow") &&
+      el.points.length >= 2
+    ) {
+      drawConnector(ctx, el);
+    } else if (el.type === "pen" && el.points.length >= 2) {
+      ctx.strokeStyle = el.strokeColor;
+      ctx.lineWidth = el.strokeWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      el.points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+    } else if (el.type === "text") {
+      const fontSize = el.fontSize ?? (el.strokeWidth || 1) * 4 + 12;
+      const fontFamily = el.fontFamily || "sans-serif";
+      const padding = 6;
+      ctx.fillStyle = el.strokeColor;
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      ctx.textBaseline = "top";
+      ctx.textAlign = el.textAlign || "left";
+
+      if (el.isTextBox && el.width && el.height) {
+        const content = el.text || "";
+        const maxWidth = Math.max(el.width - padding * 2, 10);
+        const lines = wrapText(ctx, content, maxWidth, 20);
+        let yOffset = (el.y ?? 0) + padding;
+        const xBase =
+          el.textAlign === "center"
+            ? (el.x ?? 0) + el.width / 2
+            : el.textAlign === "right"
+              ? (el.x ?? 0) + el.width - padding
+              : (el.x ?? 0) + padding;
+        for (const line of lines) {
+          ctx.fillText(line, xBase, yOffset);
+          yOffset += fontSize * 1.4;
+          if (yOffset > (el.y ?? 0) + el.height) break;
+        }
+      } else {
+        ctx.fillText(el.text || "", el.x ?? 0, el.y ?? 0);
+      }
+    } else if (el.type === "tile") {
+      drawTileToCanvas(ctx, el);
+    } else if (el.type === "web-embed") {
+      const x = el.x ?? 0;
+      const y = el.y ?? 0;
+      const width = el.width ?? 0;
+      const height = el.height ?? 0;
+      ctx.fillStyle = "#f8fafc";
+      ctx.strokeStyle = "#cbd5f5";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      drawRoundedRect(ctx, x, y, width, height, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#64748b";
+      ctx.font = "600 11px sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Embed", x + 8, y + height / 2);
+    }
+
+    ctx.restore();
+  });
+
+  ctx.restore();
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/png");
+  });
 }
