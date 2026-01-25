@@ -174,13 +174,23 @@ const MERMAID_TEMPLATES = [
   },
 ];
 
+const TEMPLATES_STORAGE_KEY = "mermaid-editor-show-templates";
+
 export function MermaidEditorModal({
   mermaidElement,
   onClose,
   onUpdateMermaid,
 }: MermaidEditorModalProps) {
   const [isAnimating, setIsAnimating] = useState(true);
-  const [showTemplates, setShowTemplates] = useState(true);
+  const [showTemplates, setShowTemplates] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+      if (stored !== null) {
+        return stored === "true";
+      }
+    }
+    return false; // Default to collapsed in fullscreen
+  });
   const [code, setCode] = useState(mermaidElement.tileContent?.chart || "");
   const codeRef = useRef(code);
 
@@ -188,6 +198,11 @@ export function MermaidEditorModal({
   useEffect(() => {
     codeRef.current = code;
   }, [code]);
+
+  // Persist template visibility preference
+  useEffect(() => {
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, String(showTemplates));
+  }, [showTemplates]);
 
   // Swipe-in animation on mount
   useEffect(() => {
