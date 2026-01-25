@@ -38,7 +38,6 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -2292,8 +2291,12 @@ export function ComponentsDocs({
 }: ComponentsDocsProps = {}) {
   const registry = useComponentRegistry();
   const [activeId, setActiveId] = useState("introduction");
+  const getDefaultPreviewVariantId = (entryId: string) => {
+    const entry = registry.find((item) => item.id === entryId);
+    return entry?.previewVariants?.[0]?.id ?? "";
+  };
   const [activePreviewVariantId, setActivePreviewVariantId] =
-    useState<string>("");
+    useState<string>(() => getDefaultPreviewVariantId("introduction"));
   const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({});
   const navRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const navContainerRef = useRef<HTMLDivElement>(null);
@@ -2309,19 +2312,12 @@ export function ComponentsDocs({
 
   const handleNavigate = (id: string) => {
     setActiveId(id);
+    setActivePreviewVariantId(getDefaultPreviewVariantId(id));
     scrollToTop();
     onMobileMenuChange?.(false);
   };
 
   const activeEntry = registry.find((entry) => entry.id === activeId);
-
-  useEffect(() => {
-    if (!activeEntry?.previewVariants?.length) {
-      setActivePreviewVariantId("");
-      return;
-    }
-    setActivePreviewVariantId(activeEntry.previewVariants[0].id);
-  }, [activeId, activeEntry?.previewVariants]);
 
   useEffect(() => {
     const updateHighlight = () => {
@@ -2346,8 +2342,7 @@ export function ComponentsDocs({
     return () => window.removeEventListener("resize", updateHighlight);
   }, [activeId]);
 
-  // Shared navigation content
-  const NavigationContent = () => (
+  const navigationContent = (
     <div className="relative space-y-4" ref={navContainerRef}>
       {activeId && (
         <div
@@ -2416,7 +2411,7 @@ export function ComponentsDocs({
             <SheetTitle>Documentation</SheetTitle>
           </SheetHeader>
           <div className="mt-6">
-            <NavigationContent />
+            {navigationContent}
           </div>
         </SheetContent>
       </Sheet>
@@ -2424,7 +2419,7 @@ export function ComponentsDocs({
       <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
         {/* Desktop sidebar */}
         <aside className="hidden lg:block sticky top-20 self-start">
-          <NavigationContent />
+              {navigationContent}
         </aside>
 
         <div className="space-y-8">

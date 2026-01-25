@@ -6,7 +6,6 @@ import type {
     BoardData,
     BoardStore,
     Workstream,
-    PatchOperation,
 } from "@/lib/store-types";
 import type { BoardComment, BoardElement } from "@/lib/board-types";
 
@@ -768,6 +767,7 @@ export const useBoardStore = create<BoardStore>()(
 
             // Persistence
             saveBoard: async (boardId: string) => {
+                void boardId;
                 // Manual save is handled by Zustand persist middleware
                 // This is a no-op but can be used for explicit saves
                 return Promise.resolve();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Copy, Shuffle, Pencil, Eye, Check } from "lucide-react";
 import {
   Dialog,
@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { generateFunnyName } from "@/lib/funny-names";
-import { cn } from "@/lib/utils";
 import {
   isEncryptionSupported,
   generateEncryptionKey,
@@ -46,53 +45,59 @@ export function InviteDialog({
 }: InviteDialogProps) {
   const [copiedType, setCopiedType] = useState<"edit" | "view" | null>(null);
   const [displayName, setDisplayName] = useState(currentName || "");
-  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
+  const [generatedEncryptionKey, setGeneratedEncryptionKey] = useState<
+    string | null
+  >(null);
+  const encryptionKey = existingEncryptionKey ?? generatedEncryptionKey;
 
-  // Sync display name with current name when dialog opens
-  useEffect(() => {
-    if (open && currentName) {
-      setDisplayName(currentName);
-    }
-  }, [open, currentName]);
-
-  // Generate encryption key when dialog opens (or use existing)
-  useEffect(() => {
-    if (!open || !isOwner) {
+  const ensureEncryptionKey = useCallback(async () => {
+    if (!isEncryptionSupported()) {
+      // Fallback: generate a random string if crypto not supported
+      setGeneratedEncryptionKey(Math.random().toString(36).substring(2, 24));
       return;
     }
 
-    // If we already have a key from props, use it
-    if (existingEncryptionKey) {
-      setEncryptionKey(existingEncryptionKey);
-      return;
+    try {
+      const key = await generateEncryptionKey();
+      const exportedKey = await exportKeyToString(key);
+      setGeneratedEncryptionKey(exportedKey);
+      // Notify parent so they can update CollaborationManager
+      onEncryptionKeyGenerated?.(key);
+      console.log("[InviteDialog] E2E encryption key generated");
+    } catch (error) {
+      console.error(
+        "[InviteDialog] Failed to generate encryption key:",
+        error,
+      );
+      // Fallback
+      setGeneratedEncryptionKey(Math.random().toString(36).substring(2, 24));
     }
+  }, [onEncryptionKeyGenerated]);
 
-    const ensureEncryptionKey = async () => {
-      if (!isEncryptionSupported()) {
-        // Fallback: generate a random string if crypto not supported
-        setEncryptionKey(Math.random().toString(36).substring(2, 24));
-        return;
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      onOpenChange(nextOpen);
+      if (nextOpen && currentName) {
+        setDisplayName(currentName);
       }
-
-      try {
-        const key = await generateEncryptionKey();
-        const exportedKey = await exportKeyToString(key);
-        setEncryptionKey(exportedKey);
-        // Notify parent so they can update CollaborationManager
-        onEncryptionKeyGenerated?.(key);
-        console.log("[InviteDialog] E2E encryption key generated");
-      } catch (error) {
-        console.error(
-          "[InviteDialog] Failed to generate encryption key:",
-          error,
-        );
-        // Fallback
-        setEncryptionKey(Math.random().toString(36).substring(2, 24));
+      if (
+        nextOpen &&
+        isOwner &&
+        !existingEncryptionKey &&
+        !generatedEncryptionKey
+      ) {
+        void ensureEncryptionKey();
       }
-    };
-
-    void ensureEncryptionKey();
-  }, [open, isOwner, existingEncryptionKey, onEncryptionKeyGenerated]);
+    },
+    [
+      currentName,
+      ensureEncryptionKey,
+      existingEncryptionKey,
+      generatedEncryptionKey,
+      isOwner,
+      onOpenChange,
+    ],
+  );
 
   const links = useMemo(() => {
     if (!encryptionKey) {
@@ -131,7 +136,7 @@ export function InviteDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isOwner ? "Share Board" : "Collaboration"}</DialogTitle>

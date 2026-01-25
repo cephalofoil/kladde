@@ -16,6 +16,7 @@ import { CodeTileControls } from "./content-renderers/code-tile-controls";
 import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
+import Image from "next/image";
 import { renderMermaidToPngBlob } from "./utils/mermaid-export";
 import {
     copyCodeAsImage,
@@ -107,27 +108,13 @@ export const HtmlTileRenderer = memo(
         const [showColorPicker, setShowColorPicker] = useState(false);
         const tileRef = useRef<HTMLDivElement>(null);
 
-        // Mermaid-specific state
-        const [mermaidScale, setMermaidScale] = useState(
-            element.tileContent?.mermaidScale || 1,
-        );
-
-        // Code-specific state
-        const [codeScale, setCodeScale] = useState(
-            element.tileContent?.codeScale || 1,
-        );
-        const [codeWordWrap, setCodeWordWrap] = useState(
-            element.tileContent?.codeWordWrap || false,
-        );
-        const [codeTheme, setCodeTheme] = useState<CodeThemeName>(
-            (element.tileContent?.codeTheme as CodeThemeName) || "atom-dark",
-        );
-        const [codeHighlightedLines, setCodeHighlightedLines] = useState<
-            number[]
-        >(element.tileContent?.codeHighlightedLines || []);
-        const [codeFoldedRanges, setCodeFoldedRanges] = useState<
-            Array<{ start: number; end: number }>
-        >(element.tileContent?.codeFoldedRanges || []);
+        const mermaidScale = element.tileContent?.mermaidScale || 1;
+        const codeScale = element.tileContent?.codeScale || 1;
+        const codeWordWrap = element.tileContent?.codeWordWrap || false;
+        const codeTheme =
+            (element.tileContent?.codeTheme as CodeThemeName) || "atom-dark";
+        const codeHighlightedLines =
+            element.tileContent?.codeHighlightedLines || [];
 
         const x = element.x || 0;
         const y = element.y || 0;
@@ -159,30 +146,6 @@ export const HtmlTileRenderer = memo(
             },
             [element.tileType, element.tileContent, onUpdate],
         );
-
-        useEffect(() => {
-            setMermaidScale(element.tileContent?.mermaidScale || 1);
-        }, [element.tileContent?.mermaidScale]);
-
-        // Sync code state with element content
-        useEffect(() => {
-            setCodeScale(element.tileContent?.codeScale || 1);
-            setCodeWordWrap(element.tileContent?.codeWordWrap || false);
-            setCodeTheme(
-                (element.tileContent?.codeTheme as CodeThemeName) ||
-                    "atom-dark",
-            );
-            setCodeHighlightedLines(
-                element.tileContent?.codeHighlightedLines || [],
-            );
-            setCodeFoldedRanges(element.tileContent?.codeFoldedRanges || []);
-        }, [
-            element.tileContent?.codeScale,
-            element.tileContent?.codeWordWrap,
-            element.tileContent?.codeTheme,
-            element.tileContent?.codeHighlightedLines,
-            element.tileContent?.codeFoldedRanges,
-        ]);
 
         const getTileBackground = () => {
             switch (element.tileType) {
@@ -307,7 +270,6 @@ export const HtmlTileRenderer = memo(
 
         const handleMermaidScaleChange = useCallback(
             (newScale: number) => {
-                setMermaidScale(newScale);
                 onUpdate?.({
                     tileContent: {
                         ...content,
@@ -324,7 +286,7 @@ export const HtmlTileRenderer = memo(
                 chart: content.chart,
                 scale: mermaidScale,
             });
-        }, [content?.chart, mermaidScale]);
+        }, [content, mermaidScale]);
 
         const handleMermaidCopyImage = useCallback(async () => {
             try {
@@ -361,7 +323,6 @@ export const HtmlTileRenderer = memo(
         // Code tile handlers
         const handleCodeScaleChange = useCallback(
             (newScale: number) => {
-                setCodeScale(newScale);
                 onUpdate?.({
                     tileContent: {
                         ...content,
@@ -374,7 +335,6 @@ export const HtmlTileRenderer = memo(
 
         const handleCodeWordWrapChange = useCallback(
             (wrap: boolean) => {
-                setCodeWordWrap(wrap);
                 onUpdate?.({
                     tileContent: {
                         ...content,
@@ -387,7 +347,6 @@ export const HtmlTileRenderer = memo(
 
         const handleCodeThemeChange = useCallback(
             (theme: CodeThemeName) => {
-                setCodeTheme(theme);
                 onUpdate?.({
                     tileContent: {
                         ...content,
@@ -400,7 +359,6 @@ export const HtmlTileRenderer = memo(
 
         const handleCodeHighlightedLinesChange = useCallback(
             (lines: number[]) => {
-                setCodeHighlightedLines(lines);
                 onUpdate?.({
                     tileContent: {
                         ...content,
@@ -411,18 +369,6 @@ export const HtmlTileRenderer = memo(
             [content, onUpdate],
         );
 
-        const handleCodeFoldedRangesChange = useCallback(
-            (ranges: Array<{ start: number; end: number }>) => {
-                setCodeFoldedRanges(ranges);
-                onUpdate?.({
-                    tileContent: {
-                        ...content,
-                        codeFoldedRanges: ranges,
-                    },
-                });
-            },
-            [content, onUpdate],
-        );
 
         const handleCodeCopy = useCallback(async () => {
             try {
@@ -430,7 +376,7 @@ export const HtmlTileRenderer = memo(
             } catch (error) {
                 console.error("Failed to copy code:", error);
             }
-        }, [content?.code]);
+        }, [content]);
 
         const handleCodeCopyImage = useCallback(async () => {
             try {
@@ -443,7 +389,7 @@ export const HtmlTileRenderer = memo(
             } catch (error) {
                 console.error("Failed to copy code as image:", error);
             }
-        }, [content?.code, content?.language, codeTheme, codeScale]);
+        }, [content, codeTheme, codeScale]);
 
         const handleCodeDownload = useCallback(() => {
             const safeName = tileTitle.trim() ? tileTitle.trim() : "code";
@@ -452,7 +398,7 @@ export const HtmlTileRenderer = memo(
                 language: content?.language || "javascript",
                 filename: safeName,
             });
-        }, [content?.code, content?.language, tileTitle]);
+        }, [content, tileTitle]);
 
         const handleCodeFormat = useCallback(async () => {
             const { formatted, error } = await formatCode(
@@ -478,14 +424,6 @@ export const HtmlTileRenderer = memo(
             [content, onUpdate],
         );
 
-        const handleCodeLanguageChange = useCallback(
-            (language: string) => {
-                onUpdate?.({
-                    tileContent: { ...content, language },
-                });
-            },
-            [content, onUpdate],
-        );
 
         const renderTextTileBody = (
             markdown: string,
@@ -567,15 +505,10 @@ export const HtmlTileRenderer = memo(
                                 wordWrap={codeWordWrap}
                                 theme={codeTheme}
                                 highlightedLines={codeHighlightedLines}
-                                foldedRanges={codeFoldedRanges}
                                 isSelected={isSelected}
                                 onChange={handleCodeChange}
-                                onLanguageChange={handleCodeLanguageChange}
                                 onHighlightedLinesChange={
                                     handleCodeHighlightedLinesChange
-                                }
-                                onFoldedRangesChange={
-                                    handleCodeFoldedRangesChange
                                 }
                                 onFinish={() => setIsEditing(false)}
                                 isEditing={isEditing}
@@ -633,9 +566,11 @@ export const HtmlTileRenderer = memo(
                     ) : (
                         <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center pointer-events-auto rounded-b-lg">
                             <div className="flex flex-col items-center justify-center gap-3 px-6 py-4 max-w-xs text-center">
-                                <img
+                                <Image
                                     src="/icons/diagram-tool.svg"
                                     alt=""
+                                    width={48}
+                                    height={48}
                                     className="w-12 h-12 opacity-40 dark:invert dark:opacity-50"
                                 />
                                 <h3 className="text-sm font-medium text-foreground">
@@ -685,12 +620,14 @@ export const HtmlTileRenderer = memo(
 
                 case "tile-image":
                     return (
-                        <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center overflow-hidden pointer-events-none rounded-b-lg">
+                        <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center overflow-hidden pointer-events-none rounded-b-lg relative">
                             {content?.imageSrc ? (
-                                <img
+                                <Image
                                     src={content.imageSrc}
                                     alt={content.imageAlt || "Image"}
-                                    className="max-w-full max-h-full object-contain"
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, 400px"
+                                    className="object-contain"
                                 />
                             ) : (
                                 <div

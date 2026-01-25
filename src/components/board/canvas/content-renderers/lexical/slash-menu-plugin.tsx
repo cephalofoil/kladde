@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
@@ -264,6 +270,54 @@ function useSlashMenu(editor: LexicalEditor) {
   };
 }
 
+function getMenuPosition(editor: LexicalEditor) {
+  let position: { top: number; left: number } | null = null;
+
+  editor.getEditorState().read(() => {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection)) return;
+
+    const nativeSelection = window.getSelection();
+    if (!nativeSelection || nativeSelection.rangeCount === 0) return;
+
+    const range = nativeSelection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    position = {
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.left + window.scrollX,
+    };
+  });
+
+  return position;
+}
+
+function useMenuPosition(editor: LexicalEditor, isOpen: boolean) {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      if (!isOpen) return () => undefined;
+
+      const update = () => {
+        onStoreChange();
+      };
+
+      const removeUpdateListener = editor.registerUpdateListener(update);
+      document.addEventListener("selectionchange", update);
+      window.addEventListener("resize", update);
+      window.addEventListener("scroll", update, true);
+
+      return () => {
+        removeUpdateListener();
+        document.removeEventListener("selectionchange", update);
+        window.removeEventListener("resize", update);
+        window.removeEventListener("scroll", update, true);
+      };
+    },
+    () => (isOpen ? getMenuPosition(editor) : null),
+    () => null,
+  );
+}
+
 interface SlashMenuProps {
   onSelect: (item: SlashMenuItem) => void;
   results: SlashMenuItem[];
@@ -311,54 +365,14 @@ function SlashMenu({ onSelect, results, selectedIndex }: SlashMenuProps) {
 
 export function SlashMenuPlugin() {
   const [editor] = useLexicalComposerContext();
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [menuPosition, setMenuPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
+  const [dismissedQuery, setDismissedQuery] = useState<string | null>(null);
 
   const { queryString, results } = useSlashMenu(editor);
-  const isOpen = queryString !== null;
-
-  // Update menu position when selection changes
-  useEffect(() => {
-    if (!isOpen) {
-      setMenuPosition(null);
-      return;
-    }
-
-    const updatePosition = () => {
-      editor.getEditorState().read(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection)) return;
-
-        const nativeSelection = window.getSelection();
-        if (!nativeSelection || nativeSelection.rangeCount === 0) return;
-
-        const range = nativeSelection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-
-        setMenuPosition({
-          top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX,
-        });
-      });
-    };
-
-    updatePosition();
-    const timeoutId = setTimeout(updatePosition, 0);
-
-    return () => clearTimeout(timeoutId);
-  }, [editor, isOpen, queryString]);
-
-  // Reset selected index when results change
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [results]);
-
+  const isQueryOpen = queryString !== null && queryString !== dismissedQuery;
+  const menuPosition = useMenuPosition(editor, isQueryOpen);
   const closeMenu = useCallback(() => {
-    setMenuPosition(null);
-  }, []);
+    setDismissedQuery(queryString);
+  }, [queryString]);
 
   const onSelect = useCallback(
     (item: SlashMenuItem) => {
@@ -417,10 +431,40 @@ export function SlashMenuPlugin() {
     [editor, closeMenu],
   );
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    if (!isOpen) return;
+  if (!isQueryOpen || !menuPosition || typeof document === "undefined")
+    return null;
 
+  return createPortal(
+    <SlashMenuController
+      key={queryString ?? "closed"}
+      editor={editor}
+      menuPosition={menuPosition}
+      onSelect={onSelect}
+      onClose={closeMenu}
+      results={results}
+    />,
+    document.body,
+  );
+}
+
+interface SlashMenuControllerProps {
+  editor: LexicalEditor;
+  menuPosition: { top: number; left: number };
+  onSelect: (item: SlashMenuItem) => void;
+  onClose: () => void;
+  results: SlashMenuItem[];
+}
+
+function SlashMenuController({
+  editor,
+  menuPosition,
+  onSelect,
+  onClose,
+  results,
+}: SlashMenuControllerProps) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
     const handleArrowUp = () => {
       if (results.length === 0) return true;
       setSelectedIndex((prev) => (prev - 1 + results.length) % results.length);
@@ -437,7 +481,7 @@ export function SlashMenuPlugin() {
       if (results[selectedIndex]) {
         onSelect(results[selectedIndex]);
       } else {
-        closeMenu();
+        onClose();
       }
       return true;
     };
@@ -452,7 +496,7 @@ export function SlashMenuPlugin() {
     };
 
     const handleEscape = () => {
-      closeMenu();
+      onClose();
       return true;
     };
 
@@ -483,11 +527,9 @@ export function SlashMenuPlugin() {
       removeKeyDownListener();
       removeEscapeListener();
     };
-  }, [editor, isOpen, results, selectedIndex, closeMenu, onSelect]);
+  }, [editor, results, selectedIndex, onClose, onSelect]);
 
-  if (!isOpen || !menuPosition || typeof document === "undefined") return null;
-
-  return createPortal(
+  return (
     <div
       style={{
         position: "absolute",
@@ -500,7 +542,6 @@ export function SlashMenuPlugin() {
         results={results}
         selectedIndex={selectedIndex}
       />
-    </div>,
-    document.body,
+    </div>
   );
 }

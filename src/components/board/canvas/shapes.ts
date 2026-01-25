@@ -1,7 +1,6 @@
 import type { BoardElement } from "@/lib/board-types";
 import type { BoundingBox } from "./types";
 import {
-    getQuadraticBezierBounds,
     getCatmullRomBounds,
     getElbowPolylineForVertices,
 } from "./curves";

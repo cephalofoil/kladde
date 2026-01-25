@@ -37,6 +37,7 @@ import {
     saveBoardToWorkspaceStorage,
 } from "@/lib/filesystem-storage";
 import type { ShadeworksFile } from "@/lib/board-types";
+import { useIsClient } from "@/hooks/use-is-client";
 
 function getBoardBaseFileName(board: {
     name: string;
@@ -211,7 +212,7 @@ function WorkspaceStorageRow({
 }
 
 export function StorageSection() {
-    const [mounted, setMounted] = useState(false);
+    const mounted = useIsClient();
     const [actualStorageSize, setActualStorageSize] = useState(0);
     const [browserQuota, setBrowserQuota] = useState(0);
     const [breakdown, setBreakdown] = useState<StorageBreakdown | null>(null);
@@ -345,7 +346,6 @@ export function StorageSection() {
     );
 
     useEffect(() => {
-        setMounted(true);
         setFsApiSupported(isFileSystemAccessSupported());
 
         const fetchStorageInfo = async () => {

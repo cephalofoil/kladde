@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   Bold,
@@ -33,7 +33,6 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const [localContent, setLocalContent] = useState(content);
   const [showToolbar, setShowToolbar] = useState(false);
-  const editorRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

@@ -20,7 +20,6 @@ export function getSvgPathFromStroke(stroke: number[][]) {
 export function getArrowHeadPoints(tip: Point, from: Point, size: number) {
     const dx = tip.x - from.x;
     const dy = tip.y - from.y;
-    const len = Math.hypot(dx, dy) || 1;
     const angle = Math.atan2(dy, dx);
     const spread = (28 * Math.PI) / 180;
 

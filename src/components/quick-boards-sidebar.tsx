@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { MoreHorizontal, Trash2, Zap } from "lucide-react";
 import type { Board } from "@/lib/store-types";
 import { useBoardStore } from "@/store/board-store";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,

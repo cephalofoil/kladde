@@ -3,17 +3,13 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
-import { useEffect, useState, memo } from "react";
+import { memo } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 
 // Memoize the ThemeToggle component to prevent unnecessary re-renders
 export const ThemeToggle = memo(function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Only render the component once mounted on the client
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsClient();
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");

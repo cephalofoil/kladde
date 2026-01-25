@@ -5,7 +5,6 @@ import { getThemeByName } from "@/lib/code-themes";
 
 interface RenderCodeImageOptions {
     code: string;
-    language: string;
     theme?: string;
     scale?: number;
     pixelRatio?: number;
@@ -20,7 +19,6 @@ interface RenderCodeImageOptions {
  */
 export async function renderCodeToImageBlob({
     code,
-    language,
     theme = "atom-dark",
     scale = 1,
     pixelRatio = 2,

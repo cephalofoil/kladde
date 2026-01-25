@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, X, ChevronUp, ChevronDown } from "lucide-react";
 import type { BoardElement } from "@/lib/board-types";
 
@@ -16,8 +16,13 @@ interface FindCanvasProps {
   currentHighlightId?: string | null;
 }
 
-export function FindCanvas({
-  isOpen,
+export function FindCanvas(props: FindCanvasProps) {
+  if (!props.isOpen) return null;
+
+  return <FindCanvasContent {...props} />;
+}
+
+function FindCanvasContent({
   onClose,
   elements,
   onFocusElement,
@@ -25,35 +30,29 @@ export function FindCanvas({
 }: FindCanvasProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [results, setResults] = useState<BoardElement[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Store callback in ref to avoid dependency issues
   const onHighlightElementsRef = useRef(onHighlightElements);
-  onHighlightElementsRef.current = onHighlightElements;
+  useEffect(() => {
+    onHighlightElementsRef.current = onHighlightElements;
+  }, [onHighlightElements]);
 
   // Auto-focus input when opened
   useEffect(() => {
-    if (isOpen) {
-      // Use setTimeout to ensure the DOM is ready and input is visible
-      setTimeout(() => {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }, 0);
-    } else {
-      // Clear highlights when closed
+    const timer = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
       onHighlightElementsRef.current?.([]);
-      setSearchQuery("");
-      setResults([]);
-      setCurrentIndex(0);
-    }
-  }, [isOpen]);
+    };
+  }, []);
 
   // Close on click outside
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleClickOutside = (event: MouseEvent) => {
       if (
         containerRef.current &&
@@ -67,69 +66,53 @@ export function FindCanvas({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isOpen, onClose]);
+  }, [onClose]);
 
   // Store onFocusElement in ref too
   const onFocusElementRef = useRef(onFocusElement);
-  onFocusElementRef.current = onFocusElement;
-
-  // Store elements in ref to avoid dependency issues
-  const elementsRef = useRef(elements);
-  elementsRef.current = elements;
-
-  // Search elements - only trigger on searchQuery changes
   useEffect(() => {
+    onFocusElementRef.current = onFocusElement;
+  }, [onFocusElement]);
+
+  const results = useMemo(() => {
     if (!searchQuery.trim()) {
-      setResults((prev) => (prev.length === 0 ? prev : []));
-      setCurrentIndex(0);
-      onHighlightElementsRef.current?.([]);
-      return;
+      return [];
     }
 
     const query = searchQuery.toLowerCase();
-    const matchingElements = elementsRef.current.filter((el) => {
-      // Search in text elements
+    return elements.filter((el) => {
       if (el.type === "text") {
         return el.text?.toLowerCase().includes(query);
       }
 
-      // Search in frame labels
       if (el.type === "frame") {
         return el.label?.toLowerCase().includes(query);
       }
 
-      // Search in tiles
       if (el.type === "tile") {
-        // Search by tile title
         if (el.tileTitle?.toLowerCase().includes(query)) {
           return true;
         }
 
-        // Search in tile content
         if (el.tileContent) {
           const content = el.tileContent;
 
-          // Text tile - richText
           if (content.richText?.toLowerCase().includes(query)) {
             return true;
           }
 
-          // Note tile - noteText
           if (content.noteText?.toLowerCase().includes(query)) {
             return true;
           }
 
-          // Code tile - code
           if (content.code?.toLowerCase().includes(query)) {
             return true;
           }
 
-          // Mermaid tile - chart
           if (content.chart?.toLowerCase().includes(query)) {
             return true;
           }
 
-          // Bookmark tile - title, description, displayName
           if (content.bookmarkTitle?.toLowerCase().includes(query)) {
             return true;
           }
@@ -141,7 +124,6 @@ export function FindCanvas({
           }
         }
 
-        // Search by tile type name (e.g., "tile", "note", "code")
         if (el.tileType) {
           const tileTypeName = el.tileType.replace("tile-", "").toLowerCase();
           if (tileTypeName.includes(query) || query === "tile") {
@@ -150,32 +132,32 @@ export function FindCanvas({
         }
       }
 
-      // Search by element type (e.g., "diamond", "rectangle", "ellipse")
       if (el.type.toLowerCase().includes(query)) {
         return true;
       }
 
       return false;
     });
+  }, [searchQuery, elements]);
 
-    setResults(matchingElements);
-    setCurrentIndex(0);
+  const safeIndex = Math.min(currentIndex, Math.max(results.length - 1, 0));
 
-    // Highlight all results with the first one as current
-    onHighlightElementsRef.current?.(
-      matchingElements.map((el) => el.id),
-      matchingElements.length > 0 ? matchingElements[0].id : null,
-    );
-
-    // Focus first result
-    if (matchingElements.length > 0) {
-      onFocusElementRef.current(matchingElements[0]);
+  useEffect(() => {
+    if (results.length === 0) {
+      onHighlightElementsRef.current?.([]);
+      return;
     }
-  }, [searchQuery]);
+
+    onHighlightElementsRef.current?.(
+      results.map((el) => el.id),
+      results[0].id,
+    );
+    onFocusElementRef.current(results[0]);
+  }, [results]);
 
   const handleNext = () => {
     if (results.length === 0) return;
-    const nextIndex = (currentIndex + 1) % results.length;
+    const nextIndex = (safeIndex + 1) % results.length;
     setCurrentIndex(nextIndex);
     onFocusElement(results[nextIndex]);
 
@@ -191,7 +173,7 @@ export function FindCanvas({
   const handlePrevious = () => {
     if (results.length === 0) return;
     const prevIndex =
-      currentIndex === 0 ? results.length - 1 : currentIndex - 1;
+      safeIndex === 0 ? results.length - 1 : safeIndex - 1;
     setCurrentIndex(prevIndex);
     onFocusElement(results[prevIndex]);
 
@@ -217,8 +199,6 @@ export function FindCanvas({
       onClose();
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50">

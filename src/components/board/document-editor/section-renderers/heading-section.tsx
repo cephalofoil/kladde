@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { GripVertical, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HeadingSection } from "@/lib/board-types";

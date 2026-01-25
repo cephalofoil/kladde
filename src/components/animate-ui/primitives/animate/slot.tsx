@@ -20,6 +20,7 @@ type SlotProps<T extends HTMLElement = HTMLElement> = {
   children?: any;
 } & DOMMotionProps<T>;
 
+
 function mergeRefs<T>(
   ...refs: (React.Ref<T> | undefined)[]
 ): React.RefCallback<T> {
@@ -68,13 +69,12 @@ function Slot<T extends HTMLElement = HTMLElement>({
     children.type !== null &&
     isMotionComponent(children.type);
 
-  const Base = React.useMemo(
-    () =>
-      isAlreadyMotion
-        ? (children.type as React.ElementType)
-        : motion.create(children.type as React.ElementType),
-    [isAlreadyMotion, children.type],
-  );
+  const isIntrinsic = typeof children.type === 'string';
+  const Base = isAlreadyMotion
+    ? (children.type as React.ElementType)
+    : isIntrinsic
+      ? (motion[children.type as keyof typeof motion] as React.ElementType)
+      : (children.type as React.ElementType);
 
   if (!React.isValidElement(children)) return null;
 

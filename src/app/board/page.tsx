@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useBoardStore } from "@/store/board-store";
+import { useIsClient } from "@/hooks/use-is-client";
 
 export default function BoardPage() {
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useIsClient();
   const createBoard = useBoardStore((s) => s.createBoard);
   const currentWorkstreamId = useBoardStore((s) => s.ui.currentWorkstreamId);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   useEffect(() => {
     if (isClient) {

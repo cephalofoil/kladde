@@ -19,7 +19,6 @@ import {
     Highlighter,
     ArrowUpToLine,
     ArrowDownToLine,
-    X,
     AlignLeft,
     AlignCenter,
     AlignRight,
@@ -48,9 +47,10 @@ import {
     Diamond,
     StickyNote,
     Frame,
-    Image,
+    Image as ImageIcon,
     MousePointer2,
 } from "lucide-react";
+import Image from "next/image";
 import {
     Tool,
     COLORS,
@@ -65,16 +65,7 @@ import {
 import { parseColor } from "@/lib/utils/color-conversions";
 import { getArrowheadPoints, normalizeArrowhead } from "@/lib/arrowheads";
 import { cn } from "@/lib/utils";
-import { Slider } from "@/components/ui/slider";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
 import {
     DropdownMenu,
@@ -186,8 +177,6 @@ export function ToolSidebar({
     onStrokeWidthChange,
     fillColor = "transparent",
     onFillColorChange,
-    strokeStyle,
-    onStrokeStyleChange,
     cornerRadius,
     onCornerRadiusChange,
     connectorStyle = "sharp",
@@ -204,10 +193,6 @@ export function ToolSidebar({
     onTextVerticalAlignChange,
     fontSize,
     onFontSizeChange,
-    letterSpacing,
-    onLetterSpacingChange,
-    lineHeight,
-    onLineHeightChange,
     fillPattern = "none",
     onFillPatternChange,
     frameStyle = "minimal",
@@ -241,10 +226,6 @@ export function ToolSidebar({
     const [isCondensed, setIsCondensed] = useState(false);
     const [showStrokeColorPicker, setShowStrokeColorPicker] = useState(false);
     const [showFillColorPicker, setShowFillColorPicker] = useState(false);
-    const [customStrokeColor, setCustomStrokeColor] = useState<string | null>(
-        null,
-    );
-    const [customFillColor, setCustomFillColor] = useState<string | null>(null);
     const [openArrowEndMenu, setOpenArrowEndMenu] = useState<
         "start" | "end" | null
     >(null);
@@ -257,6 +238,7 @@ export function ToolSidebar({
     const [openOptionsMenu, setOpenOptionsMenu] = useState(false);
     const [openMoreMenu, setOpenMoreMenu] = useState(false);
     const [showFontSubmenu, setShowFontSubmenu] = useState(false);
+    const [fontSubmenuTop, setFontSubmenuTop] = useState(200);
     const fontSubmenuRef = useRef<HTMLDivElement | null>(null);
     const fontSubmenuButtonRef = useRef<HTMLButtonElement | null>(null);
     const arrowStartButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -329,6 +311,24 @@ export function ToolSidebar({
             window.removeEventListener("pointerdown", handlePointerDown, {
                 capture: true,
             });
+        };
+    }, [showFontSubmenu]);
+
+    useEffect(() => {
+        if (!showFontSubmenu) return;
+
+        const updatePosition = () => {
+            const rect = fontSubmenuButtonRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            setFontSubmenuTop(rect.top - 8);
+        };
+
+        updatePosition();
+        window.addEventListener("resize", updatePosition);
+        window.addEventListener("scroll", updatePosition, true);
+        return () => {
+            window.removeEventListener("resize", updatePosition);
+            window.removeEventListener("scroll", updatePosition, true);
         };
     }, [showFontSubmenu]);
 
@@ -406,9 +406,11 @@ export function ToolSidebar({
         const iconSrc = patternIconMap[pattern];
         if (iconSrc) {
             return (
-                <img
+                <Image
                     src={iconSrc}
                     alt={`${pattern} pattern`}
+                    width={14}
+                    height={14}
                     className="w-3.5 h-3.5 dark:invert"
                 />
             );
@@ -665,7 +667,7 @@ export function ToolSidebar({
             if (el.tileType === "tile-note")
                 return <StickyNote className="w-4 h-4 text-foreground" />;
             if (el.tileType === "tile-image")
-                return <Image className="w-4 h-4 text-foreground" />;
+                return <ImageIcon className="w-4 h-4 text-foreground" />;
             if (el.tileType === "tile-text")
                 return <Type className="w-4 h-4 text-foreground" />;
             return <Square className="w-4 h-4 text-foreground" />;
@@ -691,24 +693,26 @@ export function ToolSidebar({
         ? HIGHLIGHT_COLORS
         : sidebarColors;
 
-    useEffect(() => {
+    const customStrokeColor = useMemo(() => {
         if (
             strokeColor &&
             strokeColor !== "transparent" &&
             !paletteColors.includes(strokeColor)
         ) {
-            setCustomStrokeColor(strokeColor);
+            return strokeColor;
         }
+        return null;
     }, [paletteColors, strokeColor]);
 
-    useEffect(() => {
+    const customFillColor = useMemo(() => {
         if (
             fillColor &&
             fillColor !== "transparent" &&
             !paletteColors.includes(fillColor)
         ) {
-            setCustomFillColor(fillColor);
+            return fillColor;
         }
+        return null;
     }, [fillColor, paletteColors]);
 
     // Don't show sidebar for non-adjustable tools
@@ -2600,7 +2604,6 @@ export function ToolSidebar({
             <ColorPicker
                 value={strokeColor}
                 onChange={(color) => {
-                    setCustomStrokeColor(color);
                     onStrokeColorChange(color);
                 }}
                 isOpen={showStrokeColorPicker}
@@ -2617,7 +2620,6 @@ export function ToolSidebar({
             <ColorPicker
                 value={fillColor}
                 onChange={(color) => {
-                    setCustomFillColor(color);
                     onFillColorChange?.(color);
                 }}
                 isOpen={showFillColorPicker}
@@ -2637,10 +2639,7 @@ export function ToolSidebar({
                     className="fixed z-[9999] w-[180px] bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-md shadow-2xl p-2 text-foreground"
                     style={{
                         right: `calc(${rightOffset}px + 245px)`,
-                        top: fontSubmenuButtonRef.current
-                            ? fontSubmenuButtonRef.current.getBoundingClientRect()
-                                  .top - 8
-                            : 200,
+                        top: fontSubmenuTop,
                     }}
                 >
                     <div className="space-y-0.5">

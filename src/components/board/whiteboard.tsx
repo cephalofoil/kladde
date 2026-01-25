@@ -101,7 +101,7 @@ export function Whiteboard({
     ) as CollabPermission | null;
     const roomId = boardId; // Always use boardId as room identifier
     // Determine if this user is the owner (they have the board locally, not joining via collab link)
-    const [isOwner, setIsOwner] = useState(() => {
+    const [isOwner] = useState(() => {
         // If there's no collab param, user is owner (solo mode or owner starting collab)
         if (typeof window === "undefined") return true;
         return !isCollabMode;
@@ -226,8 +226,8 @@ export function Whiteboard({
     const [showHistorySidebar, setShowHistorySidebar] = useState(false);
     const [viewMode, setViewMode] = useState(false);
     const [snapToObjects, setSnapToObjects] = useState(true);
-    const [isHistoryPinned, setIsHistoryPinned] = useState(false);
-    const [connectionStatus, setConnectionStatus] =
+    const [isHistoryPinned] = useState(false);
+    const [, setConnectionStatus] =
         useState<ConnectionStatus>("connecting");
     const [myName, setMyName] = useState<string | null>(null);
     const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -442,19 +442,19 @@ export function Whiteboard({
             currentTheme === "light" ? "#ffffff" : "#000000";
 
         // Update current stroke color if it's a default color
-        if (strokeColor === "#ffffff" || strokeColor === "#000000") {
-            setStrokeColor(defaultColor);
-        }
+        setStrokeColor((prev) =>
+            prev === "#ffffff" || prev === "#000000" ? defaultColor : prev,
+        );
 
         // Update all existing elements that use default colors (black/white)
-        const elementsToUpdate = elements.filter(
+        const elementsToUpdate = elementsRef.current.filter(
             (element) =>
                 element.strokeColor === oldDefaultColor ||
                 element.fillColor === oldDefaultColor,
         );
 
         if (elementsToUpdate.length > 0) {
-            const updatedElements = elements.map((element) => {
+            const updatedElements = elementsRef.current.map((element) => {
                 const updates: Partial<BoardElement> = {};
                 if (element.strokeColor === oldDefaultColor) {
                     updates.strokeColor = defaultColor;
@@ -468,7 +468,7 @@ export function Whiteboard({
             });
             setElements(updatedElements);
         }
-    }, [theme, resolvedTheme]);
+    }, [theme, resolvedTheme, setElements]);
 
     // Ensure a display name exists for collaboration.
     useEffect(() => {
@@ -502,7 +502,7 @@ export function Whiteboard({
             await manager.initialize();
             historyManagerRef.current = manager;
             // Initialize prevElementsRef to current elements to avoid logging existing elements as "added"
-            prevElementsRef.current = elements;
+            prevElementsRef.current = elementsRef.current;
             setHistoryEntries(manager.getEntries());
         };
 
@@ -510,7 +510,7 @@ export function Whiteboard({
 
         return () => {
             if (historyManagerRef.current) {
-                historyManagerRef.current.flush(elements);
+                historyManagerRef.current.flush(elementsRef.current);
             }
         };
     }, [isOwner, boardId, pendingName, myUserId]);
@@ -761,6 +761,7 @@ export function Whiteboard({
         isOwner,
         permissionParam,
         collabEncryptionKey,
+        router,
     ]);
 
     useEffect(() => {
@@ -818,7 +819,7 @@ export function Whiteboard({
                 setElements(newElements);
             }
         },
-        [collaboration],
+        [collaboration, setElements],
     );
 
     // Undo function - instant, also removes last history entry
@@ -901,6 +902,7 @@ export function Whiteboard({
             elements,
             saveToUndoStack,
             isReadOnly,
+            setElements,
         ],
     );
 
@@ -925,7 +927,7 @@ export function Whiteboard({
                 );
             }
         },
-        [clearHistoryPreview, collaboration, elements, isReadOnly],
+        [clearHistoryPreview, collaboration, elements, isReadOnly, setElements],
     );
 
     const handleBatchUpdateElements = useCallback(
@@ -967,7 +969,7 @@ export function Whiteboard({
                 );
             }
         },
-        [clearHistoryPreview, collaboration, elements, isReadOnly],
+        [clearHistoryPreview, collaboration, elements, isReadOnly, setElements],
     );
 
     const handleStartTransformForUndo = useCallback(() => {
@@ -992,6 +994,7 @@ export function Whiteboard({
             elements,
             saveToUndoStack,
             isReadOnly,
+            setElements,
         ],
     );
 
@@ -1014,6 +1017,7 @@ export function Whiteboard({
             elements,
             saveToUndoStack,
             isReadOnly,
+            setElements,
         ],
     );
 
@@ -1048,6 +1052,7 @@ export function Whiteboard({
         saveToUndoStack,
         isReadOnly,
         setComments,
+        setElements,
     ]);
 
     const handleSave = useCallback(() => {
@@ -1518,6 +1523,8 @@ export function Whiteboard({
     const isTransformingRef = useRef(false);
     const transformStartElementsRef = useRef<BoardElement[]>([]);
     const prevElementsRef = useRef<BoardElement[]>([]);
+    const skipNextHistoryRef = useRef(false);
+    const prevElementsSnapshot = prevElementsRef.current;
 
     // Called when drag/resize/rotate starts
     const handleStartTransform = useCallback(() => {
@@ -1563,8 +1570,13 @@ export function Whiteboard({
 
         isTransformingRef.current = false;
         transformStartElementsRef.current = [];
-        prevElementsRef.current = afterElements;
+        skipNextHistoryRef.current = true;
     }, [elements, isOwner]);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/immutability
+        prevElementsRef.current = elements;
+    }, [elements]);
 
     // Log history entries when elements change (for owner only)
     // Skip logging during transform - will be logged on transform end
@@ -1580,11 +1592,16 @@ export function Whiteboard({
         // Skip if this change is from undo/redo (don't log undo/redo as new history entries)
         if (skipNextHistoryLogRef.current) {
             skipNextHistoryLogRef.current = false;
-            prevElementsRef.current = elements;
             return;
         }
 
-        const prevElements = prevElementsRef.current;
+        // Skip if this change is from transform end (already logged in handleEndTransform)
+        if (skipNextHistoryRef.current) {
+            skipNextHistoryRef.current = false;
+            return;
+        }
+
+        const prevElements = prevElementsSnapshot;
         const prevIds = new Set(prevElements.map((e) => e.id));
         const currentIds = new Set(elements.map((e) => e.id));
         const changeUser = lastChangeIsRemoteRef.current
@@ -1608,8 +1625,6 @@ export function Whiteboard({
             })
             .map((e) => e.id);
 
-        // Update prevElementsRef before async operations
-        prevElementsRef.current = elements;
         lastChangeIsRemoteRef.current = false;
 
         // Log operations asynchronously
@@ -1652,7 +1667,7 @@ export function Whiteboard({
                 }
             }
         })();
-    }, [elements, isOwner]);
+    }, [elements, isOwner, lastChangeIsRemoteRef, prevElementsSnapshot]);
 
     const handleBringToFront = useCallback(() => {
         if (selectedElements.length === 0) return;
@@ -1760,19 +1775,6 @@ export function Whiteboard({
         ],
     );
 
-    const handleOpacityChange = useCallback(
-        (newOpacity: number) => {
-            if (selectedElements.length > 0) {
-                saveToUndoStack();
-                selectedElements.forEach((el) => {
-                    handleUpdateElement(el.id, { opacity: newOpacity });
-                });
-            }
-            setOpacity(newOpacity);
-        },
-        [selectedElements, saveToUndoStack, handleUpdateElement],
-    );
-
     const handleStrokeStyleChange = useCallback(
         (style: "solid" | "dashed" | "dotted") => {
             if (selectedElements.length > 0) {
@@ -1805,68 +1807,71 @@ export function Whiteboard({
         [selectedElements, saveToUndoStack, handleUpdateElement],
     );
 
-    const getUpdatedTextDimensions = (
-        element: BoardElement,
-        overrides: {
-            fontFamily?: string;
-            fontSize?: number;
-            letterSpacing?: number;
-            lineHeight?: number;
-            textAlign?: "left" | "center" | "right";
-        },
-    ) => {
-        const text = element.text ?? "";
-        const resolvedFontFamily =
-            overrides.fontFamily ?? element.fontFamily ?? fontFamily;
-        const fontSize =
-            overrides.fontSize ??
-            element.fontSize ??
-            element.strokeWidth * 4 + 12;
-        const resolvedLetterSpacing =
-            overrides.letterSpacing ?? element.letterSpacing ?? letterSpacing;
-        const resolvedLineHeight =
-            overrides.lineHeight ?? element.lineHeight ?? lineHeight;
-        const resolvedTextAlign =
-            overrides.textAlign ?? element.textAlign ?? textAlign;
-        const isTextBox = element.isTextBox === true;
-        const textBoxPadding = isTextBox ? 8 : 0;
-        const minHeight = fontSize * resolvedLineHeight + textBoxPadding;
+    const getUpdatedTextDimensions = useCallback(
+        (
+            element: BoardElement,
+            overrides: {
+                fontFamily?: string;
+                fontSize?: number;
+                letterSpacing?: number;
+                lineHeight?: number;
+                textAlign?: "left" | "center" | "right";
+            },
+        ) => {
+            const text = element.text ?? "";
+            const resolvedFontFamily =
+                overrides.fontFamily ?? element.fontFamily ?? fontFamily;
+            const fontSize =
+                overrides.fontSize ??
+                element.fontSize ??
+                element.strokeWidth * 4 + 12;
+            const resolvedLetterSpacing =
+                overrides.letterSpacing ?? element.letterSpacing ?? letterSpacing;
+            const resolvedLineHeight =
+                overrides.lineHeight ?? element.lineHeight ?? lineHeight;
+            const resolvedTextAlign =
+                overrides.textAlign ?? element.textAlign ?? textAlign;
+            const isTextBox = element.isTextBox === true;
+            const textBoxPadding = isTextBox ? 8 : 0;
+            const minHeight = fontSize * resolvedLineHeight + textBoxPadding;
 
-        const unboundedSize = measureUnboundedTextSize({
-            text,
-            fontSize,
-            fontFamily: resolvedFontFamily,
-            letterSpacing: resolvedLetterSpacing,
-            lineHeight: resolvedLineHeight,
-        });
+            const unboundedSize = measureUnboundedTextSize({
+                text,
+                fontSize,
+                fontFamily: resolvedFontFamily,
+                letterSpacing: resolvedLetterSpacing,
+                lineHeight: resolvedLineHeight,
+            });
 
-        if (isTextBox) {
+            if (isTextBox) {
+                const width = Math.max(
+                    element.width ?? 200,
+                    unboundedSize.width + Math.ceil(fontSize * 0.1),
+                );
+                const height = Math.max(
+                    minHeight,
+                    measureWrappedTextHeightPx({
+                        text,
+                        width: width - textBoxPadding,
+                        fontSize,
+                        lineHeight: resolvedLineHeight,
+                        fontFamily: resolvedFontFamily,
+                        letterSpacing: resolvedLetterSpacing,
+                        textAlign: resolvedTextAlign,
+                    }) + textBoxPadding,
+                );
+                return { width, height };
+            }
+
             const width = Math.max(
-                element.width ?? 200,
                 unboundedSize.width + Math.ceil(fontSize * 0.1),
+                2,
             );
-            const height = Math.max(
-                minHeight,
-                measureWrappedTextHeightPx({
-                    text,
-                    width: width - textBoxPadding,
-                    fontSize,
-                    lineHeight: resolvedLineHeight,
-                    fontFamily: resolvedFontFamily,
-                    letterSpacing: resolvedLetterSpacing,
-                    textAlign: resolvedTextAlign,
-                }) + textBoxPadding,
-            );
+            const height = Math.max(unboundedSize.height, minHeight);
             return { width, height };
-        }
-
-        const width = Math.max(
-            unboundedSize.width + Math.ceil(fontSize * 0.1),
-            2,
-        );
-        const height = Math.max(unboundedSize.height, minHeight);
-        return { width, height };
-    };
+        },
+        [fontFamily, letterSpacing, lineHeight, textAlign],
+    );
 
     const handleFontFamilyChange = useCallback(
         (font: string) => {
@@ -2390,7 +2395,7 @@ export function Whiteboard({
                 .filter((el) => el.type !== "laser")
                 .map((el) => ({ ...el })),
         );
-    }, [selectedElements, handDrawnMode]);
+    }, [selectedElements]);
 
     // Paste elements from internal clipboard (Ctrl+V)
     const handlePaste = useCallback(() => {
@@ -2464,6 +2469,7 @@ export function Whiteboard({
         setSelectedElements,
         setLayerSelectionIds,
         setLastSelectedLayerId,
+        setElements,
     ]);
 
     // Duplicate selected elements (Ctrl+D)
@@ -2537,6 +2543,7 @@ export function Whiteboard({
         setSelectedElements,
         setLayerSelectionIds,
         setLastSelectedLayerId,
+        setElements,
     ]);
 
     const handlePasteTableNotes = useCallback(
@@ -2822,7 +2829,6 @@ export function Whiteboard({
             setLastSelectedLayerId,
             setSelectedElements,
             setElements,
-            textAlign,
         ],
     );
 
@@ -2939,6 +2945,7 @@ export function Whiteboard({
         handleRedo,
         handleCopyToClipboard,
         handlePaste,
+        handlePasteTableNotes,
         clipboardElements,
         handleCopySelected,
         isReadOnly,
@@ -2961,7 +2968,7 @@ export function Whiteboard({
         } else {
             setElements(elements.filter((el) => !ids.has(el.id)));
         }
-    }, [selectedElements, saveToUndoStack, collaboration, elements]);
+    }, [selectedElements, saveToUndoStack, collaboration, elements, setElements]);
 
     const handleDeleteMultiple = useCallback(
         (idsToDelete: string[]) => {
@@ -2976,7 +2983,7 @@ export function Whiteboard({
                 setElements(elements.filter((el) => !ids.has(el.id)));
             }
         },
-        [collaboration, elements, saveToUndoStack, isReadOnly],
+        [collaboration, elements, saveToUndoStack, isReadOnly, setElements],
     );
 
     const canEditArrow =
@@ -3109,23 +3116,6 @@ export function Whiteboard({
         setSelectedElements(selection);
         setLayerSelectionIds(null);
     }, []);
-
-    const handleSelectElementsByIds = useCallback(
-        (ids: string[]) => {
-            if (ids.length === 0) {
-                setSelectedElements([]);
-                setLayerSelectionIds(null);
-                return;
-            }
-
-            const source = previewElements ?? elements;
-            const idSet = new Set(ids);
-            const selection = source.filter((el) => idSet.has(el.id));
-            setSelectedElements(selection);
-            setLayerSelectionIds(selection.map((el) => el.id));
-        },
-        [elements, previewElements],
-    );
 
     const handleMoveToIndex = useCallback(
         (id: string, newIndex: number) => {
@@ -3309,7 +3299,6 @@ export function Whiteboard({
         selectedElements.forEach((element, index) => {
             if (element.type === "laser") return;
 
-            const box = getBoundingBox(element);
             const offset = 20;
 
             const newElement: BoardElement = {
@@ -3343,7 +3332,7 @@ export function Whiteboard({
         }
 
         setSelectedElements(newElements);
-    }, [selectedElements, elements, saveToUndoStack, collaboration]);
+    }, [selectedElements, elements, saveToUndoStack, collaboration, setElements]);
 
     const handleWrapInFrame = useCallback(() => {
         if (selectedElements.length === 0) return;
@@ -3383,7 +3372,7 @@ export function Whiteboard({
         } else {
             setElements([...elements, frameElement]);
         }
-    }, [selectedElements, elements, saveToUndoStack, collaboration]);
+    }, [selectedElements, elements, saveToUndoStack, collaboration, setElements]);
 
     const handleCopyStyles = useCallback(() => {
         if (selectedElements.length === 0) return;
@@ -3594,7 +3583,7 @@ export function Whiteboard({
                 setElements([...elements, newElement]);
             }
         },
-        [elements, collaboration, saveToUndoStack],
+        [elements, collaboration, saveToUndoStack, setElements],
     );
 
     // Folder handlers
@@ -3755,7 +3744,7 @@ export function Whiteboard({
                 setFillPattern(handDrawnMode ? "hachure" : "solid");
             }
         }
-    }, [selectedElements]);
+    }, [selectedElements, handDrawnMode]);
 
     // Continuously track followed user's viewport
     useEffect(() => {

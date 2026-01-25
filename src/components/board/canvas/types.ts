@@ -1,5 +1,3 @@
-import type { BoardElement } from "@/lib/board-types";
-
 export interface RemoteSelection {
     userId: string;
     userName: string;

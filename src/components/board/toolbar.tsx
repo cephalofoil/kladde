@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   StickyNote,
-  GitBranch,
   Image as ImageIcon,
   Hand,
   MousePointer2,
@@ -323,32 +322,6 @@ const MORE_TOOLS: Array<{ tool: Tool; label: string; icon: React.ReactNode }> =
       icon: <Frame className={ICON_CLASS} />,
     },
   ];
-
-// Get icon for a tool
-function getToolIcon(tool: Tool): React.ReactNode {
-  switch (tool) {
-    case "pen":
-      return <Pencil className={ICON_CLASS} />;
-    case "highlighter":
-      return <Highlighter className={ICON_CLASS} />;
-    case "eraser":
-      return <Eraser className={ICON_CLASS} />;
-    case "line":
-      return <Minus className={ICON_CLASS} />;
-    case "arrow":
-      return <MoveRight className={ICON_CLASS} />;
-    case "rectangle":
-      return <RectangleHorizontal className={ICON_CLASS} />;
-    case "diamond":
-      return <Diamond className={ICON_CLASS} />;
-    case "ellipse":
-      return <Circle className={ICON_CLASS} />;
-    case "text":
-      return <Type className={ICON_CLASS} />;
-    default:
-      return null;
-  }
-}
 
 // Submenu component - icons only
 function ToolSubmenu({
@@ -700,7 +673,6 @@ export function Toolbar({
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const moreButtonRef = useRef<HTMLDivElement>(null);
   const noteButtonRef = useRef<HTMLDivElement>(null);
-  const moreTool = MORE_TOOLS.find((item) => item.tool === currentTool);
   const lastMoreToolInfo =
     lastMoreTool && MORE_TOOLS.find((item) => item.tool === lastMoreTool);
   const noteTileInfo = TILE_TYPES.find((tile) => tile.type === "tile-note");
@@ -727,17 +699,25 @@ export function Toolbar({
   }, []);
 
   // Update last used tool when tool changes
-  useEffect(() => {
-    if (PEN_GROUP.some((t) => t.tool === currentTool)) {
-      setLastPenTool(currentTool);
-    } else if (LINE_GROUP.some((t) => t.tool === currentTool)) {
-      setLastLineTool(currentTool);
-    } else if (SHAPE_GROUP.some((t) => t.tool === currentTool)) {
-      setLastShapeTool(currentTool);
-    } else if (MORE_TOOLS.some((t) => t.tool === currentTool)) {
-      setLastMoreTool(currentTool);
+  const updateLastUsedTool = useCallback((tool: Tool) => {
+    if (PEN_GROUP.some((t) => t.tool === tool)) {
+      setLastPenTool(tool);
+    } else if (LINE_GROUP.some((t) => t.tool === tool)) {
+      setLastLineTool(tool);
+    } else if (SHAPE_GROUP.some((t) => t.tool === tool)) {
+      setLastShapeTool(tool);
+    } else if (MORE_TOOLS.some((t) => t.tool === tool)) {
+      setLastMoreTool(tool);
     }
-  }, [currentTool]);
+  }, []);
+
+  const handleToolChange = useCallback(
+    (tool: Tool) => {
+      updateLastUsedTool(tool);
+      onToolChange(tool);
+    },
+    [onToolChange, updateLastUsedTool],
+  );
 
   const getNextToolInGroup = useCallback(
     (tools: ToolInfo[], fallback: Tool) => {
@@ -773,23 +753,23 @@ export function Toolbar({
       switch (key) {
         case "H":
           e.preventDefault();
-          onToolChange("hand");
+          handleToolChange("hand");
           break;
         case "V":
           e.preventDefault();
-          onToolChange("select");
+          handleToolChange("select");
           break;
         case "1":
           e.preventDefault();
-          onToolChange(getNextToolInGroup(PEN_GROUP, lastPenTool));
+          handleToolChange(getNextToolInGroup(PEN_GROUP, lastPenTool));
           break;
         case "2":
           e.preventDefault();
-          onToolChange(getNextToolInGroup(LINE_GROUP, lastLineTool));
+          handleToolChange(getNextToolInGroup(LINE_GROUP, lastLineTool));
           break;
         case "3":
           e.preventDefault();
-          onToolChange(getNextToolInGroup(SHAPE_GROUP, lastShapeTool));
+          handleToolChange(getNextToolInGroup(SHAPE_GROUP, lastShapeTool));
           break;
         case "5":
           e.preventDefault();
@@ -798,7 +778,7 @@ export function Toolbar({
             return;
           }
           onTileTypeSelect("tile-note");
-          onToolChange("tile");
+          handleToolChange("tile");
           return;
       }
 
@@ -806,14 +786,14 @@ export function Toolbar({
       if (matchedTile) {
         e.preventDefault();
         onTileTypeSelect(matchedTile.type);
-        onToolChange("tile");
+        handleToolChange("tile");
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
-    onToolChange,
+    handleToolChange,
     onTileTypeSelect,
     lastPenTool,
     lastLineTool,
@@ -838,11 +818,11 @@ export function Toolbar({
         return;
       }
       onTileTypeSelect(tileType);
-      onToolChange("tile");
+      handleToolChange("tile");
     },
     [
       onTileTypeSelect,
-      onToolChange,
+      handleToolChange,
       selectedTileType,
       currentTool,
       cycleNoteStyle,
@@ -856,22 +836,22 @@ export function Toolbar({
       return;
     }
     onTileTypeSelect("tile-note");
-    onToolChange("tile");
+    handleToolChange("tile");
   }, [
     selectedTileType,
     currentTool,
     cycleNoteStyle,
     onTileTypeSelect,
-    onToolChange,
+    handleToolChange,
   ]);
 
   const handleNoteStyleSelect = useCallback(
     (style: NoteStyle) => {
       onNoteStyleChange?.(style);
       onTileTypeSelect("tile-note");
-      onToolChange("tile");
+      handleToolChange("tile");
     },
-    [onNoteStyleChange, onTileTypeSelect, onToolChange],
+    [onNoteStyleChange, onTileTypeSelect, handleToolChange],
   );
 
   return (
@@ -911,7 +891,7 @@ export function Toolbar({
             label="Hand"
             hotkey="H"
             currentTool={currentTool}
-            onToolChange={onToolChange}
+            onToolChange={handleToolChange}
             onPress={() => setOpenSubmenu(null)}
           />
 
@@ -926,7 +906,7 @@ export function Toolbar({
             hotkey="V"
             onPress={() => setOpenSubmenu(null)}
             currentTool={currentTool}
-            onToolChange={onToolChange}
+            onToolChange={handleToolChange}
           />
 
           <div className="h-px w-6 bg-border my-1" />
@@ -935,7 +915,7 @@ export function Toolbar({
           <ToolButton
             tools={PEN_GROUP}
             currentTool={currentTool}
-            onToolChange={onToolChange}
+            onToolChange={handleToolChange}
             hotkey="1"
             lastUsedTool={lastPenTool}
             openSubmenu={openSubmenu}
@@ -946,7 +926,7 @@ export function Toolbar({
           <ToolButton
             tools={LINE_GROUP}
             currentTool={currentTool}
-            onToolChange={onToolChange}
+            onToolChange={handleToolChange}
             hotkey="2"
             lastUsedTool={lastLineTool}
             openSubmenu={openSubmenu}
@@ -957,7 +937,7 @@ export function Toolbar({
           <ToolButton
             tools={SHAPE_GROUP}
             currentTool={currentTool}
-            onToolChange={onToolChange}
+            onToolChange={handleToolChange}
             hotkey="3"
             lastUsedTool={lastShapeTool}
             showStackedIcon={true}
@@ -1044,7 +1024,7 @@ export function Toolbar({
               icon={lastMoreToolInfo.icon}
               label={lastMoreToolInfo.label}
               currentTool={currentTool}
-              onToolChange={onToolChange}
+              onToolChange={handleToolChange}
               onPress={() => {
                 setIsMoreOpen(false);
                 setOpenSubmenu(null);
@@ -1071,8 +1051,7 @@ export function Toolbar({
               isOpen={isMoreOpen}
               onClose={() => setIsMoreOpen(false)}
               onSelect={(tool) => {
-                onToolChange(tool);
-                setLastMoreTool(tool);
+                handleToolChange(tool);
                 setOpenSubmenu(null);
               }}
               buttonRef={moreButtonRef}
@@ -1085,7 +1064,7 @@ export function Toolbar({
       {isCollabMode && (
         <div className="bg-card/95 backdrop-blur-md border border-border/60 dark:border-transparent rounded-lg shadow-2xl p-1">
           <button
-            onPointerDown={() => onToolChange("laser")}
+            onPointerDown={() => handleToolChange("laser")}
             className={cn(
               "flex items-center justify-center w-[38px] h-[38px] rounded-md transition-all",
               currentTool === "laser"

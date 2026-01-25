@@ -124,6 +124,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "eslint": "^9.11.1",
+    "eslint-config-next": "^16.0.10",
     "partykit": "^0.0.115",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",

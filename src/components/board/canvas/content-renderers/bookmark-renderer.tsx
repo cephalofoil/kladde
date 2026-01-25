@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalLink, Globe, Edit } from "lucide-react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface BookmarkRendererProps {
@@ -41,14 +42,15 @@ export function BookmarkRenderer({
     >
       {/* Image Preview (if available) */}
       {imageUrl && (
-        <div className="w-full h-32 overflow-hidden bg-gray-100 dark:bg-neutral-800 flex-shrink-0">
-          <img
+        <div className="relative w-full h-32 overflow-hidden bg-gray-100 dark:bg-neutral-800 flex-shrink-0">
+          <Image
             src={imageUrl}
             alt={title || "Bookmark preview"}
-            className="w-full h-full object-cover"
+            fill
+            sizes="(max-width: 768px) 100vw, 512px"
+            className="object-cover"
             onError={(e) => {
-              // Hide image on error
-              e.currentTarget.style.display = "none";
+              (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
           />
         </div>
@@ -59,13 +61,14 @@ export function BookmarkRenderer({
         {/* Favicon and Site Name */}
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           {favicon ? (
-            <img
+            <Image
               src={favicon}
               alt=""
+              width={16}
+              height={16}
               className="w-4 h-4"
               onError={(e) => {
-                // Replace with globe icon on error
-                e.currentTarget.style.display = "none";
+                (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (

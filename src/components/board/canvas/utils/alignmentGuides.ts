@@ -330,7 +330,6 @@ export function findAlignmentGuides(
       // Case 2: Only left neighbor - match existing gaps
       else if (leftNeighbor) {
         const leftNeighborRight = leftNeighbor.x + leftNeighbor.width;
-        const currentGap = draggingLeft - leftNeighborRight;
 
         for (const existingGap of existingHorizontalGaps) {
           const targetLeft = leftNeighborRight + existingGap.gap;
@@ -371,7 +370,6 @@ export function findAlignmentGuides(
       // Case 3: Only right neighbor - match existing gaps
       else if (rightNeighbor) {
         const rightNeighborLeft = rightNeighbor.x;
-        const currentGap = rightNeighborLeft - draggingRight;
 
         for (const existingGap of existingHorizontalGaps) {
           const targetRight = rightNeighborLeft - existingGap.gap;
@@ -542,7 +540,6 @@ export function findAlignmentGuides(
     // Build distance guides if we're snapping
     if (distanceSnapX) {
       const snappedLeft = draggingLeft + distanceSnapX.delta;
-      const snappedRight = snappedLeft + draggingBounds.width;
       const gap = distanceSnapX.gap;
 
       // Include dragging element in the sorted list to find all matching gaps
@@ -602,7 +599,6 @@ export function findAlignmentGuides(
 
     if (distanceSnapY) {
       const snappedTop = draggingTop + distanceSnapY.delta;
-      const snappedBottom = snappedTop + draggingBounds.height;
       const gap = distanceSnapY.gap;
 
       const draggingSnapped: BoundingBox = {

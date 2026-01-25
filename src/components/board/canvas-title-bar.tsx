@@ -8,7 +8,6 @@ import { renameBoardInWorkspaceStorage } from "@/lib/filesystem-storage";
 import type { ShadeworksFile } from "@/lib/board-types";
 
 const QUICK_BOARDS_WORKSPACE_ID = "quick-boards";
-const QUICKBOARDS_FOLDER_NAME = "quickboards";
 
 interface CanvasTitleBarProps {
     boardId: string;
@@ -122,7 +121,7 @@ export function CanvasTitleBar({
                 jsonString,
             );
         },
-        [boardId, boards, workstreams, isDiskStorageWorkspace],
+        [boardId, boards, isDiskStorageWorkspace],
     );
 
     const handleRenameSubmit = () => {

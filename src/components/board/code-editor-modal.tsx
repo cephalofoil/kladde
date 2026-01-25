@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import {
     X,
     Search,
@@ -40,7 +40,7 @@ export function CodeEditorModal({
     onClose,
     onUpdateCode,
 }: CodeEditorModalProps) {
-    const [isAnimating, setIsAnimating] = useState(true);
+    const [isAnimating, setIsAnimating] = useState(false);
     const [code, setCode] = useState(codeElement.tileContent?.code || "");
     const [language, setLanguage] = useState(
         codeElement.tileContent?.language || "javascript",
@@ -55,7 +55,6 @@ export function CodeEditorModal({
     // Search state
     const [showSearch, setShowSearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<number[]>([]);
     const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
 
     // Refs
@@ -69,12 +68,6 @@ export function CodeEditorModal({
     useEffect(() => {
         codeRef.current = code;
     }, [code]);
-
-    // Animation
-    useEffect(() => {
-        const timer = setTimeout(() => setIsAnimating(false), 50);
-        return () => clearTimeout(timer);
-    }, []);
 
     // Save on unmount
     const saveContent = useCallback(() => {
@@ -113,7 +106,7 @@ export function CodeEditorModal({
                 if (showSearch) {
                     setShowSearch(false);
                     setSearchQuery("");
-                    setSearchResults([]);
+                    setCurrentSearchIndex(0);
                 } else {
                     handleClose();
                 }
@@ -134,12 +127,9 @@ export function CodeEditorModal({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [handleClose, showSearch, saveContent]);
 
-    // Search functionality
-    useEffect(() => {
+    const searchResults = useMemo(() => {
         if (!searchQuery.trim()) {
-            setSearchResults([]);
-            setCurrentSearchIndex(0);
-            return;
+            return [];
         }
 
         const lines = code.split("\n");
@@ -152,20 +142,26 @@ export function CodeEditorModal({
             }
         });
 
-        setSearchResults(results);
-        setCurrentSearchIndex(results.length > 0 ? 0 : -1);
+        return results;
     }, [searchQuery, code]);
+
+    const activeSearchIndex = useMemo(() => {
+        if (searchResults.length === 0) return -1;
+        if (currentSearchIndex >= searchResults.length) return 0;
+        if (currentSearchIndex < 0) return 0;
+        return currentSearchIndex;
+    }, [currentSearchIndex, searchResults.length]);
 
     const handleNextResult = () => {
         if (searchResults.length === 0) return;
-        const next = (currentSearchIndex + 1) % searchResults.length;
+        const next = (activeSearchIndex + 1) % searchResults.length;
         setCurrentSearchIndex(next);
     };
 
     const handlePrevResult = () => {
         if (searchResults.length === 0) return;
         const prev =
-            (currentSearchIndex - 1 + searchResults.length) %
+            (activeSearchIndex - 1 + searchResults.length) %
             searchResults.length;
         setCurrentSearchIndex(prev);
     };
@@ -344,7 +340,10 @@ export function CodeEditorModal({
                             ref={searchInputRef}
                             type="text"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                setCurrentSearchIndex(0);
+                            }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                     if (e.shiftKey) {
@@ -359,7 +358,7 @@ export function CodeEditorModal({
                         />
                         {searchResults.length > 0 && (
                             <span className="text-xs text-muted-foreground">
-                                {currentSearchIndex + 1} of{" "}
+                                {activeSearchIndex + 1} of{" "}
                                 {searchResults.length}
                             </span>
                         )}
@@ -381,7 +380,7 @@ export function CodeEditorModal({
                             onClick={() => {
                                 setShowSearch(false);
                                 setSearchQuery("");
-                                setSearchResults([]);
+                                setCurrentSearchIndex(0);
                             }}
                             className="p-1 rounded hover:bg-muted text-foreground"
                         >

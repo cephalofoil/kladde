@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 import { Header } from "@/components/header";
 import { ProfileSection } from "@/components/settings/profile-section";
 import { StorageSection } from "@/components/settings/storage-section";
@@ -8,12 +8,8 @@ import { ClearDataDialog } from "@/components/settings/clear-data-dialog";
 import { useBoardStore } from "@/store/board-store";
 
 export default function SettingsPage() {
-    const [mounted, setMounted] = useState(false);
+    const mounted = useIsClient();
     const getStorageStats = useBoardStore((s) => s.getStorageStats);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     const stats = mounted
         ? getStorageStats()

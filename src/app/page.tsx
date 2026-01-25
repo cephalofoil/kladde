@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
-import { parseCollabHash, type CollabRoomParams } from "@/lib/hash-router";
+import { parseCollabHash } from "@/lib/hash-router";
 import { importKeyFromString } from "@/lib/encryption";
+import { useIsClient } from "@/hooks/use-is-client";
 
 // Dynamic import to avoid SSR issues with Y.js
 const Whiteboard = dynamic(
@@ -25,31 +26,27 @@ const Whiteboard = dynamic(
 
 export default function HomePage() {
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-  const [collabParams, setCollabParams] = useState<CollabRoomParams | null>(
-    null,
+  const isClient = useIsClient();
+  const collabParams = useMemo(
+    () => (isClient ? parseCollabHash() : null),
+    [isClient],
   );
   const [encryptionKey, setEncryptionKey] = useState<CryptoKey | null>(null);
   const hasCreatedBoard = useRef(false);
 
   // Check for collab hash on mount
   useEffect(() => {
-    setIsClient(true);
+    if (!collabParams) return;
 
-    const params = parseCollabHash();
-    if (params) {
-      setCollabParams(params);
-
-      // Import the encryption key
-      importKeyFromString(params.encryptionKey)
-        .then((key) => {
-          setEncryptionKey(key);
-        })
-        .catch((error) => {
-          console.error("[HomePage] Failed to import encryption key:", error);
-        });
-    }
-  }, []);
+    // Import the encryption key
+    importKeyFromString(collabParams.encryptionKey)
+      .then((key) => {
+        setEncryptionKey(key);
+      })
+      .catch((error) => {
+        console.error("[HomePage] Failed to import encryption key:", error);
+      });
+  }, [collabParams]);
 
   // Default behavior: create quick board (only if not a collab URL)
   useEffect(() => {

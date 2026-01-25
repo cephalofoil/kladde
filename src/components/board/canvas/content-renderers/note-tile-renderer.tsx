@@ -25,13 +25,50 @@ interface NoteTileRendererProps {
     textAlign?: "left" | "center" | "right";
     onChange?: (content: string) => void;
     onColorChange?: (color: NoteColor) => void;
-    onStyleChange?: (style: NoteStyle) => void;
     onDelete?: () => void;
     readOnly?: boolean;
     isSelected?: boolean;
     isEditing?: boolean;
     onRequestEdit?: () => void;
     className?: string;
+}
+
+export function NoteTileRenderer(props: NoteTileRendererProps) {
+    const {
+        content,
+        color,
+        fontFamily,
+        textAlign,
+        onChange,
+        onColorChange,
+        onDelete,
+        readOnly,
+        isSelected,
+        isEditing,
+        onRequestEdit,
+        className,
+    } = props;
+
+    if (props.style === "torn") {
+        return (
+            <TornNoteTileRenderer
+                content={content}
+                color={color}
+                fontFamily={fontFamily}
+                textAlign={textAlign}
+                onChange={onChange}
+                onColorChange={onColorChange}
+                onDelete={onDelete}
+                readOnly={readOnly}
+                isSelected={isSelected}
+                isEditing={isEditing}
+                onRequestEdit={onRequestEdit}
+                className={className}
+            />
+        );
+    }
+
+    return <ClassicNoteTileRenderer {...props} />;
 }
 
 const colorStyles: Record<
@@ -62,15 +99,13 @@ const colorStyles: Record<
 
 const colorOrder: NoteColor[] = ["butter", "mint", "lavender"];
 
-export function NoteTileRenderer({
+function ClassicNoteTileRenderer({
     content,
     color = "butter",
-    style = "classic",
     fontFamily,
     textAlign,
     onChange,
     onColorChange,
-    onStyleChange,
     onDelete,
     readOnly = false,
     isSelected = false,
@@ -78,25 +113,6 @@ export function NoteTileRenderer({
     onRequestEdit,
     className,
 }: NoteTileRendererProps) {
-    // Delegate to TornNoteTileRenderer for torn style
-    if (style === "torn") {
-        return (
-            <TornNoteTileRenderer
-                content={content}
-                color={color}
-                fontFamily={fontFamily}
-                textAlign={textAlign}
-                onChange={onChange}
-                onColorChange={onColorChange}
-                onDelete={onDelete}
-                readOnly={readOnly}
-                isSelected={isSelected}
-                isEditing={isEditing}
-                onRequestEdit={onRequestEdit}
-                className={className}
-            />
-        );
-    }
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [localContent, setLocalContent] = useState(content);

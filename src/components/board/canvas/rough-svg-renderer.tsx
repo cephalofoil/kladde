@@ -15,6 +15,10 @@ function renderDrawableToSVG(
   fillPaths: React.JSX.Element[];
   outlinePath: string | null;
 } {
+  type DrawableSet = {
+    type: string;
+    ops: Array<{ op: string; data: number[] }>;
+  };
   const strokePaths: React.JSX.Element[] = [];
   const fillPaths: React.JSX.Element[] = [];
   let outlinePath: string | null = null;
@@ -23,7 +27,7 @@ function renderDrawableToSVG(
     return { strokePaths, fillPaths, outlinePath };
   }
 
-  drawable.sets.forEach((set: any, index: number) => {
+  drawable.sets.forEach((set: DrawableSet, index: number) => {
     if (set.type === "path") {
       const pathData = opsToPath(set);
       // Save the first path as the outline for clipping
@@ -74,7 +78,7 @@ function renderDrawableToSVG(
 /**
  * Convert rough.js ops to SVG path data
  */
-function opsToPath(set: any): string {
+function opsToPath(set: { ops: Array<{ op: string; data: number[] }> }): string {
   if (!set.ops || set.ops.length === 0) {
     return "";
   }

@@ -112,7 +112,6 @@ export function SaveModal({
     elements,
     comments = [],
     canvasBackground,
-    boardId: _boardId,
     boardName,
 }: SaveModalProps) {
     const [fileName, setFileName] = useState("");

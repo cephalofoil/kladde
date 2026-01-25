@@ -128,12 +128,6 @@ export function isSnapPointAccessible(
 
     // Add a small margin around the bounding box
     const margin = 5;
-    const expandedBounds = {
-        x: bounds.x - margin,
-        y: bounds.y - margin,
-        width: bounds.width + margin * 2,
-        height: bounds.height + margin * 2,
-    };
 
     // Check if the line from start to snapPoint intersects the target shape's interior
     // We shrink the bounds to represent the interior (not the edges)
@@ -151,45 +145,6 @@ export function isSnapPointAccessible(
 
     // Check if the line intersects the interior (not just the edges)
     return !lineIntersectsBox(start, snapPoint, interiorBounds, 0);
-}
-
-/**
- * Check if there's a clear line of sight between two points (no shapes blocking)
- * Used for elbow routing to check if direct path is clear
- */
-function hasLineOfSight(
-    start: Point,
-    end: Point,
-    elements: BoardElement[],
-    excludeElementId: string | null,
-    targetElementId: string | null,
-): boolean {
-    for (const element of elements) {
-        // Skip the element being dragged and the target element
-        if (element.id === excludeElementId || element.id === targetElementId) {
-            continue;
-        }
-
-        // Only check collision with solid shapes
-        if (
-            element.type === "line" ||
-            element.type === "arrow" ||
-            element.type === "pen" ||
-            element.type === "laser"
-        ) {
-            continue;
-        }
-
-        const bounds = getBoundingBox(element);
-        if (!bounds) continue;
-
-        // Check if line intersects this element's bounding box
-        if (lineIntersectsBox(start, end, bounds, 2)) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /**
@@ -762,59 +717,6 @@ function getSnapSide(
 }
 
 /**
- * Check if a simple L-path would pass through or along a shape's bounds.
- *
- * Path is [start, corner, end] where:
- * - start: the arrow's far endpoint (NOT on the shape)
- * - corner: the L-bend point
- * - end: the connection point ON the shape edge
- */
-function pathPassesThroughBounds(
-    path: Point[],
-    bounds: BoundingBox,
-    _margin: number,
-): boolean {
-    // Simple check: does any segment pass through the shape interior?
-    // We sample points along each segment and check if they're inside the bounds
-
-    for (let i = 0; i < path.length - 1; i++) {
-        const p1 = path[i];
-        const p2 = path[i + 1];
-
-        // Sample points along the segment (skip endpoints - they may be on shape edge)
-        for (let t = 0.1; t <= 0.9; t += 0.1) {
-            const px = p1.x + (p2.x - p1.x) * t;
-            const py = p1.y + (p2.y - p1.y) * t;
-
-            // Check if point is strictly inside bounds
-            if (
-                px > bounds.x &&
-                px < bounds.x + bounds.width &&
-                py > bounds.y &&
-                py < bounds.y + bounds.height
-            ) {
-                return true; // Path passes through shape
-            }
-        }
-    }
-
-    // Also check if the corner point (for L-paths) is inside the shape
-    if (path.length >= 3) {
-        const corner = path[1];
-        if (
-            corner.x > bounds.x &&
-            corner.x < bounds.x + bounds.width &&
-            corner.y > bounds.y &&
-            corner.y < bounds.y + bounds.height
-        ) {
-            return true;
-        }
-    }
-
-    return false; // Path is clear
-}
-
-/**
  * Generate elbow routing points that go around obstacles with proper spacing.
  * The algorithm ensures arrows don't ride along shape edges but maintain
  * a clear margin/spacing from all obstacles.
@@ -1275,7 +1177,6 @@ export function generateElbowRouteAroundObstacles(
                     default:
                         // Fallback: determine side based on point position
                         const cx = bounds.x + bounds.width / 2;
-                        const cy = bounds.y + bounds.height / 2;
                         if (Math.abs(pt.x - bounds.x) < 2)
                             return { x: bounds.x - margin, y: pt.y };
                         if (Math.abs(pt.x - (bounds.x + bounds.width)) < 2)
@@ -1516,7 +1417,6 @@ export function generateElbowRouteAroundObstacles(
                     default:
                         // Fallback based on point position
                         const cx = bounds.x + bounds.width / 2;
-                        const cy = bounds.y + bounds.height / 2;
                         if (Math.abs(pt.x - bounds.x) < 5)
                             return { x: bounds.x - EXIT_MARGIN, y: pt.y };
                         if (Math.abs(pt.x - (bounds.x + bounds.width)) < 5)

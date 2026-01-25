@@ -27,8 +27,6 @@ interface CodeMirrorEditorProps {
     wordWrap?: boolean;
     scale?: number;
     fontSize?: number;
-    highlightedLines?: number[];
-    searchLines?: number[];
     placeholderText?: string;
     onChange?: (value: string) => void;
     onLineToggle?: (lineNumber: number) => void;
@@ -64,8 +62,6 @@ export function CodeMirrorEditor({
     wordWrap = false,
     scale = 1,
     fontSize = 12,
-    highlightedLines = [],
-    searchLines = [],
     placeholderText,
     onChange,
     onLineToggle,

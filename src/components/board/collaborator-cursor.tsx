@@ -5,7 +5,6 @@ import {
   motion,
   useMotionValue,
   useSpring,
-  useTransform,
   AnimatePresence,
   type SpringOptions,
 } from "motion/react";
@@ -39,7 +38,7 @@ export function CollaboratorCursor({
   zoom,
   lastActivity,
 }: CollaboratorCursorProps) {
-  const [now, setNow] = React.useState(Date.now());
+  const [now, setNow] = React.useState(() => Date.now());
 
   // Update "now" periodically to check for inactivity
   React.useEffect(() => {

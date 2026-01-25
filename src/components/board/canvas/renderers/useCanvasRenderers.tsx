@@ -214,6 +214,8 @@ export function useCanvasRenderers({
   setArrowHandleHover,
   arrowHandleHoverTimerRef,
 }: UseCanvasRenderersProps) {
+  void onDeleteElement;
+  void arrowStart;
   // Helper to adapt colors for cross-theme visibility
   // When users collaborate across different themes, black/white colors need to be swapped
   const adaptColor = useCallback(
@@ -1000,11 +1002,6 @@ export function useCanvasRenderers({
         const end = effectiveElement.points[effectiveElement.points.length - 1];
         const hasCorner = effectiveElement.points.length >= 3;
         const style = effectiveElement.connectorStyle || "sharp";
-        const route =
-          effectiveElement.elbowRoute ||
-          (Math.abs(end.x - start.x) >= Math.abs(end.y - start.y)
-            ? "vertical"
-            : "horizontal");
         const control = hasCorner ? effectiveElement.points[1] : null;
 
         let pathD: string | null = null;
@@ -2069,11 +2066,8 @@ export function useCanvasRenderers({
         const fontSize = element.fontSize ?? element.strokeWidth * 4 + 12;
         const elLetterSpacing = element.letterSpacing ?? 0;
         const elLineHeight = element.lineHeight ?? 1.25;
-        const scaleX = element.scaleX ?? 1;
-        const scaleY = element.scaleY ?? 1;
         const x = element.x ?? 0;
         const y = element.y ?? 0;
-        const baselineOffset = fontSize * 0.82;
 
         // Calculate minimum width to check if at single-character width
         const minCharWidth = getMinSingleCharWidth(
@@ -2818,8 +2812,7 @@ export function useCanvasRenderers({
   };
 
   // Render connector (line/arrow) control points
-  const renderConnectorControls = useCallback(
-    (element: BoardElement) => {
+  const renderConnectorControls = (element: BoardElement) => {
       const el = getConnectorDragPreviewElement(element);
       if (el.points.length < 2) return null;
 
@@ -3529,19 +3522,7 @@ export function useCanvasRenderers({
             )}
         </g>
       );
-    },
-    [
-      getConnectorDragPreviewElement,
-      onStartTransform,
-      connectorStyle,
-      zoom,
-      isEditArrowMode,
-      getMousePosition,
-      onUpdateElement,
-      draggingConnectorPoint,
-      originalElements,
-    ],
-  );
+    };
 
   const renderRemoteSelections = () => {
     if (remoteSelections.length === 0) return null;

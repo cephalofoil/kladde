@@ -15,6 +15,7 @@ import { CodeRenderer } from "./content-renderers/code-renderer";
 import { MermaidRenderer } from "./content-renderers/mermaid-renderer";
 import { MermaidCodeEditor } from "./content-renderers/mermaid-code-editor";
 import { MermaidTileControls } from "./content-renderers/mermaid-tile-controls";
+import Image from "next/image";
 import { renderMermaidToPngBlob } from "./utils/mermaid-export";
 import {
     HeaderColorPicker,
@@ -34,7 +35,15 @@ interface TileRendererProps {
     onDelete?: () => void;
 }
 
-export function TileRenderer({
+export function TileRenderer(props: TileRendererProps) {
+    if (props.element.type !== "tile" || !props.element.tileType) {
+        return null;
+    }
+
+    return <TileRendererContent {...props} />;
+}
+
+function TileRendererContent({
     element,
     isSelected,
     onUpdate,
@@ -45,24 +54,13 @@ export function TileRenderer({
     const [showColorPicker, setShowColorPicker] = useState(false);
     const tileRef = useRef<HTMLDivElement>(null);
 
-    // Mermaid-specific state
-    const [mermaidScale, setMermaidScale] = useState(
-        element.tileContent?.mermaidScale || 1,
-    );
-
-    if (element.type !== "tile" || !element.tileType) {
-        return null;
-    }
+    const mermaidScale = element.tileContent?.mermaidScale || 1;
 
     const x = element.x || 0;
     const y = element.y || 0;
     const width = element.width || 300;
     const height = element.height || 200;
     const tileTitle = element.tileTitle || "Untitled";
-
-    useEffect(() => {
-        setMermaidScale(element.tileContent?.mermaidScale || 1);
-    }, [element.tileContent?.mermaidScale]);
 
     const getTileBackground = () => {
         switch (element.tileType) {
@@ -149,7 +147,6 @@ export function TileRenderer({
     // Mermaid handlers
     const handleMermaidScaleChange = useCallback(
         (newScale: number) => {
-            setMermaidScale(newScale);
             onUpdate?.({
                 tileContent: {
                     ...element.tileContent,
@@ -164,15 +161,6 @@ export function TileRenderer({
         (code: string) => {
             onUpdate?.({
                 tileContent: { ...element.tileContent, code },
-            });
-        },
-        [element.tileContent, onUpdate],
-    );
-
-    const handleCodeLanguageChange = useCallback(
-        (language: string) => {
-            onUpdate?.({
-                tileContent: { ...element.tileContent, language },
             });
         },
         [element.tileContent, onUpdate],
@@ -265,10 +253,8 @@ export function TileRenderer({
                                 content?.codeTheme as "atom-dark" | undefined
                             }
                             highlightedLines={content?.codeHighlightedLines}
-                            foldedRanges={content?.codeFoldedRanges}
                             isSelected={isSelected}
                             onChange={handleCodeChange}
-                            onLanguageChange={handleCodeLanguageChange}
                             onFinish={() => setIsEditing(false)}
                             isEditing={isEditing}
                             readOnly={!isEditing}
@@ -320,9 +306,11 @@ export function TileRenderer({
                     <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center pointer-events-auto rounded-b-lg">
                         <div className="flex flex-col items-center justify-center gap-3 px-6 py-4 max-w-xs text-center">
                             {/* Icon */}
-                            <img
+                            <Image
                                 src="/icons/diagram-tool.svg"
                                 alt=""
+                                width={48}
+                                height={48}
                                 className="w-12 h-12 opacity-40 dark:invert dark:opacity-50"
                             />
                             {/* Title */}
@@ -388,12 +376,14 @@ export function TileRenderer({
 
             case "tile-image":
                 return (
-                    <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center overflow-hidden pointer-events-none rounded-b-lg">
+                    <div className="absolute left-0 right-0 bottom-0 top-12 flex items-center justify-center overflow-hidden pointer-events-none rounded-b-lg relative">
                         {content?.imageSrc ? (
-                            <img
+                            <Image
                                 src={content.imageSrc}
                                 alt={content.imageAlt || "Image"}
-                                className="max-w-full max-h-full object-contain"
+                                fill
+                                sizes="(max-width: 768px) 100vw, 400px"
+                                className="object-contain"
                             />
                         ) : (
                             <div className={cn("text-sm", getTileTextColor())}>

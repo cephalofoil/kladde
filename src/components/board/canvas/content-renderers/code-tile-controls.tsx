@@ -6,7 +6,7 @@ import {
     Maximize2,
     Download,
     Copy,
-    Image,
+    Image as ImageIcon,
     WrapText,
     Sparkles,
     Palette,
@@ -17,7 +17,6 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { CODE_THEMES, type CodeThemeName } from "@/lib/code-themes";
 
@@ -63,9 +62,6 @@ export function CodeTileControls({
     const handleResetZoom = () => {
         onScaleChange(1);
     };
-
-    const currentTheme =
-        CODE_THEMES.find((t) => t.name === theme) || CODE_THEMES[0];
 
     return (
         <div className={cn("flex items-center gap-1", className)}>
@@ -209,7 +205,7 @@ export function CodeTileControls({
                     className="p-1.5 hover:bg-muted rounded transition-colors"
                     title="Copy as Image"
                 >
-                    <Image className="h-4 w-4 text-muted-foreground" />
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
                 </button>
             )}
 

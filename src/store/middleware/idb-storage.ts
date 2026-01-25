@@ -15,7 +15,7 @@ export const idbStorage: StateStorage = {
     try {
       const value = await get<string>(name);
       return value ?? null;
-    } catch (error) {
+    } catch {
       return null;
     }
   },

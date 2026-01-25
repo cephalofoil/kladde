@@ -19,7 +19,6 @@ import {
     $getRoot,
     $getSelection,
     $isRangeSelection,
-    LexicalNode,
 } from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";

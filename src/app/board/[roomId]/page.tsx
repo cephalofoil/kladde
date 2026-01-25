@@ -1,9 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useBoardStore } from "@/store/board-store";
+import { useIsClient } from "@/hooks/use-is-client";
+import { useBoardStoreHydrated } from "@/hooks/use-board-store-hydrated";
 
 // Dynamic import to avoid SSR issues with Y.js
 const Whiteboard = dynamic(
@@ -31,33 +33,14 @@ export default function BoardRoomPage({ params }: PageProps) {
     const { roomId: boardId } = use(params);
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [isClient, setIsClient] = useState(false);
-    const [isHydrated, setIsHydrated] = useState(false);
+    const isClient = useIsClient();
+    const isHydrated = useBoardStoreHydrated();
 
     // Check if this is a collaboration join link
     const isCollabMode = searchParams?.get("collab") === "1";
 
     const loadBoard = useBoardStore((s) => s.loadBoard);
     const board = useBoardStore((s) => s.boards.get(boardId));
-
-    useEffect(() => {
-        setIsClient(true);
-
-        // Wait for store hydration before checking board existence
-        // Check if already hydrated
-        if (useBoardStore.persist.hasHydrated()) {
-            setIsHydrated(true);
-        } else {
-            // Listen for hydration to complete
-            const unsubFinishHydration =
-                useBoardStore.persist.onFinishHydration(() => {
-                    setIsHydrated(true);
-                });
-            return () => {
-                unsubFinishHydration();
-            };
-        }
-    }, []);
 
     useEffect(() => {
         // Wait for both client-side and hydration to be ready

@@ -1,7 +1,7 @@
 "use client";
 
 import { useBoardStore } from "@/store/board-store";
-import { Folder, Plus, Edit2, Trash2, ChevronRight } from "lucide-react";
+import { Plus, Edit2, Trash2 } from "lucide-react";
 import { useMemo, useState, useCallback } from "react";
 
 export function WorkstreamSidebar() {
@@ -52,17 +52,13 @@ export function WorkstreamSidebar() {
         async (id: string) => {
             const newName = editName.trim();
             if (newName) {
-                const workstream = workstreamsMap.get(id);
-                const oldName = workstream?.name;
-
                 // Update in store
                 updateWorkstream(id, { name: newName });
-
             }
             setEditingId(null);
             setEditName("");
         },
-        [editName, workstreamsMap, updateWorkstream],
+        [editName, updateWorkstream],
     );
 
     const handleDelete = (id: string, name: string) => {

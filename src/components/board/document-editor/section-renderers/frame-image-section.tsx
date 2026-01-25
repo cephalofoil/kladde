@@ -1,13 +1,11 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect } from "react";
+import Image from "next/image";
 import { GripVertical, X, AlertTriangle, Square, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardElement, FrameImageSection } from "@/lib/board-types";
-import {
-  renderFrameImageDataUrl,
-  type FrameImageResult,
-} from "@/lib/frame-image";
+import { renderFrameImageDataUrl } from "@/lib/frame-image";
 
 const HANDLE_GUTTER_PX = 28;
 const HANDLE_TOP_OFFSET_PX = 6;
@@ -45,37 +43,22 @@ export function FrameImageSectionRenderer({
     () => allElements.find((el) => el.type === "frame" && el.id === section.frameId),
     [allElements, section.frameId]
   );
-  const [preview, setPreview] = useState<FrameImageResult | null>(null);
-  const [isRendering, setIsRendering] = useState(false);
-
-  useEffect(() => {
+  const preview = useMemo(() => {
     if (!liveFrame) {
-      setPreview(null);
-      return;
+      return null;
     }
 
     const frameWidth = liveFrame.width ?? 0;
     const scale =
       frameWidth > 0 ? Math.min(1, CONTENT_WIDTH_PX / frameWidth) : 1;
 
-    let isActive = true;
-    setIsRendering(true);
-
-    const result = renderFrameImageDataUrl({
+    return renderFrameImageDataUrl({
       frameId: section.frameId,
       elements: allElements,
       scale,
     });
-
-    if (isActive) {
-      setPreview(result);
-      setIsRendering(false);
-    }
-
-    return () => {
-      isActive = false;
-    };
   }, [section.frameId, allElements, liveFrame]);
+  const isRendering = false;
 
   useEffect(() => {
     if (!liveFrame) return;
@@ -191,9 +174,11 @@ export function FrameImageSectionRenderer({
               Rendering preview...
             </div>
           ) : preview?.dataUrl ? (
-            <img
+            <Image
               src={preview.dataUrl}
               alt={`${label} preview`}
+              width={CONTENT_WIDTH_PX}
+              height={Math.round(CONTENT_WIDTH_PX * 0.6)}
               className="max-w-full h-auto rounded border border-slate-200"
             />
           ) : (

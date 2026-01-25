@@ -1,11 +1,11 @@
 "use client";
 
-import { useId, useState, useEffect } from "react";
+import { useId, useState, useEffect, useCallback } from "react";
 import {
   Menu,
   FolderOpen,
   Save,
-  Image,
+  Image as ImageIcon,
   Share2,
   Search,
   HelpCircle,
@@ -167,6 +167,8 @@ export function BurgerMenu({
   viewMode = false,
   onToggleViewMode,
 }: BurgerMenuProps) {
+  void viewMode;
+  void onToggleViewMode;
   const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -175,13 +177,13 @@ export function BurgerMenu({
       ? theme
       : "system";
 
-  const handleExportImage = () => {
+  const handleExportImage = useCallback(() => {
     if (onExportImage) {
       onExportImage();
     } else {
       console.log("Export image clicked");
     }
-  };
+  }, [onExportImage]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -231,7 +233,7 @@ export function BurgerMenu({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onOpen, onSave, onExportImage, onFindOnCanvas, onHelp, isReadOnly]);
+  }, [handleExportImage, onOpen, onSave, onFindOnCanvas, onHelp, isReadOnly]);
 
   const modKey = isMac() ? "⌘" : "Ctrl";
 
@@ -272,7 +274,7 @@ export function BurgerMenu({
         </DropdownMenuItem>
 
         <DropdownMenuItem onClick={handleExportImage}>
-          <Image className="w-4 h-4" />
+          <ImageIcon className="w-4 h-4" />
           <span>Export image...</span>
           <div className="ml-auto flex gap-0.5">
             <Kbd>{modKey}</Kbd>

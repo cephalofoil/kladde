@@ -17,7 +17,6 @@ export function DocumentRenderer({
   documentContent,
   className,
 }: DocumentRendererProps) {
-  const sectionCount = documentContent?.layout?.sections?.length || 0;
   const sections = documentContent?.layout?.sections || [];
   const tileTypes = sections
     .filter((section: DocumentSection) => section.type === "tile-content")

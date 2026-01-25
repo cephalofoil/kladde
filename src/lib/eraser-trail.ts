@@ -1,11 +1,5 @@
 import getStroke from 'perfect-freehand';
 
-interface Point {
-  x: number;
-  y: number;
-  timestamp: number;
-}
-
 interface TrailPoint {
   x: number;
   y: number;

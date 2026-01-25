@@ -89,7 +89,7 @@ export interface UIState {
 export interface PatchOperation {
     op: "add" | "update" | "delete" | "replace";
     path: string; // JSONPath-style path
-    value?: any;
+    value?: unknown;
     timestamp: number;
 }
 

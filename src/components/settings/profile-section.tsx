@@ -1,30 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { User } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useBoardStore } from "@/store/board-store";
+import { useIsClient } from "@/hooks/use-is-client";
 
 const DISPLAY_NAME_KEY = "kladde-name";
 
 export function ProfileSection() {
-  const [displayName, setDisplayName] = useState("");
-  const [mounted, setMounted] = useState(false);
+  const [displayName, setDisplayName] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem(DISPLAY_NAME_KEY) || "";
+  });
+  const mounted = useIsClient();
   const collabInvitesEnabled = useBoardStore(
     (s) => s.settings?.collabInvitesEnabled ?? true,
   );
   const setCollabInvitesEnabled = useBoardStore(
     (s) => s.setCollabInvitesEnabled,
   );
-
-  useEffect(() => {
-    setMounted(true);
-    const savedName = sessionStorage.getItem(DISPLAY_NAME_KEY) || "";
-    setDisplayName(savedName);
-  }, []);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value;

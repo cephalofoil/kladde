@@ -11,7 +11,7 @@ import type {
 import { areEndpointsNear, isClosedShape } from "@/lib/board-types";
 import type { CollaborationManager } from "@/lib/collaboration";
 import type { CanvasState } from "../hooks/useCanvasState";
-import type { BoundingBox, ConnectorDragKind, ResizeHandle } from "../types";
+import type { BoundingBox, ResizeHandle } from "../types";
 import {
     expandBounds,
     getBoundsCenter,
@@ -52,14 +52,14 @@ import { getEventTargetInfo } from "../utils/eventTargeting";
 import { findAlignmentGuides } from "../utils/alignmentGuides";
 import { isInViewport } from "../utils/viewport";
 
-function throttleWithResult<T extends (...args: any[]) => any>(
-    fn: T,
+function throttleWithResult<TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => TResult,
     waitMs: number,
 ) {
     let lastCall = 0;
     let timeout: ReturnType<typeof setTimeout> | null = null;
-    let lastArgs: Parameters<T> | null = null;
-    let lastResult: ReturnType<T>;
+    let lastArgs: TArgs | null = null;
+    let lastResult: TResult;
 
     const invoke = () => {
         lastCall = Date.now();
@@ -69,7 +69,7 @@ function throttleWithResult<T extends (...args: any[]) => any>(
         lastArgs = null;
     };
 
-    return (...args: Parameters<T>): ReturnType<T> => {
+    return (...args: TArgs): TResult => {
         const now = Date.now();
         const remaining = waitMs - (now - lastCall);
         lastArgs = args;
@@ -156,9 +156,7 @@ export function useCanvasHandlers({
     frameStyle = "minimal",
     selectedTileType,
     selectedNoteStyle = "classic",
-    handDrawnMode = false,
     collaboration,
-    elements,
     selectedBounds,
     selectedElements,
     onAddElement,
@@ -608,8 +606,7 @@ export function useCanvasHandlers({
         ],
     );
 
-    const handleMouseMove = useCallback(
-        (e: ReactMouseEvent) => {
+    const handleMouseMove = (e: ReactMouseEvent) => {
             if (isReadOnly && !isPanning) return;
 
             const point = getMousePosition(e);
@@ -2878,52 +2875,15 @@ export function useCanvasHandlers({
                     break;
                 }
             }
-        },
-        [
-            isDrawing,
-            currentElement,
-            startPoint,
-            tool,
-            isReadOnly,
-            collaboration,
-            getMousePosition,
-            isPanning,
-            panStart,
-            onDeleteElement,
-            strokeWidth,
-            isDragging,
-            isResizing,
-            isRotating,
-            rotateStart,
-            selectedIds,
-            dragStart,
-            originalElements,
-            originalBounds,
-            resizeHandle,
-            onUpdateElement,
-            shiftPressed,
-            isBoxSelecting,
-            isLassoSelecting,
-            lassoPoints,
-            lastMousePos,
-            setLastMousePos,
-            setSelectedIds,
-            setLassoPoints,
-            draggingConnectorPoint,
-            connectorStyle,
-            getElementsToErase,
-            startSnapTarget,
-            throttledArrowUpdates,
-            throttledFindSnapTarget,
-            elementsRef,
-            remotelySelectedIds,
-            allowRemoteSelectionLock,
-            scheduleConnectorUpdate,
-        ],
-    );
+        };
 
-    const handleMouseDown = useCallback(
-        (e: ReactMouseEvent) => {
+    const handleMouseMoveRef = useRef(handleMouseMove);
+
+    useEffect(() => {
+        handleMouseMoveRef.current = handleMouseMove;
+    });
+
+    const handleMouseDown = (e: ReactMouseEvent) => {
             // Middle mouse button for panning OR hand tool with left click
             const shouldPan =
                 e.button === 1 || (e.button === 0 && tool === "hand");
@@ -3811,42 +3771,7 @@ export function useCanvasHandlers({
 
             setCurrentElement(newElement);
             setIsDrawing(true);
-        },
-        [
-            tool,
-            isReadOnly,
-            strokeColor,
-            strokeWidth,
-            fillColor,
-            opacity,
-            strokeStyle,
-            lineCap,
-            connectorStyle,
-            arrowStart,
-            arrowEnd,
-            cornerRadius,
-            fillPattern,
-            frameStyle,
-            getMousePosition,
-            elementsRef,
-            pan,
-            zoom,
-            selectedBounds,
-            selectedElements,
-            selectedIds,
-            shiftPressed,
-            rotateHandleSide,
-            onStartTransform,
-            getElementsToErase,
-            onDeleteElement,
-            remotelySelectedIds,
-            allowRemoteSelectionLock,
-            setIsLassoSelecting,
-            setLassoPoints,
-            setEditingFrameLabelId,
-            setFrameLabelValue,
-        ],
-    );
+        };
 
     const handleDoubleClick = useCallback(
         (e: ReactMouseEvent) => {
@@ -4264,7 +4189,6 @@ export function useCanvasHandlers({
                 // Check if shape is closed
                 const isClosed = isClosedShape(currentElement.points);
                 const endpointsInArea = areEndpointsNear(currentElement.points);
-                const isHighlighter = currentElement.penMode === "highlighter";
 
                 // Only fill if closed AND fill is enabled (same for pen and highlighter)
                 const shouldFill =
@@ -4407,6 +4331,25 @@ export function useCanvasHandlers({
         letterSpacing,
         lineHeight,
         isToolLocked,
+        eraserTrailRef,
+        onBatchUpdateElements,
+        setAlignmentGuides,
+        setCurrentElement,
+        setDistanceGuides,
+        setDragStart,
+        setDraggingConnectorPoint,
+        setEraserMarkedIds,
+        setHasDragMoved,
+        setIsBoxSelecting,
+        setIsDragging,
+        setIsPanning,
+        setIsResizing,
+        setIsRotating,
+        setOriginalBounds,
+        setOriginalElements,
+        setResizeHandle,
+        setRotateStart,
+        setSelectionBox,
     ]);
 
     const handleMouseLeave = useCallback(() => {
@@ -4498,7 +4441,6 @@ export function useCanvasHandlers({
                           textAlign: activeTextAlign,
                       })
                     : undefined;
-                const lineCount = Math.max(1, textValue.split("\n").length);
                 const unboundedSize = measureUnboundedTextSize({
                     text: textValue,
                     fontSize: activeFontSize,
@@ -4543,7 +4485,8 @@ export function useCanvasHandlers({
                 };
 
                 if (editingTextElementId) {
-                    const { id: _ignoredId, ...updates } = nextElement;
+                    const { id: omittedId, ...updates } = nextElement;
+                    void omittedId;
                     onUpdateElement(editingTextElementId, updates);
                 } else {
                     onAddElement(nextElement);
@@ -4581,8 +4524,11 @@ export function useCanvasHandlers({
             setSelectedIds,
             setEditingShapeTextId,
             textInputRef,
-            zoom,
             isToolLocked,
+            setEditingTextElementId,
+            setEditingTextStyle,
+            setTextInput,
+            setTextValue,
         ],
     );
 
@@ -4626,12 +4572,6 @@ export function useCanvasHandlers({
             const svg = svgRef.current;
             if (!svg) return;
 
-            const rect = svg.getBoundingClientRect();
-            const point: Point = {
-                x: (e.clientX - rect.left - pan.x) / zoom,
-                y: (e.clientY - rect.top - pan.y) / zoom,
-            };
-
             // Create a synthetic React mouse event-like object
             const syntheticEvent = {
                 clientX: e.clientX,
@@ -4646,7 +4586,7 @@ export function useCanvasHandlers({
                 stopPropagation: () => {},
             } as ReactMouseEvent;
 
-            handleMouseMove(syntheticEvent);
+            handleMouseMoveRef.current(syntheticEvent);
         };
 
         const handleGlobalMouseUp = (e: MouseEvent) => {
@@ -4687,7 +4627,6 @@ export function useCanvasHandlers({
         isPanning,
         isDrawing,
         isBoxSelecting,
-        handleMouseMove,
         handleMouseUp,
         svgRef,
         pan,

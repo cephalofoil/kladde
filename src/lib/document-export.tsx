@@ -326,7 +326,7 @@ function parseMarkdownForPdf(text: string): ParsedLine[] {
     if (!line.trim()) continue;
 
     // Strip inline markdown (bold, italic, etc.) for PDF
-    let cleanLine = line
+    const cleanLine = line
       .replace(/\*\*(.+?)\*\*/g, "$1")
       .replace(/__(.+?)__/g, "$1")
       .replace(/\*(.+?)\*/g, "$1")
@@ -485,6 +485,7 @@ function RenderTileContent({
                   width: displayWidth,
                   height: displayHeight,
                 }}
+                alt=""
               />
             </View>
           );
@@ -492,7 +493,7 @@ function RenderTileContent({
 
         {type === "tile-image" && content.imageSrc && (
           <View style={styles.imageContainer}>
-            <Image style={styles.diagramImage} src={content.imageSrc} />
+            <Image style={styles.diagramImage} src={content.imageSrc} alt="" />
           </View>
         )}
       </View>
@@ -603,6 +604,7 @@ function RenderSection({
               <Image
                 src={frameImage.dataUrl}
                 style={{ width: displayWidth, height: displayHeight }}
+                alt=""
               />
             </View>
           </View>

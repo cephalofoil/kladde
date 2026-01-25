@@ -5,9 +5,6 @@ import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 import {
-    Geist_Mono,
-    Exo as V0_Font_Exo,
-    Geist_Mono as V0_Font_Geist_Mono,
     Inter,
     Roboto,
     Playfair_Display,
@@ -16,16 +13,6 @@ import {
     Caveat,
     Lobster,
 } from "next/font/google";
-
-// Initialize fonts
-const _exo = V0_Font_Exo({
-    subsets: ["latin"],
-    weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-});
-const _geistMono = V0_Font_Geist_Mono({
-    subsets: ["latin"],
-    weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-});
 
 // Initialize Google Fonts for text tool
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });

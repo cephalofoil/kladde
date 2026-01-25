@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import { ChevronRight, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -58,27 +58,29 @@ export function DocumentEditorPanel({
   }, [onClose]);
 
   // Use tileTitle as the source of truth for the document title
-  const storedDocContent = documentElement.tileContent?.documentContent;
-  const documentContent: DocumentContent = storedDocContent
-    ? {
-        ...storedDocContent,
-        // Always sync title from tileTitle (single source of truth)
-        title: documentElement.tileTitle || storedDocContent.title,
-      }
-    : {
-        title: documentElement.tileTitle || "Untitled Document",
-        description: "",
-        layout: {
-          pageFormat: "A4",
-          orientation: "portrait",
-          margins: { top: 25, right: 25, bottom: 25, left: 25 },
-          sections: [],
-        },
-        metadata: {
-          createdAt: Date.now(),
-          modifiedAt: Date.now(),
-        },
-      };
+  const documentContent = useMemo<DocumentContent>(() => {
+    const storedDocContent = documentElement.tileContent?.documentContent;
+    return storedDocContent
+      ? {
+          ...storedDocContent,
+          // Always sync title from tileTitle (single source of truth)
+          title: documentElement.tileTitle || storedDocContent.title,
+        }
+      : {
+          title: documentElement.tileTitle || "Untitled Document",
+          description: "",
+          layout: {
+            pageFormat: "A4",
+            orientation: "portrait",
+            margins: { top: 25, right: 25, bottom: 25, left: 25 },
+            sections: [],
+          },
+          metadata: {
+            createdAt: Date.now(),
+            modifiedAt: Date.now(),
+          },
+        };
+  }, [documentElement.tileContent?.documentContent, documentElement.tileTitle]);
 
   const updateDocumentContent = useCallback(
     (updates: Partial<DocumentContent>) => {
@@ -234,7 +236,9 @@ export function DocumentEditorPanel({
       });
 
       const sections = documentContent.layout.sections;
-      const frameIndex = sections.findIndex((s) => s.id === frameSectionId);
+      const frameIndex = sections.findIndex(
+        (section: DocumentSection) => section.id === frameSectionId
+      );
       if (frameIndex === -1) return;
 
       // Create TileContentSections for each tile

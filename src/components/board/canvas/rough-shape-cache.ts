@@ -1,5 +1,6 @@
 import rough from "roughjs";
-import type { Drawable } from "roughjs/bin/core";
+import type { Drawable, Options } from "roughjs/bin/core";
+import type { RoughGenerator } from "roughjs/bin/generator";
 import type { BoardElement, Point } from "@/lib/board-types";
 import { getElbowPolylineForVertices } from "./curves";
 import { normalizeArrowhead, getArrowheadPoints } from "@/lib/arrowheads";
@@ -238,8 +239,6 @@ export function generateElementShape(
         }
 
         const connectorStyle = element.connectorStyle || "sharp";
-        const start = element.points[0];
-        const end = element.points[element.points.length - 1];
         const hasCorner = element.points.length >= 3;
         const control = hasCorner ? element.points[1] : null;
 
@@ -384,13 +383,13 @@ export function generateElementShape(
  * Create arrowhead shape
  */
 function createArrowheadShape(
-  generator: any,
+  generator: RoughGenerator,
   tip: { x: number; y: number },
   from: { x: number; y: number },
   markerType:
     | NonNullable<BoardElement["arrowStart"]>
     | NonNullable<BoardElement["arrowEnd"]>,
-  options: any,
+  options: Options,
 ): Drawable | Drawable[] | null {
   const points = getArrowheadPoints(
     tip,

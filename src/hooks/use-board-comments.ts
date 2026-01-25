@@ -32,18 +32,18 @@ export function useBoardComments(
   const replaceStoreComments = useBoardStore((s) => s.replaceComments);
 
   const storeCommentsRef = useRef(storeComments);
-  storeCommentsRef.current = storeComments;
+  useEffect(() => {
+    storeCommentsRef.current = storeComments;
+  }, [storeComments]);
 
   const replaceStoreCommentsRef = useRef(replaceStoreComments);
-  replaceStoreCommentsRef.current = replaceStoreComments;
+  useEffect(() => {
+    replaceStoreCommentsRef.current = replaceStoreComments;
+  }, [replaceStoreComments]);
 
   const [comments, setCommentsInternal] = useState<BoardComment[]>(() => {
     return isOwner ? storeComments : EMPTY_COMMENTS;
   });
-
-  const setComments = useCallback((nextComments: BoardComment[]) => {
-    setCommentsInternal(deduplicateComments(nextComments));
-  }, []);
 
   const initializedFromCollabRef = useRef(false);
   const hasSyncedStoreRef = useRef(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Download, Copy, HelpCircle } from "lucide-react";
 import type { BoardElement, Point } from "@/lib/board-types";
 import { getArrowheadPoints, normalizeArrowhead } from "@/lib/arrowheads";
@@ -1001,7 +1001,13 @@ function svgConnector(el: BoardElement, opacity: number) {
     return `${base}${svgMarker(markerStart, start, fromForStart)}${svgMarker(markerEnd, end, fromForEnd)}`;
 }
 
-export function ExportImageModal({
+export function ExportImageModal(props: ExportImageModalProps) {
+    if (!props.isOpen) return null;
+
+    return <ExportImageModalContent {...props} />;
+}
+
+function ExportImageModalContent({
     isOpen,
     onClose,
     elements,
@@ -1012,62 +1018,44 @@ export function ExportImageModal({
     const [darkMode, setDarkMode] = useState(false);
     const [embedScene, setEmbedScene] = useState(false);
     const [scale, setScale] = useState<1 | 2 | 3>(2);
-    const [fileName, setFileName] = useState("");
-    const [exportScope, setExportScope] = useState<ExportScope>("scene");
-    const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
+    const [fileName, setFileName] = useState(() => {
+        const date = new Date().toISOString().split("T")[0];
+        return `kladde-${date}`;
+    });
+    const frameOptions = elements.filter((el) => el.type === "frame");
+    const initialFrameState = useMemo(() => {
+        if (frameOptions.length === 0) {
+            return { exportScope: "scene" as ExportScope, activeFrameId: null };
+        }
+        if (selectedFrameId && frameOptions.some((f) => f.id === selectedFrameId)) {
+            return {
+                exportScope: "frame" as ExportScope,
+                activeFrameId: selectedFrameId,
+            };
+        }
+        return {
+            exportScope: "frame" as ExportScope,
+            activeFrameId: frameOptions[0]?.id ?? null,
+        };
+    }, [frameOptions, selectedFrameId]);
+    const [exportScope, setExportScope] = useState<ExportScope>(
+        initialFrameState.exportScope,
+    );
+    const [activeFrameId, setActiveFrameId] = useState<string | null>(
+        initialFrameState.activeFrameId,
+    );
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const previewCanvasRef = useRef<HTMLCanvasElement>(null);
-    const frameOptions = elements.filter((el) => el.type === "frame");
 
-    useEffect(() => {
-        if (!isOpen) return;
-        if (frameOptions.length === 0) {
-            setExportScope("scene");
-            setActiveFrameId(null);
-            return;
-        }
-        if (
-            selectedFrameId &&
-            frameOptions.some((f) => f.id === selectedFrameId)
-        ) {
-            setExportScope("frame");
-            setActiveFrameId(selectedFrameId);
-            return;
-        }
-        if (frameOptions.length > 0 && !activeFrameId) {
-            setActiveFrameId(frameOptions[0].id);
-        }
-    }, [isOpen, selectedFrameId, frameOptions, activeFrameId]);
-
-    useEffect(() => {
-        if (exportScope !== "frame") return;
-        if (activeFrameId) return;
-        if (frameOptions.length === 0) return;
-        setActiveFrameId(frameOptions[0].id);
-    }, [exportScope, activeFrameId, frameOptions]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const date = new Date().toISOString().split("T")[0];
-        setFileName(`kladde-${date}`);
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const frame = requestAnimationFrame(() => {
-            updatePreview();
-        });
-        return () => cancelAnimationFrame(frame);
-    }, [
-        isOpen,
-        includeBackground,
-        darkMode,
-        elements,
-        canvasBackground,
-        scale,
-        exportScope,
-        activeFrameId,
-    ]);
+    const resolvedActiveFrameId = frameOptions.some(
+        (frame) => frame.id === activeFrameId,
+    )
+        ? activeFrameId
+        : frameOptions[0]?.id ?? null;
+    const resolvedExportScope =
+        exportScope === "frame" && !resolvedActiveFrameId
+            ? "scene"
+            : exportScope;
 
     const handleOpenChange = (open: boolean) => {
         if (!open) {
@@ -1078,7 +1066,7 @@ export function ExportImageModal({
         "border border-border/60 data-[state=on]:bg-muted/70 data-[state=on]:text-foreground data-[state=on]:border-foreground/20 data-[state=on]:shadow-sm";
     const toggleGroupItemClassName = `w-full ${toggleClassName}`;
 
-    const updatePreview = () => {
+    const updatePreview = useCallback(() => {
         const canvas = previewCanvasRef.current;
         if (!canvas) return;
 
@@ -1087,8 +1075,8 @@ export function ExportImageModal({
 
         const { bounds, elements: exportElements } = resolveExportTargets(
             elements,
-            exportScope,
-            activeFrameId,
+            resolvedExportScope,
+            resolvedActiveFrameId,
         );
         const orderedElements = [...exportElements].sort(
             (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
@@ -1228,7 +1216,33 @@ export function ExportImageModal({
         });
 
         ctx.restore();
-    };
+    }, [
+        resolvedActiveFrameId,
+        canvasBackground,
+        darkMode,
+        elements,
+        resolvedExportScope,
+        includeBackground,
+        scale,
+    ]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const frame = requestAnimationFrame(() => {
+            updatePreview();
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [
+        isOpen,
+        includeBackground,
+        darkMode,
+        elements,
+        canvasBackground,
+        scale,
+        resolvedExportScope,
+        resolvedActiveFrameId,
+        updatePreview,
+    ]);
 
     const exportImage = async (format: "png" | "svg") => {
         if (format === "png") {
@@ -1247,8 +1261,8 @@ export function ExportImageModal({
 
         const { bounds, elements: exportElements } = resolveExportTargets(
             elements,
-            exportScope,
-            activeFrameId,
+            resolvedExportScope,
+            resolvedActiveFrameId,
         );
         const orderedElements = [...exportElements].sort(
             (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
@@ -1415,8 +1429,8 @@ export function ExportImageModal({
     const exportSVG = async () => {
         const { bounds, elements: exportElements } = resolveExportTargets(
             elements,
-            exportScope,
-            activeFrameId,
+            resolvedExportScope,
+            resolvedActiveFrameId,
         );
         const orderedElements = [...exportElements].sort(
             (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
@@ -1508,8 +1522,9 @@ export function ExportImageModal({
                 version: 1,
                 elements: exportElements,
                 appState: { canvasBackground },
-                exportScope,
-                frameId: exportScope === "frame" ? activeFrameId : null,
+                exportScope: resolvedExportScope,
+                frameId:
+                    resolvedExportScope === "frame" ? resolvedActiveFrameId : null,
             });
             svgContent += `\n  <metadata>
     <kladde>${sceneData}</kladde>
@@ -1537,8 +1552,8 @@ export function ExportImageModal({
 
         const { bounds, elements: exportElements } = resolveExportTargets(
             elements,
-            exportScope,
-            activeFrameId,
+            resolvedExportScope,
+            resolvedActiveFrameId,
         );
         const orderedElements = [...exportElements].sort(
             (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
@@ -1693,7 +1708,7 @@ export function ExportImageModal({
                                 <Label>Scope</Label>
                                 <ToggleGroup
                                     type="single"
-                                    value={exportScope}
+                                    value={resolvedExportScope}
                                     onValueChange={(value) => {
                                         if (!value) return;
                                         setExportScope(value as ExportScope);
@@ -1713,9 +1728,9 @@ export function ExportImageModal({
                                         Frame
                                     </ToggleGroupItem>
                                 </ToggleGroup>
-                                {exportScope === "frame" && (
+                                {resolvedExportScope === "frame" && (
                                     <Select
-                                        value={activeFrameId ?? ""}
+                                        value={resolvedActiveFrameId ?? ""}
                                         onValueChange={(value) =>
                                             setActiveFrameId(value)
                                         }

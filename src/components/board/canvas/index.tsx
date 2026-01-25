@@ -52,10 +52,9 @@ import {
     Trash2,
     X,
     SmilePlus,
-    ArrowUpRight,
 } from "lucide-react";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
@@ -272,7 +271,6 @@ export function Canvas({
     onToggleSnapToObjects,
     onTextEditingChange,
 }: CanvasProps) {
-    const TEXT_CLIP_BUFFER_PX = 2;
     const LASER_HOLD_DURATION_MS = 3000;
     const LASER_FADE_DURATION_MS = 800;
     const LASER_TTL_MS = LASER_HOLD_DURATION_MS + LASER_FADE_DURATION_MS + 250;
@@ -284,6 +282,11 @@ export function Canvas({
         () => (isMac() ? `${modKey}+${shiftKey}+Z` : `${modKey}+Y`),
         [modKey, shiftKey],
     );
+    void onStrokeColorChange;
+    void onFillColorChange;
+    void onSelectAllComments;
+    void onFocusComment;
+    void selectedCommentIds;
 
     // Tile editing state
     const [editingTileId, setEditingTileId] = useState<string | null>(null);
@@ -322,25 +325,6 @@ export function Canvas({
         activeCommentIdRef.current = activeCommentId;
     }, [activeCommentId]);
 
-    useEffect(() => {
-        if (!emojiPicker) return;
-        const handlePointerDown = (event: MouseEvent) => {
-            const target = event.target as HTMLElement | null;
-            if (target?.closest?.('[data-emoji-trigger="true"]')) return;
-            if (emojiPickerRef.current?.contains(target)) return;
-            setEmojiPicker(null);
-        };
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape") setEmojiPicker(null);
-        };
-        window.addEventListener("mousedown", handlePointerDown);
-        window.addEventListener("keydown", handleKeyDown);
-        return () => {
-            window.removeEventListener("mousedown", handlePointerDown);
-            window.removeEventListener("keydown", handleKeyDown);
-        };
-    }, [emojiPicker]);
-
     // Refs for edit states to avoid dependency array issues
     const editingTextElementIdRef = useRef<string | null>(null);
     const editingTileIdRef = useRef<string | null>(null);
@@ -359,7 +343,6 @@ export function Canvas({
         },
         transform: {
             isDragging,
-            hasDragMoved,
             isResizing,
             isRotating,
             resizeHandle,
@@ -392,7 +375,6 @@ export function Canvas({
         laser: { laserCursorPos, setLaserCursorPos },
         snapping: {
             snapTarget,
-            setSnapTarget,
             alignmentGuides,
             distanceGuides,
         },
@@ -407,7 +389,6 @@ export function Canvas({
             frameLabelValue,
             setEditingFrameLabelId,
             setFrameLabelValue,
-            inputHint,
             setInputHint,
             setShiftPressed,
             arrowHandleHover,
@@ -432,6 +413,25 @@ export function Canvas({
         },
     } = state;
     const selectedIdsRef = useRef<string[]>([]);
+
+    useEffect(() => {
+        if (!emojiPicker) return;
+        const handlePointerDown = (event: MouseEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest?.('[data-emoji-trigger="true"]')) return;
+            if (emojiPickerRef.current?.contains(target)) return;
+            setEmojiPicker(null);
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setEmojiPicker(null);
+        };
+        window.addEventListener("mousedown", handlePointerDown);
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("mousedown", handlePointerDown);
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [emojiPicker, containerRef]);
 
     useEffect(() => {
         selectedIdsRef.current = selectedIds;
@@ -499,7 +499,7 @@ export function Canvas({
         return () => {
             container.removeEventListener("wheel", handleWheel, true);
         };
-    }, [emojiPicker]);
+    }, [emojiPicker, containerRef]);
 
     useEffect(() => {
         if (!selectedElementIds) return;
@@ -586,7 +586,14 @@ export function Canvas({
             window.removeEventListener("keydown", handleKeyDown);
             window.removeEventListener("keyup", handleKeyUp);
         };
-    }, [selectedIds, isReadOnly]);
+    }, [
+        selectedIds,
+        isReadOnly,
+        setSelectedIds,
+        setShiftPressed,
+        setTextInput,
+        setEditingTileId,
+    ]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -597,7 +604,7 @@ export function Canvas({
             /Mac|iPhone|iPad|iPod/.test(userAgent);
         const hasTouch = navigator.maxTouchPoints > 0;
         setInputHint(isMacLike || hasTouch ? "trackpad" : "mouse");
-    }, []);
+    }, [setInputHint]);
 
     // Wheel zoom handler with native event listener to prevent browser zoom
     useEffect(() => {
@@ -663,7 +670,7 @@ export function Canvas({
 
         container.addEventListener("wheel", handleWheel, { passive: false });
         return () => container.removeEventListener("wheel", handleWheel);
-    }, [pan]);
+    }, [pan, setPan, setZoom, onManualViewportChange, containerRef]);
 
     // Initialize eraser trail
     useEffect(() => {
@@ -696,7 +703,7 @@ export function Canvas({
                 eraserTrailRef.current.clear();
             }
         };
-    }, []);
+    }, [eraserTrailPathRef, eraserTrailRef]);
 
     // Track remote cursors and drawing elements
     useEffect(() => {
@@ -779,7 +786,7 @@ export function Canvas({
         });
 
         return unsubscribe;
-    }, [collaboration]);
+    }, [collaboration, setRemoteCursors, setRemoteDrawingElements]);
 
     // Broadcast current drawing element to other users
     useEffect(() => {
@@ -846,6 +853,8 @@ export function Canvas({
         textAlign,
         textInput,
         textValue,
+        drawingElementBroadcastRafRef,
+        pendingDrawingElementRef,
     ]);
 
     // Broadcast viewport changes to other users
@@ -874,11 +883,11 @@ export function Canvas({
         }, 2000);
 
         return () => window.clearInterval(interval);
-    }, [LASER_TTL_MS, onDeleteElement]);
+    }, [LASER_TTL_MS, onDeleteElement, elementsRef, expiredLaserIdsRef]);
 
     useEffect(() => {
         elementsRef.current = elements;
-    }, [elements]);
+    }, [elements, elementsRef]);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -899,15 +908,19 @@ export function Canvas({
     }, [containerRef]);
 
     useEffect(() => {
+        const cursorRef = cursorBroadcastRafRef;
+        const drawingRef = drawingElementBroadcastRafRef;
         return () => {
-            if (cursorBroadcastRafRef.current !== null) {
-                cancelAnimationFrame(cursorBroadcastRafRef.current);
+            const cursorBroadcastRaf = cursorRef.current;
+            const drawingBroadcastRaf = drawingRef.current;
+            if (cursorBroadcastRaf !== null) {
+                cancelAnimationFrame(cursorBroadcastRaf);
             }
-            if (drawingElementBroadcastRafRef.current !== null) {
-                cancelAnimationFrame(drawingElementBroadcastRafRef.current);
+            if (drawingBroadcastRaf !== null) {
+                cancelAnimationFrame(drawingBroadcastRaf);
             }
         };
-    }, []);
+    }, [cursorBroadcastRafRef, drawingElementBroadcastRafRef]);
 
     // Clear eraser marked IDs when tool changes
     useEffect(() => {
@@ -922,7 +935,13 @@ export function Canvas({
         if (tool !== "laser") {
             setLaserCursorPos(null);
         }
-    }, [tool]);
+    }, [
+        tool,
+        eraserTrailRef,
+        setEraserCursorPos,
+        setEraserMarkedIds,
+        setLaserCursorPos,
+    ]);
 
     // Expose viewport setter to parent component
     useEffect(() => {
@@ -932,7 +951,7 @@ export function Canvas({
                 setZoom(newZoom);
             });
         }
-    }, [onSetViewport]);
+    }, [onSetViewport, setPan, setZoom]);
 
     // Get selected elements and their combined bounds
     const selectedElements = selectedIds
@@ -977,7 +996,7 @@ export function Canvas({
 
         lastSingleSelectedIdRef.current = null;
         setRotateHandleSide("n");
-    }, [elements, selectedIds]);
+    }, [elements, selectedIds, lastSingleSelectedIdRef, setRotateHandleSide]);
 
     const handlers = useCanvasHandlers({
         state,
@@ -1060,6 +1079,7 @@ export function Canvas({
         strokeWidth,
         textAlign,
         textInput,
+        setEditingTextStyle,
     ]);
 
     const textInputMetrics = useMemo(() => {
@@ -1253,6 +1273,9 @@ export function Canvas({
         fontFamily,
         letterSpacing,
         textAlign,
+        editingShapeTextId,
+        setTextInput,
+        textInputRef,
     ]);
 
     const {
@@ -1413,7 +1436,13 @@ export function Canvas({
             lastEnforcedTextHeightsRef.current.set(id, required);
             onUpdateElementRef.current(id, { height: required });
         });
-    }, [editingTextElementId, elements, selectedIds, textInput]);
+    }, [
+        editingTextElementId,
+        elements,
+        selectedIds,
+        textInput,
+        lastEnforcedTextHeightsRef,
+    ]);
 
     const isTextBoxEditing = textInput?.isTextBox ?? true;
 
@@ -1463,7 +1492,7 @@ export function Canvas({
                 elementId,
             });
         },
-        [pan.x, pan.y, zoom],
+        [pan.x, pan.y, zoom, containerRef, setSelectedIds],
     );
 
     const handleCopy = useCallback(
@@ -1538,7 +1567,7 @@ export function Canvas({
             };
             img.src = url;
         },
-        [contextMenu?.elementId, elements, selectedElementIds],
+        [contextMenu?.elementId, elements, selectedElementIds, containerRef, svgRef],
     );
 
     const handleCommentNav = useCallback(
@@ -1612,8 +1641,9 @@ export function Canvas({
         ? comments
         : comments.filter((comment) => !comment.resolved);
 
+    // eslint-disable-next-line react-hooks/purity
+    const now = useMemo(() => Date.now(), []);
     const formatTimestamp = (timestamp: number) => {
-        const now = Date.now();
         const diffMs = Math.max(0, now - timestamp);
         const diffMinutes = Math.floor(diffMs / 60000);
         if (diffMinutes < 1) return "just now";
@@ -1932,9 +1962,6 @@ export function Canvas({
                         }
                         const isOpen = activeCommentId === comment.id;
                         const isPinned = pinnedCommentId === comment.id;
-                        const isSelected = selectedCommentIds.includes(
-                            comment.id,
-                        );
                         const draft = commentDrafts[comment.id] || "";
                         const messages = comment.messages || [];
                         return (

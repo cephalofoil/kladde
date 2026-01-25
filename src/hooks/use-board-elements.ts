@@ -47,11 +47,15 @@ export function useBoardElements(
 
     // Keep storeElements in a ref to avoid dependency issues
     const storeElementsRef = useRef(storeElements);
-    storeElementsRef.current = storeElements;
+    useEffect(() => {
+        storeElementsRef.current = storeElements;
+    }, [storeElements]);
 
     // Keep replaceStoreElements in a ref to avoid dependency issues
     const replaceStoreElementsRef = useRef(replaceStoreElements);
-    replaceStoreElementsRef.current = replaceStoreElements;
+    useEffect(() => {
+        replaceStoreElementsRef.current = replaceStoreElements;
+    }, [replaceStoreElements]);
 
     // Local state for elements (synced with store or collaboration)
     const [elements, setElementsInternal] = useState<BoardElement[]>(() => {
@@ -59,11 +63,6 @@ export function useBoardElements(
         // For owners, use store elements
         return isOwner ? storeElements : EMPTY_ELEMENTS;
     });
-
-    // Wrapper to deduplicate before setting
-    const setElements = useCallback((newElements: BoardElement[]) => {
-        setElementsInternal(deduplicateElements(newElements));
-    }, []);
 
     // Track if we've initialized from collab
     const initializedFromCollabRef = useRef(false);

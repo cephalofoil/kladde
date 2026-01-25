@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import {
   GripVertical,
   X,
@@ -298,9 +299,11 @@ export function TileContentSectionRenderer({
         if (tileContent.imageSrc) {
           return (
             <div className="flex justify-center">
-              <img
+              <Image
                 src={tileContent.imageSrc}
                 alt={tileContent.imageAlt || "Image"}
+                width={600}
+                height={300}
                 className="max-w-full h-auto rounded"
                 style={{ maxHeight: "300px" }}
               />

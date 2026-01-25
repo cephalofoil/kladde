@@ -2,8 +2,9 @@
 
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { isMac } from "@/lib/platform";
+import { useIsClient } from "@/hooks/use-is-client";
 
 
 function ThemeHotkeys() {
@@ -29,12 +30,7 @@ function ThemeHotkeys() {
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   // Add this state to prevent hydration mismatch
-  const [mounted, setMounted] = useState(false);
-
-  // Only render the provider once the component is mounted on the client
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsClient();
 
   // Return null during SSR to avoid hydration mismatch
   if (!mounted) {

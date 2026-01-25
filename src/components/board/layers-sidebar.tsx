@@ -41,7 +41,7 @@ import {
   Check,
   ArrowUpDown,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
@@ -49,9 +49,6 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
@@ -291,11 +288,6 @@ const getElementLabel = (element: BoardElement) => {
   return element.type.charAt(0).toUpperCase() + element.type.slice(1);
 };
 
-const getCommentLabel = (comment: BoardComment) => {
-  const message = comment.messages?.[0]?.text?.trim();
-  return message || "New comment";
-};
-
 const formatRelativeTime = (timestamp: number) => {
   const now = Date.now();
   const diffMs = Math.max(0, now - timestamp);
@@ -427,7 +419,6 @@ export function LayersSidebar({
   const activeTab = activeTabProp ?? internalTab;
   const setActiveTab = onTabChange ?? setInternalTab;
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<BoardElement[]>([]);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   const [commentSearchQuery, setCommentSearchQuery] = useState("");
   const [commentSort, setCommentSort] = useState<
@@ -458,12 +449,7 @@ export function LayersSidebar({
   );
 
   const handleDragOver = useCallback(
-    (
-      e: React.DragEvent,
-      targetId: string,
-      targetType: "element" | "folder",
-      index: number,
-    ) => {
+    (e: React.DragEvent, targetId: string, targetType: "element" | "folder") => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
@@ -491,6 +477,14 @@ export function LayersSidebar({
     },
     [draggedType],
   );
+
+  const resetDragState = useCallback(() => {
+    setDraggedId(null);
+    setDraggedType(null);
+    setDropTargetId(null);
+    setDropPosition(null);
+    dragStartIndexRef.current = null;
+  }, []);
 
   const handleDrop = useCallback(
     (
@@ -553,20 +547,13 @@ export function LayersSidebar({
       onMoveToIndex,
       onMoveToFolder,
       elements,
+      resetDragState,
     ],
   );
 
-  const resetDragState = () => {
-    setDraggedId(null);
-    setDraggedType(null);
-    setDropTargetId(null);
-    setDropPosition(null);
-    dragStartIndexRef.current = null;
-  };
-
   const handleDragEnd = useCallback(() => {
     resetDragState();
-  }, []);
+  }, [resetDragState]);
 
   const handleFolderContentsDragOver = useCallback(
     (e: React.DragEvent, folderId: string) => {
@@ -589,7 +576,7 @@ export function LayersSidebar({
       onMoveToFolder?.(draggedId, folderId);
       resetDragState();
     },
-    [draggedId, draggedType, onMoveToFolder],
+    [draggedId, draggedType, onMoveToFolder, resetDragState],
   );
 
   const startEditingFolder = (folder: LayerFolder) => {
@@ -637,7 +624,7 @@ export function LayersSidebar({
           }
           handleDragStart(e, element.id, "element", index);
         }}
-        onDragOver={(e) => handleDragOver(e, element.id, "element", index)}
+        onDragOver={(e) => handleDragOver(e, element.id, "element")}
         onDrop={(e) =>
           handleDrop(e, element.id, "element", index, parentFolderId)
         }
@@ -833,9 +820,7 @@ export function LayersSidebar({
           onDragStart={(e) =>
             handleDragStart(e, folder.id, "folder", folderIndex)
           }
-          onDragOver={(e) =>
-            handleDragOver(e, folder.id, "folder", folderIndex)
-          }
+          onDragOver={(e) => handleDragOver(e, folder.id, "folder")}
           onDrop={(e) => handleDrop(e, folder.id, "folder", folderIndex)}
           onDragEnd={handleDragEnd}
           className={cn(
@@ -969,7 +954,7 @@ export function LayersSidebar({
 
   const handleFindNext = () => {
     if (searchResults.length === 0 || !onFocusElement) return;
-    const nextIndex = (currentResultIndex + 1) % searchResults.length;
+    const nextIndex = (safeResultIndex + 1) % searchResults.length;
     setCurrentResultIndex(nextIndex);
     const next = searchResults[nextIndex];
     onFocusElement(next);
@@ -982,9 +967,9 @@ export function LayersSidebar({
   const handleFindPrevious = () => {
     if (searchResults.length === 0 || !onFocusElement) return;
     const prevIndex =
-      currentResultIndex === 0
+      safeResultIndex === 0
         ? searchResults.length - 1
-        : currentResultIndex - 1;
+        : safeResultIndex - 1;
     setCurrentResultIndex(prevIndex);
     const prev = searchResults[prevIndex];
     onFocusElement(prev);
@@ -1069,30 +1054,74 @@ export function LayersSidebar({
     });
   }, []);
 
-  const clearFindState = useCallback(() => {
-    setSearchQuery("");
-    setSearchResults([]);
-    setCurrentResultIndex(0);
-    onHighlightElements?.([]);
-  }, [onHighlightElements]);
+  const isFindTab = activeTab === "find";
+  const activeSearchQuery = isFindTab ? searchQuery : "";
+  const searchResults =
+    isFindTab && activeSearchQuery.trim()
+      ? elements.filter((el) => {
+          const query = activeSearchQuery.toLowerCase();
+          if (el.type === "text") {
+            return el.text?.toLowerCase().includes(query);
+          }
+          if (el.type === "frame") {
+            return el.label?.toLowerCase().includes(query);
+          }
+          if (el.type === "tile") {
+            if (el.tileTitle?.toLowerCase().includes(query)) {
+              return true;
+            }
+            if (el.tileContent) {
+              const content = el.tileContent;
+              if (content.richText?.toLowerCase().includes(query)) {
+                return true;
+              }
+              if (content.noteText?.toLowerCase().includes(query)) {
+                return true;
+              }
+              if (content.code?.toLowerCase().includes(query)) {
+                return true;
+              }
+              if (content.chart?.toLowerCase().includes(query)) {
+                return true;
+              }
+              if (content.bookmarkTitle?.toLowerCase().includes(query)) {
+                return true;
+              }
+              if (content.bookmarkDescription?.toLowerCase().includes(query)) {
+                return true;
+              }
+              if (content.displayName?.toLowerCase().includes(query)) {
+                return true;
+              }
+            }
+            if (el.tileType) {
+              const tileTypeName = el.tileType
+                .replace("tile-", "")
+                .toLowerCase();
+              if (tileTypeName.includes(query) || query === "tile") {
+                return true;
+              }
+            }
+          }
+          if (el.type.toLowerCase().includes(query)) {
+            return true;
+          }
+          return false;
+        })
+      : [];
+  const safeResultIndex = Math.min(
+    currentResultIndex,
+    Math.max(searchResults.length - 1, 0),
+  );
 
   useEffect(() => {
-    if (activeTab !== "find") {
-      clearFindState();
-    }
-  }, [activeTab, clearFindState]);
-
-  useEffect(() => {
-    if (activeTab !== "find") return;
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setCurrentResultIndex(0);
+    if (!isFindTab || !activeSearchQuery.trim()) {
       onHighlightElements?.([]);
       return;
     }
 
-    const query = searchQuery.toLowerCase();
-    const matchingElements = elements.filter((el) => {
+    const query = activeSearchQuery.toLowerCase();
+    const results = elements.filter((el) => {
       if (el.type === "text") {
         return el.text?.toLowerCase().includes(query);
       }
@@ -1140,16 +1169,19 @@ export function LayersSidebar({
       return false;
     });
 
-    setSearchResults(matchingElements);
-    setCurrentResultIndex(0);
-    onHighlightElements?.(
-      matchingElements.map((el) => el.id),
-      matchingElements.length > 0 ? matchingElements[0].id : null,
-    );
-    if (matchingElements.length > 0 && onFocusElement) {
-      onFocusElement(matchingElements[0]);
+    const nextIds = results.map((el) => el.id);
+    const currentId = results[0]?.id ?? null;
+    onHighlightElements?.(nextIds, currentId);
+    if (results.length > 0 && onFocusElement) {
+      onFocusElement(results[0]);
     }
-  }, [activeTab, elements, onFocusElement, onHighlightElements, searchQuery]);
+  }, [
+    activeSearchQuery,
+    isFindTab,
+    elements,
+    onFocusElement,
+    onHighlightElements,
+  ]);
 
   return (
     <div
@@ -1166,9 +1198,12 @@ export function LayersSidebar({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab("layers")}
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentResultIndex(0);
+                setActiveTab("layers");
+              }}
             className={cn(
               "p-2 rounded-md transition-colors",
               activeTab === "layers"
@@ -1180,9 +1215,12 @@ export function LayersSidebar({
           >
             <Layers className="w-4 h-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("comments")}
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentResultIndex(0);
+                setActiveTab("comments");
+              }}
             className={cn(
               "p-2 rounded-md transition-colors relative",
               activeTab === "comments"
@@ -1197,9 +1235,9 @@ export function LayersSidebar({
               <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500" />
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("find")}
+            <button
+              type="button"
+              onClick={() => setActiveTab("find")}
             className={cn(
               "p-2 rounded-md transition-colors",
               activeTab === "find"
@@ -1252,7 +1290,10 @@ export function LayersSidebar({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentResultIndex(0);
+              }}
               onKeyDown={handleFindKeyDown}
               className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
               placeholder="Find on canvas..."
@@ -1283,12 +1324,12 @@ export function LayersSidebar({
               ? searchQuery.trim()
                 ? "No matches"
                 : "Type to search layers"
-              : `${currentResultIndex + 1} of ${searchResults.length} matches`}
+              : `${safeResultIndex + 1} of ${searchResults.length} matches`}
           </div>
           {searchResults.length > 0 && (
             <div className="space-y-1">
               {searchResults.map((result, index) => {
-                const isActive = index === currentResultIndex;
+                const isActive = index === safeResultIndex;
                 return (
                   <button
                     key={result.id}

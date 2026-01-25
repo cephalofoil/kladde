@@ -7,11 +7,6 @@ import { getThemeByName, type CodeThemeName } from "@/lib/code-themes";
 import { LANGUAGES } from "./code-language-selector";
 import { CodeMirrorEditor } from "@/components/board/code-mirror-editor";
 
-interface FoldRange {
-    start: number;
-    end: number;
-}
-
 interface CodeRendererProps {
     code: string;
     language?: string;
@@ -19,11 +14,8 @@ interface CodeRendererProps {
     wordWrap?: boolean;
     theme?: CodeThemeName;
     highlightedLines?: number[];
-    foldedRanges?: FoldRange[];
     onChange?: (code: string) => void;
-    onLanguageChange?: (language: string) => void;
     onHighlightedLinesChange?: (lines: number[]) => void;
-    onFoldedRangesChange?: (ranges: FoldRange[]) => void;
     onFinish?: () => void;
     isEditing?: boolean;
     readOnly?: boolean;
@@ -35,15 +27,6 @@ const areNumberArraysEqual = (a: number[], b: number[]) => {
     if (a === b) return true;
     if (a.length !== b.length) return false;
     return a.every((value, index) => value === b[index]);
-};
-
-const areFoldedRangesEqual = (a: FoldRange[], b: FoldRange[]) => {
-    if (a === b) return true;
-    if (a.length !== b.length) return false;
-    return a.every(
-        (range, index) =>
-            range.start === b[index]?.start && range.end === b[index]?.end,
-    );
 };
 
 const areCodeRendererPropsEqual = (
@@ -61,15 +44,12 @@ const areCodeRendererPropsEqual = (
         prev.isSelected === next.isSelected &&
         prev.className === next.className &&
         prev.onChange === next.onChange &&
-        prev.onLanguageChange === next.onLanguageChange &&
         prev.onHighlightedLinesChange === next.onHighlightedLinesChange &&
-        prev.onFoldedRangesChange === next.onFoldedRangesChange &&
         prev.onFinish === next.onFinish &&
         areNumberArraysEqual(
             prev.highlightedLines ?? [],
             next.highlightedLines ?? [],
-        ) &&
-        areFoldedRangesEqual(prev.foldedRanges ?? [], next.foldedRanges ?? [])
+        )
     );
 };
 
@@ -80,11 +60,8 @@ export const CodeRenderer = memo(function CodeRenderer({
     wordWrap = false,
     theme = "atom-dark",
     highlightedLines = [],
-    foldedRanges = [],
     onChange,
-    onLanguageChange,
     onHighlightedLinesChange,
-    onFoldedRangesChange,
     onFinish,
     isEditing = false,
     readOnly = false,

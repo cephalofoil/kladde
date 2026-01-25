@@ -11,7 +11,6 @@ import {
   rgbToHsv,
   hsvToRgb,
   rgbToHex,
-  rgbToRgbString,
   rgbToHslString,
   parseColor,
   isValidHex,
@@ -35,6 +34,25 @@ export interface ColorPickerProps {
 }
 
 type ColorFormat = "hex" | "rgb" | "hsl";
+
+function formatColorValue(format: ColorFormat, rgb: RGB) {
+  switch (format) {
+    case "hex":
+      return rgbToHex(rgb);
+    case "rgb":
+      return `${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(
+        rgb.b,
+      )}`;
+    case "hsl": {
+      const hslString = rgbToHslString(rgb);
+      const match = hslString.match(/(\d+),\s*(\d+)%,\s*(\d+)%/);
+      if (match) {
+        return `${match[1]}, ${match[2]}%, ${match[3]}%`;
+      }
+      return hslString;
+    }
+  }
+}
 
 // Helper functions for recent colors
 function getRecentColors(): string[] {
@@ -346,29 +364,19 @@ function ColorFormatInput({
   onFormatChange,
   onChange,
 }: ColorFormatInputProps) {
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(() =>
+    formatColorValue(format, rgb),
+  );
+  const [isFocused, setIsFocused] = useState(false);
+  const formattedValue = useMemo(
+    () => formatColorValue(format, rgb),
+    [format, rgb],
+  );
 
-  // Update input value when rgb or format changes
-  useEffect(() => {
-    switch (format) {
-      case "hex":
-        setInputValue(rgbToHex(rgb));
-        break;
-      case "rgb":
-        setInputValue(
-          `${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}`,
-        );
-        break;
-      case "hsl": {
-        const hslString = rgbToHslString(rgb);
-        const match = hslString.match(/(\d+),\s*(\d+)%,\s*(\d+)%/);
-        if (match) {
-          setInputValue(`${match[1]}, ${match[2]}%, ${match[3]}%`);
-        }
-        break;
-      }
-    }
-  }, [rgb, format]);
+  const handleFormatChange = (nextFormat: ColorFormat) => {
+    onFormatChange(nextFormat);
+    setInputValue(formatColorValue(nextFormat, rgb));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
@@ -406,27 +414,9 @@ function ColorFormatInput({
 
     if (parsed) {
       onChange(parsed);
-    } else {
-      // Reset to current value if invalid
-      switch (format) {
-        case "hex":
-          setInputValue(rgbToHex(rgb));
-          break;
-        case "rgb":
-          setInputValue(
-            `${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}`,
-          );
-          break;
-        case "hsl": {
-          const hslString = rgbToHslString(rgb);
-          const match = hslString.match(/(\d+),\s*(\d+)%,\s*(\d+)%/);
-          if (match) {
-            setInputValue(`${match[1]}, ${match[2]}%, ${match[3]}%`);
-          }
-          break;
-        }
-      }
     }
+    setIsFocused(false);
+    setInputValue(formatColorValue(format, parsed ?? rgb));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -443,7 +433,7 @@ function ColorFormatInput({
           variant={format === "hex" ? "default" : "outline"}
           size="sm"
           className="flex-1 h-7 text-xs"
-          onClick={() => onFormatChange("hex")}
+          onClick={() => handleFormatChange("hex")}
         >
           HEX
         </Button>
@@ -452,7 +442,7 @@ function ColorFormatInput({
           variant={format === "rgb" ? "default" : "outline"}
           size="sm"
           className="flex-1 h-7 text-xs"
-          onClick={() => onFormatChange("rgb")}
+          onClick={() => handleFormatChange("rgb")}
         >
           RGB
         </Button>
@@ -461,15 +451,19 @@ function ColorFormatInput({
           variant={format === "hsl" ? "default" : "outline"}
           size="sm"
           className="flex-1 h-7 text-xs"
-          onClick={() => onFormatChange("hsl")}
+          onClick={() => handleFormatChange("hsl")}
         >
           HSL
         </Button>
       </div>
       <Input
-        value={inputValue}
+        value={isFocused ? inputValue : formattedValue}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
+        onFocus={() => {
+          setIsFocused(true);
+          setInputValue(formattedValue);
+        }}
         onKeyDown={handleKeyDown}
         className="font-mono text-sm"
         placeholder={
@@ -490,8 +484,9 @@ interface HexInputProps {
 }
 
 function HexInput({ rgb, onChange }: HexInputProps) {
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(() => rgbToHex(rgb));
   const [isFocused, setIsFocused] = useState(false);
+  const formattedValue = useMemo(() => rgbToHex(rgb), [rgb]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -509,12 +504,6 @@ function HexInput({ rgb, onChange }: HexInputProps) {
 
     return () => clearTimeout(timeoutId);
   }, [inputValue, isFocused, onChange, rgb.a]);
-
-  useEffect(() => {
-    if (!isFocused) {
-      setInputValue(rgbToHex(rgb));
-    }
-  }, [rgb, isFocused]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
@@ -552,9 +541,12 @@ function HexInput({ rgb, onChange }: HexInputProps) {
         Hex
       </label>
       <Input
-        value={inputValue}
+        value={isFocused ? inputValue : formattedValue}
         onChange={handleChange}
-        onFocus={() => setIsFocused(true)}
+        onFocus={() => {
+          setIsFocused(true);
+          setInputValue(formattedValue);
+        }}
         onBlur={() => {
           setIsFocused(false);
           handleApply();
@@ -627,10 +619,15 @@ function ColorSwatches({ colors, onSelect, currentColor }: ColorSwatchesProps) {
 /**
  * Main ColorPicker Component
  */
-export function ColorPicker({
+export function ColorPicker(props: ColorPickerProps) {
+  if (!props.isOpen) return null;
+
+  return <ColorPickerContent key={props.value} {...props} />;
+}
+
+function ColorPickerContent({
   value,
   onChange,
-  isOpen,
   onClose,
   title = "Custom Color",
   position = "auto",
@@ -640,7 +637,7 @@ export function ColorPicker({
   showFormatTabs = true,
 }: ColorPickerProps) {
   const [format, setFormat] = useState<ColorFormat>("hex");
-  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [recentColorsVersion, setRecentColorsVersion] = useState(0);
 
   // Parse initial color to HSV
   const initialRgb = useMemo(() => {
@@ -650,36 +647,28 @@ export function ColorPicker({
 
   const [hsv, setHsv] = useState<HSV>(() => rgbToHsv(initialRgb));
 
-  // Sync HSV when value prop changes
-  useEffect(() => {
-    const parsed = parseColor(value);
-    if (parsed) {
-      setHsv(rgbToHsv(parsed));
-    }
-  }, [value]);
-
-  // Load recent colors on mount
-  useEffect(() => {
-    if (showSwatches) {
-      setRecentColors(getRecentColors());
-    }
-  }, [showSwatches]);
+  const recentColors = useMemo(
+    () => {
+      void recentColorsVersion;
+      return showSwatches ? getRecentColors() : [];
+    },
+    [showSwatches, recentColorsVersion],
+  );
 
   // Derive RGB, HEX, HSL from HSV
   const rgb = useMemo(() => hsvToRgb(hsv), [hsv]);
   const hex = useMemo(() => rgbToHex(rgb), [rgb]);
 
   // Eyedropper support detection
-  const [supportsEyedropper, setSupportsEyedropper] = useState(false);
-  useEffect(() => {
-    setSupportsEyedropper("EyeDropper" in window);
-  }, []);
+  const [supportsEyedropper] = useState(
+    () => typeof window !== "undefined" && "EyeDropper" in window,
+  );
 
   const handleEyedropper = useCallback(async () => {
     if (!supportsEyedropper) return;
 
     try {
-      // @ts-ignore - EyeDropper API not in TypeScript types yet
+      // @ts-expect-error - EyeDropper API not in TypeScript types yet
       const eyeDropper = new window.EyeDropper();
       const result = await eyeDropper.open();
       const parsed = parseColor(result.sRGBHex);
@@ -711,7 +700,7 @@ export function ColorPicker({
     const outputColor = hex;
     onChange(outputColor);
     addRecentColor(outputColor);
-    setRecentColors(getRecentColors());
+    setRecentColorsVersion((prev) => prev + 1);
     onClose();
   }, [hex, onChange, onClose]);
 
@@ -719,7 +708,7 @@ export function ColorPicker({
     const outputColor = hex;
     onChange(outputColor);
     addRecentColor(outputColor);
-    setRecentColors(getRecentColors());
+    setRecentColorsVersion((prev) => prev + 1);
     onClose();
   }, [hex, onChange, onClose]);
 
@@ -732,8 +721,6 @@ export function ColorPicker({
 
   // Close on Escape key
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
           handleClose();
@@ -742,9 +729,7 @@ export function ColorPicker({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleClose, isOpen]);
-
-  if (!isOpen) return null;
+  }, [handleClose]);
 
   // Calculate position
   const modalStyle: React.CSSProperties =

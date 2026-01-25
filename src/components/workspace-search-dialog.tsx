@@ -239,15 +239,11 @@ export function WorkspaceSearchDialog({
 
     // Auto-focus input when opened
     useEffect(() => {
-        if (isOpen) {
-            setTimeout(() => {
-                inputRef.current?.focus();
-                inputRef.current?.select();
-            }, 0);
-        } else {
-            setSearchQuery("");
-            setSelectedIndex(0);
-        }
+        if (!isOpen) return;
+        setTimeout(() => {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+        }, 0);
     }, [isOpen]);
 
     // Close on click outside
@@ -268,11 +264,6 @@ export function WorkspaceSearchDialog({
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [isOpen, onClose]);
-
-    // Reset selection when results change
-    useEffect(() => {
-        setSelectedIndex(0);
-    }, [searchQuery]);
 
     // Scroll selected item into view
     useEffect(() => {
@@ -336,7 +327,10 @@ export function WorkspaceSearchDialog({
                         ref={inputRef}
                         type="text"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setSelectedIndex(0);
+                        }}
                         onKeyDown={handleKeyDown}
                         className="flex-1 bg-transparent border-none outline-none text-base placeholder:text-muted-foreground"
                         placeholder={
@@ -347,7 +341,10 @@ export function WorkspaceSearchDialog({
                     />
                     {searchQuery && (
                         <button
-                            onClick={() => setSearchQuery("")}
+                            onClick={() => {
+                                setSearchQuery("");
+                                setSelectedIndex(0);
+                            }}
                             className="p-1 rounded hover:bg-muted transition-colors"
                         >
                             <X className="w-4 h-4 text-muted-foreground" />
@@ -369,7 +366,7 @@ export function WorkspaceSearchDialog({
                     ) : flatResults.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">
                             <p className="text-sm">
-                                No results found for "{searchQuery}"
+                                No results found for &quot;{searchQuery}&quot;
                             </p>
                         </div>
                     ) : (

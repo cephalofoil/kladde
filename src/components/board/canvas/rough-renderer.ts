@@ -1,5 +1,5 @@
 import rough from "roughjs";
-import type { BoardElement, Point } from "@/lib/board-types";
+import type { BoardElement } from "@/lib/board-types";
 
 // Simple hash function to convert element ID to a number seed
 function hashCode(str: string): number {

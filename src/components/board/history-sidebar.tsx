@@ -428,7 +428,7 @@ function ChangeDetail({
                     </span>
                     {change.elementLabel && (
                         <span className="text-xs text-muted-foreground truncate">
-                            "{change.elementLabel}"
+                            &quot;{change.elementLabel}&quot;
                         </span>
                     )}
                 </div>
@@ -505,6 +505,7 @@ export function HistorySidebar({
         new Set(),
     );
     const knownChunkKeysRef = useRef<Set<string>>(new Set());
+    const previousSelectedEntryRef = useRef<string | null>(null);
 
     const filteredEntries = useMemo(() => {
         if (!selectedElementIds || selectedElementIds.length === 0) {
@@ -515,6 +516,18 @@ export function HistorySidebar({
             entry.elementIds.some((id) => selectedSet.has(id)),
         );
     }, [entries, selectedElementIds]);
+
+    const selectedEntryVisible = useMemo(() => {
+        if (!selectedEntryId) return null;
+        const stillVisible = filteredEntries.some(
+            (entry) => entry.id === selectedEntryId,
+        );
+        return stillVisible ? selectedEntryId : null;
+    }, [filteredEntries, selectedEntryId]);
+    const selectedChunkVisible = useMemo(() => {
+        if (!selectedEntryVisible) return null;
+        return selectedChunkKey;
+    }, [selectedChunkKey, selectedEntryVisible]);
 
     const latestEntryId = useMemo(() => {
         if (filteredEntries.length === 0) return null;
@@ -575,16 +588,11 @@ export function HistorySidebar({
     }, [filteredEntries.length]);
 
     useEffect(() => {
-        if (!selectedEntryId) return;
-        const stillVisible = filteredEntries.some(
-            (entry) => entry.id === selectedEntryId,
-        );
-        if (!stillVisible) {
-            setSelectedEntryId(null);
-            setSelectedChunkKey(null);
+        if (previousSelectedEntryRef.current && !selectedEntryVisible) {
             onPreviewSnapshot?.(null);
         }
-    }, [filteredEntries, onPreviewSnapshot, selectedEntryId]);
+        previousSelectedEntryRef.current = selectedEntryVisible;
+    }, [onPreviewSnapshot, selectedEntryVisible]);
 
     useEffect(() => {
         if (groupedEntries.length === 0) return;
@@ -628,7 +636,7 @@ export function HistorySidebar({
 
     // Handle chunk click - select chunk and show canvas state from that time
     const handleChunkClick = (group: TimeChunkGroup) => {
-        if (selectedChunkKey === group.key) {
+        if (selectedChunkVisible === group.key) {
             // Deselect
             setSelectedChunkKey(null);
             setSelectedEntryId(null);
@@ -644,7 +652,7 @@ export function HistorySidebar({
 
     // Handle individual entry click
     const handleEntryClick = (entry: HistoryEntry, chunkKey: string) => {
-        if (selectedEntryId === entry.id) {
+        if (selectedEntryVisible === entry.id) {
             // Deselect
             setSelectedEntryId(null);
             setSelectedChunkKey(null);
@@ -658,15 +666,15 @@ export function HistorySidebar({
     };
 
     const handleRestore = () => {
-        if (selectedEntryId) {
-            onRestore(selectedEntryId);
+        if (selectedEntryVisible) {
+            onRestore(selectedEntryVisible);
         }
     };
 
     if (!isOpen) return null;
 
-    const selectedEntry = selectedEntryId
-        ? entries.find((e) => e.id === selectedEntryId)
+    const selectedEntry = selectedEntryVisible
+        ? entries.find((e) => e.id === selectedEntryVisible)
         : null;
 
     return (

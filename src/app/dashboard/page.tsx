@@ -45,6 +45,7 @@ import {
 import { QuickBoardsSidebar } from "@/components/quick-boards-sidebar";
 import { WorkspaceSearchDialog } from "@/components/workspace-search-dialog";
 import { cn } from "@/lib/utils";
+import { useIsClient } from "@/hooks/use-is-client";
 
 const PINNED_STORAGE_KEY = "kladde-dashboard-pins";
 const NEW_WORKSPACE_NAME = "New Workspace";
@@ -72,10 +73,23 @@ function StorageTypeIcon({
 
 export default function BoardsPage() {
     const router = useRouter();
-    const [isClient, setIsClient] = useState(false);
+    const isClient = useIsClient();
     const [pinnedByWorkstream, setPinnedByWorkstream] = useState<
         Record<string, string[]>
-    >({});
+    >(() => {
+        if (typeof window === "undefined") return {};
+        try {
+            const saved = localStorage.getItem(PINNED_STORAGE_KEY);
+            if (!saved) return {};
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === "object") {
+                return parsed;
+            }
+        } catch {
+            return {};
+        }
+        return {};
+    });
     const [boardToMove, setBoardToMove] = useState<Board | null>(null);
     const [isRenamingWorkspace, setIsRenamingWorkspace] = useState(false);
     const [workspaceName, setWorkspaceName] = useState("");
@@ -106,10 +120,11 @@ export default function BoardsPage() {
     // Subscribe to sync status for all boards
     const syncStatus = useBoardSyncStore((s) => s.syncStatus);
 
-    const matchesFilters = (board: Board) => {
-        if (currentWorkstreamId && board.workstreamId !== currentWorkstreamId) {
-            return false;
-        }
+    const matchesFilters = useCallback(
+        (board: Board) => {
+            if (currentWorkstreamId && board.workstreamId !== currentWorkstreamId) {
+                return false;
+            }
 
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
@@ -126,8 +141,10 @@ export default function BoardsPage() {
             return selectedTags.every((tag) => board.tags.includes(tag));
         }
 
-        return true;
-    };
+            return true;
+        },
+        [currentWorkstreamId, searchQuery, selectedTags],
+    );
 
     const filteredBoards = useMemo(() => {
         const boardsArray = Array.from(boards.values())
@@ -141,7 +158,7 @@ export default function BoardsPage() {
                 new Date(b.lastAccessed).getTime() -
                 new Date(a.lastAccessed).getTime(),
         );
-    }, [boards, currentWorkstreamId, searchQuery, selectedTags]);
+    }, [boards, matchesFilters]);
 
     const currentWorkstream =
         workstreams.find((ws) => ws.id === currentWorkstreamId) ||
@@ -178,21 +195,6 @@ export default function BoardsPage() {
     const unpinnedBoards = filteredBoards.filter(
         (board) => !pinnedSet.has(board.id),
     );
-
-    useEffect(() => {
-        setIsClient(true);
-        try {
-            const saved = localStorage.getItem(PINNED_STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed && typeof parsed === "object") {
-                    setPinnedByWorkstream(parsed);
-                }
-            }
-        } catch {
-            setPinnedByWorkstream({});
-        }
-    }, []);
 
     useEffect(() => {
         if (!isClient) return;
@@ -377,20 +379,6 @@ export default function BoardsPage() {
         currentWorkstream &&
         currentWorkstream.name === NEW_WORKSPACE_NAME &&
         currentWorkstream.metadata.boardCount === 0;
-
-    const formatDate = (date: Date) => {
-        const now = new Date();
-        const diffMs = now.getTime() - new Date(date).getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return "Just now";
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return new Date(date).toLocaleDateString();
-    };
 
     if (!isClient) {
         return (
@@ -922,7 +910,7 @@ export default function BoardsPage() {
                     <DialogHeader>
                         <DialogTitle>Move to Workspace</DialogTitle>
                         <DialogDescription>
-                            Choose a workspace to move "{boardToMove?.name}" to.
+                            Choose a workspace to move &quot;{boardToMove?.name}&quot; to.
                         </DialogDescription>
                     </DialogHeader>
 
