@@ -26,7 +26,7 @@ export function getMinTileSize(tileType: TileType): {
         case "tile-code":
             return { width: 600, height: 350 };
         case "tile-mermaid":
-            return { width: 600, height: 350 };
+            return { width: 600, height: 450 };
         case "tile-image":
             return { width: 200, height: 200 };
         case "tile-document":
@@ -51,7 +51,7 @@ export function getDefaultTileSize(tileType: TileType): {
         case "tile-code":
             return { width: 600, height: 400 };
         case "tile-mermaid":
-            return { width: 600, height: 400 };
+            return { width: 600, height: 450 };
         case "tile-image":
             return { width: 300, height: 300 };
         case "tile-document":

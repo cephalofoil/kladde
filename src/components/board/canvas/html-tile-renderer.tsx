@@ -237,6 +237,11 @@ export const HtmlTileRenderer = memo(
                 const target = event.target as Node | null;
                 if (!tileRef.current || !target) return;
                 if (tileRef.current.contains(target)) return;
+                // Ignore clicks inside Radix UI portals (dropdowns, popovers, etc.)
+                const radixPortal = (target as Element).closest?.(
+                    "[data-radix-popper-content-wrapper], [data-radix-menu-content]"
+                );
+                if (radixPortal) return;
                 setIsEditing(false);
             };
             document.addEventListener("mousedown", handleOutsideClick);
