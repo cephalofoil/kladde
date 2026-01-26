@@ -84,6 +84,8 @@ interface WhiteboardProps {
 }
 
 const STALE_AWARENESS_MS = 30_000;
+const LOCAL_COLLAB_LEADER_TTL_MS = 12_000;
+const LOCAL_COLLAB_LEADER_HEARTBEAT_MS = 4_000;
 
 export function Whiteboard({
     boardId,
@@ -197,6 +199,8 @@ export function Whiteboard({
     // Collaboration state
     const [collaboration, setCollaboration] =
         useState<CollaborationManager | null>(null);
+    const [isCollabLeader, setIsCollabLeader] = useState(false);
+    const shouldConnectToCollab = !isOwner || isCollabLeader;
 
     // Elements state - integrated with Zustand store and optional collaboration
     const { elements, setElements, lastChangeIsRemoteRef } = useBoardElements(
@@ -204,10 +208,12 @@ export function Whiteboard({
         collaboration,
         {
             isOwner,
+            syncStoreUpdates: isOwner && shouldConnectToCollab,
         },
     );
     const { comments, setComments } = useBoardComments(boardId, collaboration, {
         isOwner,
+        syncStoreUpdates: isOwner && shouldConnectToCollab,
     });
     const board = useBoardStore((s) => s.boards.get(boardId));
     const workstreams = useBoardStore((s) => s.workstreams);
@@ -488,6 +494,120 @@ export function Whiteboard({
         }
     }, [collabInvitesEnabled, showInviteDialog]);
 
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        if (!isOwner) {
+            setIsCollabLeader(true);
+            return;
+        }
+
+        const storageKey = `kladde-collab-leader:${boardId}`;
+        const tabId = crypto.randomUUID();
+        let lastIsLeader = false;
+
+        const readLeader = () => {
+            try {
+                const raw = localStorage.getItem(storageKey);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw) as {
+                    tabId?: string;
+                    ts?: number;
+                };
+                if (
+                    !parsed ||
+                    typeof parsed.tabId !== "string" ||
+                    typeof parsed.ts !== "number"
+                ) {
+                    return null;
+                }
+                return parsed;
+            } catch {
+                return null;
+            }
+        };
+
+        const writeLeader = (ts: number) => {
+            try {
+                localStorage.setItem(
+                    storageKey,
+                    JSON.stringify({ tabId, ts }),
+                );
+            } catch {
+                // Ignore storage errors
+            }
+        };
+
+        const removeLeader = () => {
+            try {
+                const leader = readLeader();
+                if (leader?.tabId === tabId) {
+                    localStorage.removeItem(storageKey);
+                }
+            } catch {
+                // Ignore storage errors
+            }
+        };
+
+        const updateLeaderStatus = (nextIsLeader: boolean) => {
+            if (lastIsLeader === nextIsLeader) return;
+            lastIsLeader = nextIsLeader;
+            setIsCollabLeader(nextIsLeader);
+        };
+
+        const claimLeadershipIfNeeded = () => {
+            const now = Date.now();
+            const leader = readLeader();
+            const leaderTs = leader?.ts ?? 0;
+            if (!leader || now - leaderTs > LOCAL_COLLAB_LEADER_TTL_MS) {
+                writeLeader(now);
+                updateLeaderStatus(true);
+                return;
+            }
+            updateLeaderStatus(leader.tabId === tabId);
+        };
+
+        const heartbeat = window.setInterval(() => {
+            const now = Date.now();
+            const leader = readLeader();
+            const leaderTs = leader?.ts ?? 0;
+            if (!leader || now - leaderTs > LOCAL_COLLAB_LEADER_TTL_MS) {
+                writeLeader(now);
+                updateLeaderStatus(true);
+                return;
+            }
+            if (leader.tabId === tabId) {
+                writeLeader(now);
+                updateLeaderStatus(true);
+            } else {
+                updateLeaderStatus(false);
+            }
+        }, LOCAL_COLLAB_LEADER_HEARTBEAT_MS);
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === storageKey) {
+                claimLeadershipIfNeeded();
+            }
+        };
+
+        const handlePageHide = () => {
+            removeLeader();
+        };
+
+        window.addEventListener("storage", handleStorage);
+        window.addEventListener("pagehide", handlePageHide);
+        window.addEventListener("beforeunload", handlePageHide);
+
+        claimLeadershipIfNeeded();
+
+        return () => {
+            window.clearInterval(heartbeat);
+            window.removeEventListener("storage", handleStorage);
+            window.removeEventListener("pagehide", handlePageHide);
+            window.removeEventListener("beforeunload", handlePageHide);
+            removeLeader();
+        };
+    }, [boardId, isOwner]);
+
     // Initialize history manager for owner
     useEffect(() => {
         if (!isOwner || !pendingName) return;
@@ -516,10 +636,18 @@ export function Whiteboard({
     }, [isOwner, boardId, pendingName, myUserId]);
 
     // Initialize collaboration with the user's name and E2E encryption
-    // Collaboration is always enabled - owner hosts, guests join
     useEffect(() => {
-        // Solo mode only when explicitly not in collab mode and owner hasn't shared
-        // For now, always enable collaboration so guests can join anytime
+        if (!shouldConnectToCollab) {
+            setConnectionStatus("disconnected");
+            setPeerCount(0);
+            setCollaboratorUsers([]);
+            setRemoteSelections([]);
+            setSpectatedUserIds(new Set());
+            setActiveRemoteUserCount(0);
+            setCollaboration(null);
+            setIsReady(true);
+            return;
+        }
         if (!isCollabMode && !isOwner) {
             // Guest without collab param - shouldn't happen but handle it
             console.log("[Whiteboard] Guest without collab mode");
@@ -755,6 +883,7 @@ export function Whiteboard({
         };
     }, [
         isCollabMode,
+        shouldConnectToCollab,
         roomId,
         isReadOnly,
         pendingName,
@@ -3875,9 +4004,7 @@ export function Whiteboard({
                             followedUserId={followedUserId}
                             spectatedUserIds={spectatedUserIds}
                             isBeingSpectated={
-                                myUserId
-                                    ? spectatedUserIds.has(myUserId)
-                                    : false
+                                myUserId ? spectatedUserIds.has(myUserId) : false
                             }
                             onInvite={
                                 canInvite
@@ -3944,7 +4071,9 @@ export function Whiteboard({
                         // This also re-encrypts any existing unencrypted elements
                         await collaboration?.setEncryptionKey(key);
                         // Store exported key for future dialog opens
-                        setExportedEncryptionKey(await exportKeyToString(key));
+                        setExportedEncryptionKey(
+                            await exportKeyToString(key),
+                        );
                     }}
                 />
 

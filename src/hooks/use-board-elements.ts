@@ -5,6 +5,7 @@ import type { CollaborationManager } from "@/lib/collaboration";
 
 interface UseBoardElementsOptions {
     isOwner?: boolean;
+    syncStoreUpdates?: boolean;
 }
 
 // Stable empty array reference to prevent infinite re-renders
@@ -21,6 +22,15 @@ function deduplicateElements(elements: BoardElement[]): BoardElement[] {
     return Array.from(seen.values());
 }
 
+function areElementsEqual(a: BoardElement[], b: BoardElement[]): boolean {
+    if (a.length !== b.length) return false;
+    return !a.some((el, i) => {
+        const other = b[i];
+        if (!other || el.id !== other.id) return true;
+        return JSON.stringify(el) !== JSON.stringify(other);
+    });
+}
+
 /**
  * Hook to manage board elements with local-first storage
  * and optional collaboration sync
@@ -34,7 +44,7 @@ export function useBoardElements(
     collaboration: CollaborationManager | null,
     options: UseBoardElementsOptions = {},
 ) {
-    const { isOwner = true } = options;
+    const { isOwner = true, syncStoreUpdates = false } = options;
 
     // Get elements from Zustand store - use stable selector
     const boardData = useBoardStore((s) => s.boardData.get(boardId));
@@ -63,19 +73,29 @@ export function useBoardElements(
         // For owners, use store elements
         return isOwner ? storeElements : EMPTY_ELEMENTS;
     });
+    const elementsRef = useRef(elements);
+    useEffect(() => {
+        elementsRef.current = elements;
+    }, [elements]);
 
     // Track if we've initialized from collab
     const initializedFromCollabRef = useRef(false);
     // Track if we've synced store elements to avoid loops
     const hasSyncedStoreRef = useRef(false);
+    const skipNextStoreSaveRef = useRef(false);
     // Track whether the latest change originated from a remote user
     const lastChangeIsRemoteRef = useRef(false);
+    const lastStoreUpdateFromCollabRef = useRef(false);
 
     // Debounced save to store - only for owners in solo mode
     useEffect(() => {
         // Don't save if not owner or in collaboration mode
         if (!isOwner) return;
         if (collaboration) return; // Collab mode saves are handled in the sync effect
+        if (skipNextStoreSaveRef.current) {
+            skipNextStoreSaveRef.current = false;
+            return;
+        }
 
         const timer = setTimeout(() => {
             setStoreElements(boardId, elements);
@@ -96,6 +116,31 @@ export function useBoardElements(
             setElementsInternal(deduplicateElements(currentStoreElements));
         }
     }, [collaboration, isOwner]);
+
+    // Solo mode: keep in sync with store updates (e.g. other tabs)
+    useEffect(() => {
+        if (!isOwner) return;
+        if (collaboration && !syncStoreUpdates) return;
+
+        const nextElements = storeElementsRef.current;
+        if (areElementsEqual(elementsRef.current, nextElements)) return;
+
+        if (collaboration && syncStoreUpdates) {
+            if (lastStoreUpdateFromCollabRef.current) {
+                lastStoreUpdateFromCollabRef.current = false;
+                return;
+            }
+        }
+
+        skipNextStoreSaveRef.current = true;
+        hasSyncedStoreRef.current = true;
+        const deduplicated = deduplicateElements(nextElements);
+        setElementsInternal(deduplicated);
+        if (collaboration && syncStoreUpdates) {
+            lastChangeIsRemoteRef.current = false;
+            collaboration.setElements(deduplicated);
+        }
+    }, [collaboration, isOwner, storeElements, syncStoreUpdates]);
 
     // Sync with collaboration when active
     useEffect(() => {
@@ -155,6 +200,7 @@ export function useBoardElements(
                     });
                     // Only owner saves to store - use ref to avoid dependency
                     if (isOwner) {
+                        lastStoreUpdateFromCollabRef.current = true;
                         replaceStoreElementsRef.current(boardId, deduplicated);
                     }
                 }

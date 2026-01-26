@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Copy, Shuffle, Pencil, Eye, Check } from "lucide-react";
 import {
   Dialog,
@@ -74,29 +74,28 @@ export function InviteDialog({
     }
   }, [onEncryptionKeyGenerated]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (currentName) {
+      setDisplayName(currentName);
+    }
+    if (isOwner && !existingEncryptionKey && !generatedEncryptionKey) {
+      void ensureEncryptionKey();
+    }
+  }, [
+    open,
+    currentName,
+    isOwner,
+    existingEncryptionKey,
+    generatedEncryptionKey,
+    ensureEncryptionKey,
+  ]);
+
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       onOpenChange(nextOpen);
-      if (nextOpen && currentName) {
-        setDisplayName(currentName);
-      }
-      if (
-        nextOpen &&
-        isOwner &&
-        !existingEncryptionKey &&
-        !generatedEncryptionKey
-      ) {
-        void ensureEncryptionKey();
-      }
     },
-    [
-      currentName,
-      ensureEncryptionKey,
-      existingEncryptionKey,
-      generatedEncryptionKey,
-      isOwner,
-      onOpenChange,
-    ],
+    [onOpenChange],
   );
 
   const links = useMemo(() => {

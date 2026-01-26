@@ -5,6 +5,7 @@ import type { CollaborationManager } from "@/lib/collaboration";
 
 interface UseBoardCommentsOptions {
   isOwner?: boolean;
+  syncStoreUpdates?: boolean;
 }
 
 const EMPTY_COMMENTS: BoardComment[] = [];
@@ -17,12 +18,21 @@ function deduplicateComments(comments: BoardComment[]): BoardComment[] {
   return Array.from(seen.values());
 }
 
+function areCommentsEqual(a: BoardComment[], b: BoardComment[]): boolean {
+  if (a.length !== b.length) return false;
+  return !a.some((comment, i) => {
+    const other = b[i];
+    if (!other || comment.id !== other.id) return true;
+    return JSON.stringify(comment) !== JSON.stringify(other);
+  });
+}
+
 export function useBoardComments(
   boardId: string,
   collaboration: CollaborationManager | null,
   options: UseBoardCommentsOptions = {},
 ) {
-  const { isOwner = true } = options;
+  const { isOwner = true, syncStoreUpdates = false } = options;
   const boardData = useBoardStore((s) => s.boardData.get(boardId));
   const storeComments = useMemo(
     () => boardData?.comments || EMPTY_COMMENTS,
@@ -44,14 +54,24 @@ export function useBoardComments(
   const [comments, setCommentsInternal] = useState<BoardComment[]>(() => {
     return isOwner ? storeComments : EMPTY_COMMENTS;
   });
+  const commentsRef = useRef(comments);
+  useEffect(() => {
+    commentsRef.current = comments;
+  }, [comments]);
 
   const initializedFromCollabRef = useRef(false);
   const hasSyncedStoreRef = useRef(false);
   const lastChangeIsRemoteRef = useRef(false);
+  const skipNextStoreSaveRef = useRef(false);
+  const lastStoreUpdateFromCollabRef = useRef(false);
 
   useEffect(() => {
     if (!isOwner) return;
     if (collaboration) return;
+    if (skipNextStoreSaveRef.current) {
+      skipNextStoreSaveRef.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       setStoreComments(boardId, comments);
     }, 500);
@@ -69,6 +89,30 @@ export function useBoardComments(
       setCommentsInternal(deduplicateComments(currentStoreComments));
     }
   }, [collaboration, isOwner]);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    if (collaboration && !syncStoreUpdates) return;
+
+    const nextComments = storeCommentsRef.current;
+    if (areCommentsEqual(commentsRef.current, nextComments)) return;
+
+    if (collaboration && syncStoreUpdates) {
+      if (lastStoreUpdateFromCollabRef.current) {
+        lastStoreUpdateFromCollabRef.current = false;
+        return;
+      }
+    }
+
+    skipNextStoreSaveRef.current = true;
+    hasSyncedStoreRef.current = true;
+    const deduplicated = deduplicateComments(nextComments);
+    setCommentsInternal(deduplicated);
+    if (collaboration && syncStoreUpdates) {
+      lastChangeIsRemoteRef.current = false;
+      collaboration.setComments(deduplicated);
+    }
+  }, [collaboration, isOwner, storeComments, syncStoreUpdates]);
 
   useEffect(() => {
     if (!collaboration) {
@@ -112,6 +156,7 @@ export function useBoardComments(
         return changed ? deduplicated : prev;
       });
       if (isOwner) {
+        lastStoreUpdateFromCollabRef.current = true;
         replaceStoreCommentsRef.current(boardId, deduplicated);
       }
     });
