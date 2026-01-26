@@ -1,7 +1,7 @@
 import type { BoardElement, Point } from "@/lib/board-types";
 import type { BoundingBox } from "../types";
-import { getBoundingBox } from "../shapes";
-import { rotatePoint, getBoundsCenter } from "../geometry";
+import { getBoundingBox } from "../shapes/shapes";
+import { rotatePoint, getBoundsCenter } from "../shapes/geometry";
 
 export interface SnapPoint {
     point: Point;

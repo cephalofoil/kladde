@@ -1,6 +1,6 @@
 import type { BoardElement } from "@/lib/board-types";
 import type { BoundingBox } from "../types";
-import { getBoundingBox } from "../shapes";
+import { getBoundingBox } from "../shapes/shapes";
 
 export type HorizontalEdge = "left" | "center" | "right";
 export type VerticalEdge = "top" | "middle" | "bottom";

@@ -22,20 +22,20 @@ import {
     radToDeg,
     rotatePoint,
     rotateVector,
-} from "../geometry";
+} from "../shapes/geometry";
 import {
     getCubicBezierPoint,
     getCatmullRomControlPoints,
     getElbowPolylineForVertices,
     simplifyElbowPolyline,
-} from "../curves";
+} from "../shapes/curves";
 import {
     getBoundingBox,
     getCombinedBounds,
     getBoxSelectedIds,
     getGroupSelectionIds,
     getLassoSelectedIds,
-} from "../shapes";
+} from "../shapes/shapes";
 import {
     findNearestSnapTarget,
     generateElbowRouteAroundObstacles,
@@ -47,7 +47,7 @@ import {
     getMinSingleCharWidth,
     measureUnboundedTextSize,
     measureWrappedTextHeightPx,
-} from "../text-utils";
+} from "../text/text-utils";
 import { getEventTargetInfo } from "../utils/eventTargeting";
 import { findAlignmentGuides } from "../utils/alignmentGuides";
 import { isInViewport } from "../utils/viewport";
@@ -312,6 +312,11 @@ export function useCanvasHandlers({
 
     const throttledFindSnapTarget = useMemo(
         () => throttleWithResult(findNearestSnapTarget, 32),
+        [],
+    );
+
+    const throttledAlignmentGuides = useMemo(
+        () => throttleWithResult(findAlignmentGuides, 16),
         [],
     );
 
@@ -1480,7 +1485,7 @@ export function useCanvasHandlers({
                 );
 
                 if (hasShapeElements) {
-                    // Calculate the would-be bounds of dragged elements
+                    // Calculate the would-be bounds of dragged elements using cached original bounds
                     const draggedIds = originalElements.map((el) => el.id);
                     const excludeIds = new Set(draggedIds);
 
@@ -1503,84 +1508,66 @@ export function useCanvasHandlers({
                         }
                     }
 
-                    // Create temporary elements with current drag offset to get bounds
-                    const tempDraggedElements = originalElements
-                        .filter(
-                            (el) =>
-                                el.type !== "pen" &&
-                                el.type !== "line" &&
-                                el.type !== "arrow",
-                        )
-                        .map((el) => ({
-                            ...el,
-                            x: (el.x ?? 0) + dx,
-                            y: (el.y ?? 0) + dy,
-                        }));
+                    const draggingBounds = originalBounds
+                        ? {
+                              ...originalBounds,
+                              x: originalBounds.x + dx,
+                              y: originalBounds.y + dy,
+                          }
+                        : null;
 
-                    if (tempDraggedElements.length > 0) {
-                        const draggingBounds = getCombinedBounds(
-                            tempDraggedElements.map((el) => el.id),
-                            tempDraggedElements,
-                        );
+                    if (draggingBounds) {
+                        // Get viewport bounds for filtering candidates
+                        const svg = svgRef.current;
+                        const containerRect = svg?.getBoundingClientRect();
+                        const viewportBounds = containerRect
+                            ? {
+                                  x: -pan.x / zoom,
+                                  y: -pan.y / zoom,
+                                  width: containerRect.width / zoom,
+                                  height: containerRect.height / zoom,
+                              }
+                            : null;
 
-                        if (draggingBounds) {
-                            // Get viewport bounds for filtering candidates
-                            const svg = svgRef.current;
-                            const containerRect = svg?.getBoundingClientRect();
-                            const viewportBounds = containerRect
-                                ? {
-                                      x: -pan.x / zoom,
-                                      y: -pan.y / zoom,
-                                      width: containerRect.width / zoom,
-                                      height: containerRect.height / zoom,
-                                  }
-                                : null;
-
-                            // Filter candidates to only visible elements
-                            const candidates = viewportBounds
-                                ? currentElements.filter((el) => {
-                                      if (excludeIds.has(el.id)) return false;
-                                      if (el.type === "pen") return false;
-                                      if (el.type === "laser") return false;
-                                      const bounds = getBoundingBox(el);
-                                      if (!bounds) return false;
-                                      return isInViewport(
-                                          bounds,
-                                          viewportBounds,
-                                          100,
-                                      );
-                                  })
-                                : currentElements.filter(
-                                      (el) =>
-                                          !excludeIds.has(el.id) &&
-                                          el.type !== "pen" &&
-                                          el.type !== "laser",
+                        // Filter candidates to only visible elements
+                        const candidates = viewportBounds
+                            ? currentElements.filter((el) => {
+                                  if (excludeIds.has(el.id)) return false;
+                                  if (el.type === "pen") return false;
+                                  if (el.type === "laser") return false;
+                                  const bounds = getBoundingBox(el);
+                                  if (!bounds) return false;
+                                  return isInViewport(
+                                      bounds,
+                                      viewportBounds,
+                                      100,
                                   );
+                              })
+                            : currentElements.filter(
+                                  (el) =>
+                                      !excludeIds.has(el.id) &&
+                                      el.type !== "pen" &&
+                                      el.type !== "laser",
+                              );
 
-                            // Snap threshold: 5px in screen space (light snapping)
-                            if (snapToObjects) {
-                                const threshold = 5 / zoom;
+                        // Snap threshold: 5px in screen space (light snapping)
+                        if (snapToObjects) {
+                            const threshold = 5 / zoom;
 
-                                const alignmentResult = findAlignmentGuides(
-                                    draggingBounds,
-                                    candidates,
-                                    excludeIds,
-                                    threshold,
-                                );
+                            const alignmentResult = throttledAlignmentGuides(
+                                draggingBounds,
+                                candidates,
+                                excludeIds,
+                                threshold,
+                            );
 
-                                // Apply snap deltas
-                                dx += alignmentResult.snapDeltaX;
-                                dy += alignmentResult.snapDeltaY;
+                            // Apply snap deltas
+                            dx += alignmentResult.snapDeltaX;
+                            dy += alignmentResult.snapDeltaY;
 
-                                // Update alignment guides state
-                                setAlignmentGuides(alignmentResult.guides);
-                                setDistanceGuides(
-                                    alignmentResult.distanceGuides,
-                                );
-                            } else {
-                                setAlignmentGuides([]);
-                                setDistanceGuides([]);
-                            }
+                            // Update alignment guides state
+                            setAlignmentGuides(alignmentResult.guides);
+                            setDistanceGuides(alignmentResult.distanceGuides);
                         } else {
                             setAlignmentGuides([]);
                             setDistanceGuides([]);
@@ -3456,6 +3443,13 @@ export function useCanvasHandlers({
                         setOriginalElements(
                             dragSelectionElements.map((el) => ({ ...el })),
                         );
+                        const dragBounds = selectedBounds
+                            ? { ...selectedBounds }
+                            : getCombinedBounds(
+                                  dragSelectionElements.map((el) => el.id),
+                                  dragSelectionElements,
+                              );
+                        setOriginalBounds(dragBounds ? { ...dragBounds } : null);
                         return;
                     }
                 }
@@ -3506,6 +3500,15 @@ export function useCanvasHandlers({
                             setOriginalElements(
                                 dragSelectionElements.map((el) => ({ ...el })),
                             );
+                            const dragBounds = selectedBounds
+                                ? { ...selectedBounds }
+                                : getCombinedBounds(
+                                      dragSelectionElements.map((el) => el.id),
+                                      dragSelectionElements,
+                                  );
+                            setOriginalBounds(
+                                dragBounds ? { ...dragBounds } : null,
+                            );
                         } else {
                             // Otherwise, select only the clicked element and start dragging it
                             setSelectedIds(clickedIds);
@@ -3517,6 +3520,13 @@ export function useCanvasHandlers({
                             setDragStart(point);
                             setOriginalElements(
                                 dragClickedElements.map((el) => ({ ...el })),
+                            );
+                            const dragBounds = getCombinedBounds(
+                                dragClickedElements.map((el) => el.id),
+                                dragClickedElements,
+                            );
+                            setOriginalBounds(
+                                dragBounds ? { ...dragBounds } : null,
                             );
                         }
                     }

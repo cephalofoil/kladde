@@ -17,19 +17,19 @@ import type {
     BoardComment,
 } from "@/lib/board-types";
 import { CollaborationManager } from "@/lib/collaboration";
-import { CollaboratorCursors } from "../collaborator-cursor";
+import { CollaboratorCursors } from "../collab/collaborator-cursor";
 import { EraserTrail } from "@/lib/eraser-trail";
 import type { RemoteSelection, RemoteCursor } from "./types";
-import { chooseRotateHandleSide } from "./geometry";
+import { chooseRotateHandleSide } from "./shapes/geometry";
 import {
     measureUnboundedTextSize,
     measureWrappedTextHeightPx,
-} from "./text-utils";
-import { getBoundingBox, getCombinedBounds } from "./shapes";
+} from "./text/text-utils";
+import { getBoundingBox, getCombinedBounds } from "./shapes/shapes";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasHandlers } from "./handlers/useCanvasHandlers";
 import { useCanvasRenderers } from "./renderers/useCanvasRenderers";
-import { HtmlTileRenderer } from "./html-tile-renderer";
+import { HtmlTileRenderer } from "./tiles/html-tile-renderer";
 import {
     getCanvasBackgroundStyle,
     getCanvasCursorStyle,

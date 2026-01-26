@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Tool, BoardElement } from "@/lib/board-types";
-import { getRotatedResizeCursor } from "../geometry";
+import { getRotatedResizeCursor } from "../shapes/geometry";
 import type { ResizeHandle } from "../types";
 
 interface CursorStyleOptions {

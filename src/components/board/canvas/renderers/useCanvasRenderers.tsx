@@ -24,15 +24,15 @@ import {
   getResizeCursor,
   getWorldResizeHandle,
   rotatePoint,
-} from "../geometry";
-import { getSvgPathFromStroke } from "../drawing";
+} from "../shapes/geometry";
+import { getSvgPathFromStroke } from "../shapes/drawing";
 import {
   getCubicBezierPoint,
   getCatmullRomControlPoints,
   getCatmullRomPath,
   getElbowPolylineForVertices,
-} from "../curves";
-import { getBoundingBox } from "../shapes";
+} from "../shapes/curves";
+import { getBoundingBox } from "../shapes/shapes";
 import {
   generateElbowRouteAroundObstacles,
   generateCurvedRouteAroundObstacles,
@@ -42,8 +42,8 @@ import {
   getMinSingleCharWidth,
   measureTextWidthPx,
   measureUnboundedTextSize,
-} from "../text-utils";
-import { renderRoughElement } from "../rough-svg-renderer";
+} from "../text/text-utils";
+import { renderRoughElement } from "../rough/rough-svg-renderer";
 import { normalizeArrowhead, getArrowheadPoints } from "@/lib/arrowheads";
 
 interface UseCanvasRenderersProps {

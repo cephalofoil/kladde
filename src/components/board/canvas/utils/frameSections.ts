@@ -1,6 +1,6 @@
 import type { BoardElement } from "@/lib/board-types";
-import { getBoundingBox } from "../shapes";
-import { isBoundsFullyInsideBox } from "../geometry";
+import { getBoundingBox } from "../shapes/shapes";
+import { isBoundsFullyInsideBox } from "../shapes/geometry";
 
 type FrameCandidate = {
     id: string;

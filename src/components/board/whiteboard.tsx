@@ -6,28 +6,28 @@ import { useTheme } from "next-themes";
 import { v4 as uuid } from "uuid";
 import { PanelRight, History } from "lucide-react";
 import { Canvas } from "./canvas";
-import { Toolbar } from "./toolbar";
-import { ToolSidebar } from "./tool-sidebar";
-import { LayersSidebar } from "./layers-sidebar";
-import { HistorySidebar } from "./history-sidebar";
+import { Toolbar } from "./toolbar/toolbar";
+import { ToolSidebar } from "./sidebar/tool-sidebar";
+import { LayersSidebar } from "./sidebar/layers-sidebar";
+import { HistorySidebar } from "./sidebar/history-sidebar";
 
 import { DocumentEditorPanel } from "./document-editor";
-import { MermaidEditorModal } from "./mermaid-editor-modal";
-import { CodeEditorModal } from "./code-editor-modal";
-import { BurgerMenu } from "./burger-menu";
-import { CanvasTitleBar } from "./canvas-title-bar";
-import { SaveStatusIndicator } from "./save-status-indicator";
-import { ExportImageModal } from "./export-image-modal";
-import { SaveModal } from "./save-modal";
-import { FindCanvas } from "./find-canvas";
-import { HotkeysDialog } from "./hotkeys-dialog";
-import { InviteDialog } from "./invite-dialog";
-import { CollaborationBar } from "./collaboration-bar";
+import { MermaidEditorModal } from "./canvas/tiles/mermaid/mermaid-editor-modal";
+import { CodeEditorModal } from "./canvas/tiles/code/code-editor-modal";
+import { BurgerMenu } from "./topbar/burger-menu";
+import { CanvasTitleBar } from "./topbar/canvas-title-bar";
+import { SaveStatusIndicator } from "./topbar/save-status-indicator";
+import { ExportImageModal } from "./canvas/tiles/image/export-image-modal";
+import { SaveModal } from "./topbar/save-modal";
+import { FindCanvas } from "./topbar/find-canvas";
+import { HotkeysDialog } from "./topbar/hotkeys-dialog";
+import { InviteDialog } from "./collab/invite-dialog";
+import { CollaborationBar } from "./collab/collaboration-bar";
 import {
     getFontFaceLoadString,
     measureUnboundedTextSize,
     measureWrappedTextHeightPx,
-} from "./canvas/text-utils";
+} from "./canvas/text/text-utils";
 import {
     Dialog,
     DialogContent,

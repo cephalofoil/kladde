@@ -20,7 +20,7 @@ import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import { useBoardSyncStore } from "@/store/board-sync-store";
 import type { Board, WorkspaceStorageType } from "@/lib/store-types";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { BoardCard } from "@/components/board-card";
+import { BoardCard } from "@/components/workspace/board-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,7 +33,7 @@ import {
     DropdownMenuSubContent,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { WorkspaceColorPicker } from "@/components/workspace-color-picker";
+import { WorkspaceColorPicker } from "@/components/workspace/workspace-color-picker";
 import {
     Dialog,
     DialogContent,
@@ -42,8 +42,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { QuickBoardsSidebar } from "@/components/quick-boards-sidebar";
-import { WorkspaceSearchDialog } from "@/components/workspace-search-dialog";
+import { QuickBoardsSidebar } from "@/components/workspace/quick-boards-sidebar";
+import { WorkspaceSearchDialog } from "@/components/workspace/workspace-search-dialog";
 import { cn } from "@/lib/utils";
 import { useIsClient } from "@/hooks/use-is-client";
 
