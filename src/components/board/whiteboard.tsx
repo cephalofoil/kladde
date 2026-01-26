@@ -58,6 +58,7 @@ import {
     importKeyFromString,
     isEncryptionSupported,
     exportKeyToString,
+    generateEncryptionKey,
 } from "@/lib/encryption";
 import {
     isFileOpenPickerSupported,
@@ -324,6 +325,28 @@ export function Whiteboard({
     const [sidebarToolOverride, setSidebarToolOverride] = useState<Tool | null>(
         null,
     );
+    const ensureInviteEncryptionKey = useCallback(async () => {
+        if (exportedEncryptionKey) return;
+        if (!isEncryptionSupported()) {
+            setExportedEncryptionKey(Math.random().toString(36).substring(2, 24));
+            return;
+        }
+
+        try {
+            const key = await generateEncryptionKey();
+            if (collaboration) {
+                await collaboration.setEncryptionKey(key);
+            }
+            setExportedEncryptionKey(await exportKeyToString(key));
+            console.log("[Whiteboard] E2E encryption key generated");
+        } catch (error) {
+            console.error(
+                "[Whiteboard] Failed to generate encryption key:",
+                error,
+            );
+            setExportedEncryptionKey(Math.random().toString(36).substring(2, 24));
+        }
+    }, [exportedEncryptionKey, collaboration]);
     // State for previewing historical canvas state
     const [previewElements, setPreviewElements] = useState<
         BoardElement[] | null
@@ -1275,6 +1298,13 @@ export function Whiteboard({
         setComments,
         setCanvasBackground,
     ]);
+
+    const handleOpenInviteDialog = useCallback(() => {
+        setShowInviteDialog(true);
+        if (isOwner && !exportedEncryptionKey) {
+            void ensureInviteEncryptionKey();
+        }
+    }, [isOwner, exportedEncryptionKey, ensureInviteEncryptionKey]);
 
     const handleExportImage = useCallback(() => {
         setShowExportDialog(true);
@@ -3950,7 +3980,7 @@ export function Whiteboard({
                         onHelp={() => setShowHotkeysDialog(true)}
                         onInvite={
                             canInvite
-                                ? () => setShowInviteDialog(true)
+                                ? handleOpenInviteDialog
                                 : undefined
                         }
                         canvasBackground={canvasBackground}
@@ -4008,7 +4038,7 @@ export function Whiteboard({
                             }
                             onInvite={
                                 canInvite
-                                    ? () => setShowInviteDialog(true)
+                                    ? handleOpenInviteDialog
                                     : undefined
                             }
                         />
@@ -4066,15 +4096,6 @@ export function Whiteboard({
                     }}
                     isOwner={isOwner}
                     existingEncryptionKey={exportedEncryptionKey}
-                    onEncryptionKeyGenerated={async (key) => {
-                        // Update the CollaborationManager with the new key
-                        // This also re-encrypts any existing unencrypted elements
-                        await collaboration?.setEncryptionKey(key);
-                        // Store exported key for future dialog opens
-                        setExportedEncryptionKey(
-                            await exportKeyToString(key),
-                        );
-                    }}
                 />
 
                 {/* Find Canvas */}

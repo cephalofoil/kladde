@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Copy, Shuffle, Pencil, Eye, Check } from "lucide-react";
 import {
   Dialog,
@@ -13,11 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { generateFunnyName } from "@/lib/funny-names";
-import {
-  isEncryptionSupported,
-  generateEncryptionKey,
-  exportKeyToString,
-} from "@/lib/encryption";
 import { buildCollabUrl } from "@/lib/hash-router";
 
 interface InviteDialogProps {
@@ -27,8 +22,6 @@ interface InviteDialogProps {
   currentName?: string;
   onNameChange?: (name: string) => void;
   isOwner?: boolean;
-  /** Called when encryption key is generated - owner should update their CollaborationManager */
-  onEncryptionKeyGenerated?: (key: CryptoKey) => void;
   /** Existing encryption key if already set */
   existingEncryptionKey?: string | null;
 }
@@ -40,60 +33,23 @@ export function InviteDialog({
   currentName,
   onNameChange,
   isOwner = true,
-  onEncryptionKeyGenerated,
   existingEncryptionKey,
 }: InviteDialogProps) {
   const [copiedType, setCopiedType] = useState<"edit" | "view" | null>(null);
-  const [displayName, setDisplayName] = useState(currentName || "");
-  const [generatedEncryptionKey, setGeneratedEncryptionKey] = useState<
-    string | null
-  >(null);
-  const encryptionKey = existingEncryptionKey ?? generatedEncryptionKey;
-
-  const ensureEncryptionKey = useCallback(async () => {
-    if (!isEncryptionSupported()) {
-      // Fallback: generate a random string if crypto not supported
-      setGeneratedEncryptionKey(Math.random().toString(36).substring(2, 24));
-      return;
-    }
-
-    try {
-      const key = await generateEncryptionKey();
-      const exportedKey = await exportKeyToString(key);
-      setGeneratedEncryptionKey(exportedKey);
-      // Notify parent so they can update CollaborationManager
-      onEncryptionKeyGenerated?.(key);
-      console.log("[InviteDialog] E2E encryption key generated");
-    } catch (error) {
-      console.error(
-        "[InviteDialog] Failed to generate encryption key:",
-        error,
-      );
-      // Fallback
-      setGeneratedEncryptionKey(Math.random().toString(36).substring(2, 24));
-    }
-  }, [onEncryptionKeyGenerated]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (currentName) {
-      setDisplayName(currentName);
-    }
-    if (isOwner && !existingEncryptionKey && !generatedEncryptionKey) {
-      void ensureEncryptionKey();
-    }
-  }, [
-    open,
-    currentName,
-    isOwner,
-    existingEncryptionKey,
-    generatedEncryptionKey,
-    ensureEncryptionKey,
-  ]);
+  const [displayName, setDisplayName] = useState("");
+  const [isDisplayNameDirty, setIsDisplayNameDirty] = useState(false);
+  const encryptionKey = existingEncryptionKey ?? null;
+  const effectiveDisplayName = isDisplayNameDirty
+    ? displayName
+    : currentName || "";
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       onOpenChange(nextOpen);
+      if (!nextOpen) {
+        setIsDisplayNameDirty(false);
+        setDisplayName("");
+      }
     },
     [onOpenChange],
   );
@@ -123,6 +79,7 @@ export function InviteDialog({
 
   const handleNameChange = (newName: string) => {
     setDisplayName(newName);
+    setIsDisplayNameDirty(true);
     if (onNameChange && newName.trim()) {
       onNameChange(newName.trim());
       sessionStorage.setItem("kladde-name", newName.trim());
@@ -151,14 +108,14 @@ export function InviteDialog({
           <div className="space-y-2">
             <Label htmlFor="display-name">Your display name</Label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Input
-                id="display-name"
-                value={displayName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="Enter your name..."
-                className="flex-1"
-                data-dialog-initial-focus
-              />
+                <Input
+                  id="display-name"
+                  value={effectiveDisplayName}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  placeholder="Enter your name..."
+                  className="flex-1"
+                  data-dialog-initial-focus
+                />
               <Button
                 type="button"
                 variant="secondary"
