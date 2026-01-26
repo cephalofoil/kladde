@@ -4360,9 +4360,34 @@ export function useCanvasHandlers({
         setHoverCursor(null);
         // Note: We intentionally do NOT clear the cursor position broadcast here
         // so that other users can still see where our cursor was last positioned
-        // Also handle mouse up logic
-        handleMouseUp();
-    }, [handleMouseUp, setEraserCursorPos, setLaserCursorPos, setHoverCursor]);
+        const isInteractionActive =
+            isDragging ||
+            isResizing ||
+            isRotating ||
+            draggingConnectorPoint !== null ||
+            isPanning ||
+            isDrawing ||
+            isBoxSelecting ||
+            isLassoSelecting;
+
+        // Only handle mouse up logic when no interaction is active
+        if (!isInteractionActive) {
+            handleMouseUp();
+        }
+    }, [
+        draggingConnectorPoint,
+        handleMouseUp,
+        isBoxSelecting,
+        isDrawing,
+        isDragging,
+        isLassoSelecting,
+        isPanning,
+        isResizing,
+        isRotating,
+        setEraserCursorPos,
+        setHoverCursor,
+        setLaserCursorPos,
+    ]);
 
     const handleTextSubmit = useCallback(
         (options?: { skipToolChange?: boolean; skipSelect?: boolean }) => {
