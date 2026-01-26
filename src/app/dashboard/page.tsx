@@ -17,7 +17,6 @@ import {
     Cloud,
 } from "lucide-react";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
-import { useBoardSyncStore } from "@/store/board-sync-store";
 import type { Board, WorkspaceStorageType } from "@/lib/store-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BoardCard } from "@/components/workspace/board-card";
@@ -116,9 +115,6 @@ export default function BoardsPage() {
     const createBoard = useBoardStore((s) => s.createBoard);
     const updateWorkstream = useBoardStore((s) => s.updateWorkstream);
     const deleteWorkstream = useBoardStore((s) => s.deleteWorkstream);
-
-    // Subscribe to sync status for all boards
-    const syncStatus = useBoardSyncStore((s) => s.syncStatus);
 
     const matchesFilters = useCallback(
         (board: Board) => {
@@ -867,9 +863,6 @@ export default function BoardsPage() {
                                         );
                                         const storageType =
                                             workspace?.storageType || "browser";
-                                        const boardSyncStatus = syncStatus.get(
-                                            board.id,
-                                        );
                                         return (
                                             <BoardCard
                                                 key={board.id}
@@ -882,7 +875,6 @@ export default function BoardsPage() {
                                                     currentWorkstream?.color
                                                 }
                                                 storageType={storageType}
-                                                saveStatus={boardSyncStatus}
                                             />
                                         );
                                     })}

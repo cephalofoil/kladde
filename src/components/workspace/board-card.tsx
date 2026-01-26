@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useBoardStore } from "@/store/board-store";
 import type { Board } from "@/lib/store-types";
 import type { WorkspaceStorageType } from "@/lib/store-types";
-import type { BoardSyncStatus } from "@/store/board-sync-store";
 import {
   MoreHorizontal,
   Pin,
@@ -21,7 +20,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 
 interface BoardCardProps {
   board: Board;
@@ -29,7 +27,6 @@ interface BoardCardProps {
   onTogglePin?: (boardId: string) => void;
   workstreamColor?: string;
   storageType?: WorkspaceStorageType;
-  saveStatus?: BoardSyncStatus;
 }
 
 /**
@@ -74,7 +71,6 @@ export function BoardCard({
   onTogglePin,
   workstreamColor,
   storageType = "browser",
-  saveStatus,
 }: BoardCardProps) {
   const router = useRouter();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -141,19 +137,6 @@ export function BoardCard({
       router.push(`/board/${newId}`);
     }
   };
-
-  // Determine save status display (only show for disk/cloud storage)
-  const showSaveStatus = storageType === "disk" || storageType === "cloud";
-  const saveStatusText =
-    saveStatus === "saving"
-      ? "Saving..."
-      : saveStatus === "unsaved"
-        ? "Unsaved"
-        : "Saved";
-  const saveStatusColor =
-    saveStatus === "saved"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : "text-amber-600 dark:text-amber-400";
 
   return (
     <div
@@ -275,25 +258,6 @@ export function BoardCard({
             <StorageIcon type={storageType} className="h-3 w-3" />
             <span>{getStorageLabel(storageType)}</span>
           </span>
-
-          {/* Save status indicator (only for disk/cloud storage) */}
-          {showSaveStatus && saveStatus && (
-            <span
-              className={cn(
-                "flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors",
-                saveStatusColor,
-              )}
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  saveStatus === "saved" ? "bg-emerald-500" : "bg-amber-500",
-                  saveStatus === "saving" && "animate-pulse",
-                )}
-              />
-              <span>{saveStatusText}</span>
-            </span>
-          )}
         </div>
       </div>
     </div>
