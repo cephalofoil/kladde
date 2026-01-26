@@ -15,6 +15,7 @@ import {
     Database,
     HardDrive,
     Cloud,
+    Upload,
 } from "lucide-react";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
 import type { Board, WorkspaceStorageType } from "@/lib/store-types";
@@ -41,10 +42,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { QuickBoardsSidebar } from "@/components/workspace/quick-boards-sidebar";
 import { WorkspaceSearchDialog } from "@/components/workspace/workspace-search-dialog";
+import { ImportModal } from "@/components/import/import-modal";
 import { cn } from "@/lib/utils";
 import { useIsClient } from "@/hooks/use-is-client";
+import { useBoardStoreHydrated } from "@/hooks/use-board-store-hydrated";
 
 const PINNED_STORAGE_KEY = "kladde-dashboard-pins";
 const NEW_WORKSPACE_NAME = "New Workspace";
@@ -73,6 +81,7 @@ function StorageTypeIcon({
 export default function BoardsPage() {
     const router = useRouter();
     const isClient = useIsClient();
+    const isHydrated = useBoardStoreHydrated();
     const [pinnedByWorkstream, setPinnedByWorkstream] = useState<
         Record<string, string[]>
     >(() => {
@@ -100,6 +109,7 @@ export default function BoardsPage() {
     >(null);
     const [isGridDropTargetActive, setIsGridDropTargetActive] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const boards = useBoardStore((s) => s.boards);
     const workstreamsMap = useBoardStore((s) => s.workstreams);
@@ -159,6 +169,21 @@ export default function BoardsPage() {
     const currentWorkstream =
         workstreams.find((ws) => ws.id === currentWorkstreamId) ||
         workstreams[0];
+    const currentStorageType = currentWorkstream?.storageType || "browser";
+    const storageLabel =
+        currentStorageType === "disk"
+            ? "Saved to disk"
+            : currentStorageType === "cloud"
+              ? "Synced to cloud"
+              : "Stored in browser";
+    const storageDetail =
+        currentStorageType === "disk"
+            ? currentWorkstream?.storageConfig?.directoryName
+                ? `Folder: ${currentWorkstream.storageConfig.directoryName}`
+                : "Folder access required"
+            : currentStorageType === "cloud"
+              ? "Cloud sync is not enabled yet"
+              : "Stored in IndexedDB";
 
     const quickBoards = useMemo(() => {
         return Array.from(boards.values())
@@ -376,7 +401,7 @@ export default function BoardsPage() {
         currentWorkstream.name === NEW_WORKSPACE_NAME &&
         currentWorkstream.metadata.boardCount === 0;
 
-    if (!isClient) {
+    if (!isClient || !isHydrated) {
         return (
             <div className="flex h-screen items-center justify-center bg-background">
                 <div className="text-lg text-muted-foreground">
@@ -412,6 +437,15 @@ export default function BoardsPage() {
                 <div className="mx-auto max-w-7xl px-6 lg:px-8">
                     <div className="flex flex-wrap items-center justify-end gap-6 min-h-16">
                         <div className="flex items-center gap-3">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="gap-2"
+                            >
+                                <Upload className="h-4 w-4" />
+                                Import
+                            </Button>
                             <ThemeToggle />
                             <Link
                                 href="/settings"
@@ -516,7 +550,7 @@ export default function BoardsPage() {
                     <div className="space-y-8">
                         <div className="space-y-6">
                             <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div className="group flex items-center gap-3">
+                                <div className="flex items-center gap-3">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <button
@@ -583,42 +617,52 @@ export default function BoardsPage() {
                                                 }}
                                             />
                                         ) : (
-                                            <h1 className="text-3xl font-bold tracking-tight text-foreground cursor-text hover:text-foreground/80 transition-colors font-[var(--font-heading)]">
-                                                {currentWorkstream?.name ||
-                                                    "Personal"}
-                                            </h1>
+                                            <div className="flex items-center gap-2">
+                                                <h1 className="text-3xl font-bold tracking-tight text-foreground cursor-text hover:text-foreground/80 transition-colors font-[var(--font-heading)]">
+                                                    {currentWorkstream?.name ||
+                                                        "Personal"}
+                                                </h1>
+                                            </div>
                                         )}
-                                        {/* Storage type indicator */}
-                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                                            <StorageTypeIcon
-                                                type={
-                                                    currentWorkstream?.storageType ||
-                                                    "browser"
-                                                }
-                                                className="h-3 w-3"
-                                            />
-                                            <span>
-                                                {currentWorkstream?.storageType ===
-                                                "disk"
-                                                    ? `Saved to disk${currentWorkstream?.storageConfig?.directoryName ? ` (${currentWorkstream.storageConfig.directoryName})` : ""}`
-                                                    : currentWorkstream?.storageType ===
-                                                        "cloud"
-                                                      ? "Synced to cloud"
-                                                      : "Stored in browser"}
-                                            </span>
-                                        </div>
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="h-8 w-8"
                                             >
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start">
+                                            <div className="px-2 py-1.5">
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                            <StorageTypeIcon
+                                                                type={currentStorageType}
+                                                                className="h-3 w-3"
+                                                            />
+                                                            <span>{storageLabel}</span>
+                                                        </div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent
+                                                        side="right"
+                                                        sideOffset={8}
+                                                    >
+                                                        <div className="space-y-1">
+                                                            <div className="text-xs">
+                                                                {storageLabel}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {storageDetail}
+                                                            </div>
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 onClick={handleRenameWorkspace}
                                             >
@@ -1041,6 +1085,15 @@ export default function BoardsPage() {
                 onClose={() => setIsSearchOpen(false)}
                 workstreamId={currentWorkstreamId}
             />
+
+            {/* Import Modal */}
+            {isImportModalOpen && (
+                <ImportModal
+                    isOpen={isImportModalOpen}
+                    onClose={() => setIsImportModalOpen(false)}
+                    defaultWorkspaceId={currentWorkstreamId}
+                />
+            )}
         </div>
     );
 }

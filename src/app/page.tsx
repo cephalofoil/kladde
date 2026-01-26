@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useBoardStore, QUICK_BOARDS_WORKSPACE_ID } from "@/store/board-store";
+import { useBoardStoreHydrated } from "@/hooks/use-board-store-hydrated";
 import { parseCollabHash } from "@/lib/hash-router";
 import { importKeyFromString } from "@/lib/encryption";
 import { useIsClient } from "@/hooks/use-is-client";
@@ -27,6 +28,7 @@ const Whiteboard = dynamic(
 export default function HomePage() {
   const router = useRouter();
   const isClient = useIsClient();
+  const isHydrated = useBoardStoreHydrated();
   const collabParams = useMemo(
     () => (isClient ? parseCollabHash() : null),
     [isClient],
@@ -50,7 +52,8 @@ export default function HomePage() {
 
   // Default behavior: create quick board (only if not a collab URL)
   useEffect(() => {
-    if (isClient && !hasCreatedBoard.current && !collabParams) {
+    if (!isClient || !isHydrated || collabParams) return;
+    if (!hasCreatedBoard.current) {
       hasCreatedBoard.current = true;
 
       // Get boards and count quick boards for sequential naming
@@ -69,7 +72,7 @@ export default function HomePage() {
       // Navigate to the new board
       router.replace(`/board/${boardId}`);
     }
-  }, [isClient, router, collabParams]);
+  }, [isClient, isHydrated, router, collabParams]);
 
   // If this is a collab URL, render the whiteboard
   if (collabParams && isClient) {

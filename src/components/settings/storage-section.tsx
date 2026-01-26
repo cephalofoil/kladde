@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Database, HardDrive, Cloud, Check, ChevronDown } from "lucide-react";
+import {
+    Database,
+    HardDrive,
+    Cloud,
+    Check,
+    ChevronDown,
+    Upload,
+} from "lucide-react";
 import {
     Card,
     CardContent,
@@ -38,6 +45,7 @@ import {
 } from "@/lib/filesystem-storage";
 import type { ShadeworksFile } from "@/lib/board-types";
 import { useIsClient } from "@/hooks/use-is-client";
+import { ImportModal } from "@/components/import/import-modal";
 
 function getBoardBaseFileName(board: {
     name: string;
@@ -86,6 +94,7 @@ function getStorageLabel(type: WorkspaceStorageType): string {
             return "Browser";
     }
 }
+
 
 interface WorkspaceStorageRowProps {
     workspace: Workstream;
@@ -220,6 +229,7 @@ export function StorageSection() {
     const [syncingWorkspaceId, setSyncingWorkspaceId] = useState<string | null>(
         null,
     );
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const boards = useBoardStore((s) => s.boards);
     const boardData = useBoardStore((s) => s.boardData);
@@ -345,6 +355,7 @@ export function StorageSection() {
         [setWorkspaceStorageType, syncWorkspaceBoardsToDisk],
     );
 
+
     useEffect(() => {
         setFsApiSupported(isFileSystemAccessSupported());
 
@@ -432,6 +443,7 @@ export function StorageSection() {
                 </CardContent>
             </Card>
 
+
             <Card>
                 <CardHeader>
                     <CardTitle>Auto-Save</CardTitle>
@@ -465,6 +477,31 @@ export function StorageSection() {
                             onCheckedChange={setAutoSaveEnabled}
                         />
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Import Boards</CardTitle>
+                    <CardDescription>
+                        Import .kladde files from your computer
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="flex-1 h-auto py-4 flex-col gap-2"
+                        >
+                            <Upload className="h-5 w-5" />
+                            <span className="text-sm">Import Files or Folder</span>
+                        </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                        Import individual .kladde files or an entire folder of boards.
+                        Subfolders will be converted to new workspaces.
+                    </p>
                 </CardContent>
             </Card>
 
@@ -552,6 +589,13 @@ export function StorageSection() {
                     </div>
                 </CardContent>
             </Card>
+
+            {isImportModalOpen && (
+                <ImportModal
+                    isOpen={isImportModalOpen}
+                    onClose={() => setIsImportModalOpen(false)}
+                />
+            )}
         </div>
     );
 }
