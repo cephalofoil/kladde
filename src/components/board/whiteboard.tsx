@@ -4367,6 +4367,7 @@ export function Whiteboard({
                     onTextEditingChange={(isEditing) => {
                         setSidebarToolOverride(isEditing ? "text" : null);
                     }}
+                    boardId={boardId}
                 />
 
                 {/* Save Modal */}

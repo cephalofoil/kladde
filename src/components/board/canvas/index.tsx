@@ -68,6 +68,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Link from "next/link";
+import { StorageLocationIndicator } from "./bottombar/storage-location-indicator";
 
 interface CanvasProps {
     tool: Tool;
@@ -176,6 +177,7 @@ interface CanvasProps {
     snapToObjects?: boolean;
     onToggleSnapToObjects?: () => void;
     onTextEditingChange?: (isEditing: boolean) => void;
+    boardId?: string;
 }
 
 export function Canvas({
@@ -273,6 +275,7 @@ export function Canvas({
     snapToObjects = true,
     onToggleSnapToObjects,
     onTextEditingChange,
+    boardId,
 }: CanvasProps) {
     const LASER_HOLD_DURATION_MS = 3000;
     const LASER_FADE_DURATION_MS = 800;
@@ -3483,10 +3486,11 @@ export function Canvas({
                 </div>
             )}
             <div
-                className="absolute bottom-4 right-4 z-[80] flex items-center"
+                className="absolute bottom-4 right-4 z-[80] flex items-center gap-3"
                 onMouseDown={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
             >
+                {boardId && <StorageLocationIndicator boardId={boardId} />}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Link
