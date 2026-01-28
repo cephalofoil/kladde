@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/tooltip";
 import { QuickBoardsSidebar } from "@/components/workspace/quick-boards-sidebar";
 import { WorkspaceSearchDialog } from "@/components/workspace/workspace-search-dialog";
+import { WorkspaceStorageModal } from "@/components/workspace/workspace-storage-modal";
 import { ImportModal } from "@/components/import/import-modal";
 import { cn } from "@/lib/utils";
 import { useIsClient } from "@/hooks/use-is-client";
@@ -110,6 +111,7 @@ export default function BoardsPage() {
     const [isGridDropTargetActive, setIsGridDropTargetActive] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
 
     const boards = useBoardStore((s) => s.boards);
     const workstreamsMap = useBoardStore((s) => s.workstreams);
@@ -668,6 +670,17 @@ export default function BoardsPage() {
                                             >
                                                 Rename Workspace
                                             </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onClick={() =>
+                                                    setIsStorageModalOpen(true)
+                                                }
+                                            >
+                                                <StorageTypeIcon
+                                                    type={currentStorageType}
+                                                    className="h-4 w-4 mr-2"
+                                                />
+                                                Change Storage
+                                            </DropdownMenuItem>
                                             <DropdownMenuSub>
                                                 <DropdownMenuSubTrigger>
                                                     <span
@@ -1092,6 +1105,15 @@ export default function BoardsPage() {
                     isOpen={isImportModalOpen}
                     onClose={() => setIsImportModalOpen(false)}
                     defaultWorkspaceId={currentWorkstreamId}
+                />
+            )}
+
+            {/* Workspace Storage Modal */}
+            {isStorageModalOpen && currentWorkstream && (
+                <WorkspaceStorageModal
+                    workspace={currentWorkstream}
+                    isOpen={isStorageModalOpen}
+                    onClose={() => setIsStorageModalOpen(false)}
                 />
             )}
         </div>
