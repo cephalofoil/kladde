@@ -10,6 +10,7 @@ import {
     Copy,
     Download,
     Check,
+    Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardElement } from "@/lib/board-types";
@@ -28,6 +29,7 @@ import {
     downloadCodeAsFile,
 } from "./code-export";
 import { CodeMirrorEditor } from "./code-mirror-editor";
+import { importCodeFile } from "./code-import";
 
 interface CodeEditorModalProps {
     codeElement: BoardElement;
@@ -195,6 +197,14 @@ export function CodeEditorModal({
         });
     };
 
+    const handleImport = useCallback(async () => {
+        const imported = await importCodeFile(language);
+        if (!imported) return;
+        setCode(imported.code);
+        setLanguage(imported.language);
+        setHighlightedLines([]);
+    }, [language]);
+
     // Handle line click to toggle highlight
     const handleLineClick = (lineNumber: number) => {
         setHighlightedLines((prev) =>
@@ -298,6 +308,15 @@ export function CodeEditorModal({
                                 <Sparkles className="w-4 h-4" />
                             </button>
                         )}
+
+                        {/* Import Button */}
+                        <button
+                            onClick={handleImport}
+                            className="p-1.5 rounded hover:bg-muted transition-colors text-foreground"
+                            title="Import Code File"
+                        >
+                            <Upload className="w-4 h-4" />
+                        </button>
 
                         {/* Copy Button */}
                         <button

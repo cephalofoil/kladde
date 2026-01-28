@@ -10,6 +10,7 @@ import {
     WrapText,
     Sparkles,
     Palette,
+    Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +32,7 @@ interface CodeTileControlsProps {
     onCopyCode?: () => void;
     onCopyImage?: () => void;
     onDownload?: () => void;
+    onImport?: () => void;
     onFormat?: () => void;
     canFormat?: boolean;
     className?: string;
@@ -47,6 +49,7 @@ export function CodeTileControls({
     onCopyCode,
     onCopyImage,
     onDownload,
+    onImport,
     onFormat,
     canFormat = false,
     className,
@@ -206,6 +209,17 @@ export function CodeTileControls({
                     title="Copy as Image"
                 >
                     <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                </button>
+            )}
+
+            {/* Import Code */}
+            {onImport && (
+                <button
+                    onClick={onImport}
+                    className="p-1.5 hover:bg-muted rounded transition-colors"
+                    title="Import Code File"
+                >
+                    <Upload className="h-4 w-4 text-muted-foreground" />
                 </button>
             )}
 

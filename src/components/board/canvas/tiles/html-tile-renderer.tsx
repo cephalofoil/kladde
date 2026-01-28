@@ -19,6 +19,7 @@ import {
     formatCode,
     canFormatLanguage,
 } from "./code/code-export";
+import { importCodeFile } from "./code/code-import";
 import { type CodeThemeName } from "@/lib/code-themes";
 import {
     HeaderColorPicker,
@@ -373,6 +374,21 @@ export const HtmlTileRenderer = memo(
             }
         }, [content, onUpdate]);
 
+        const handleCodeImport = useCallback(async () => {
+            const imported = await importCodeFile(
+                content?.language || "javascript",
+            );
+            if (!imported) return;
+            onUpdate?.({
+                tileContent: {
+                    ...content,
+                    code: imported.code,
+                    language: imported.language,
+                    codeHighlightedLines: [],
+                },
+            });
+        }, [content, onUpdate]);
+
         const handleCodeChange = useCallback(
             (code: string) => {
                 onUpdate?.({
@@ -643,6 +659,7 @@ export const HtmlTileRenderer = memo(
                                         }
                                         onCopyCode={handleCodeCopy}
                                         onCopyImage={handleCodeCopyImage}
+                                        onImport={handleCodeImport}
                                         onDownload={handleCodeDownload}
                                         onFormat={handleCodeFormat}
                                         canFormat={canFormatLanguage(

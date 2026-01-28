@@ -237,3 +237,56 @@ export function getFileExtension(language: string): string {
   };
   return extensions[language] || "txt";
 }
+
+export function getLanguageFromFilename(filename: string): string | null {
+  const name = filename.trim();
+  if (!name) return null;
+
+  const lower = name.toLowerCase();
+  if (lower === "dockerfile" || lower.startsWith("dockerfile.")) {
+    return "dockerfile";
+  }
+
+  const extension = lower.includes(".") ? lower.split(".").pop() : "";
+  if (!extension) return null;
+
+  const map: Record<string, string> = {
+    js: "javascript",
+    mjs: "javascript",
+    cjs: "javascript",
+    ts: "typescript",
+    tsx: "tsx",
+    jsx: "jsx",
+    py: "python",
+    java: "java",
+    cpp: "cpp",
+    cxx: "cpp",
+    c: "c",
+    cs: "csharp",
+    go: "go",
+    rs: "rust",
+    rb: "ruby",
+    php: "php",
+    html: "html",
+    css: "css",
+    json: "json",
+    yaml: "yaml",
+    yml: "yaml",
+    md: "markdown",
+    markdown: "markdown",
+    sql: "sql",
+    sh: "bash",
+    bash: "bash",
+    zsh: "bash",
+    ps1: "powershell",
+    dockerfile: "dockerfile",
+    xml: "xml",
+    graphql: "graphql",
+    gql: "graphql",
+    swift: "swift",
+    kt: "kotlin",
+    scala: "scala",
+  };
+
+  return map[extension] || null;
+}
